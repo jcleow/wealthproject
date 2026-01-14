@@ -10,7 +10,9 @@ import (
 	"financial-chat-system/backend/internal/cpf/account"
 	"financial-chat-system/backend/internal/cpf/config"
 	"financial-chat-system/backend/internal/cpf/engine"
+	"financial-chat-system/backend/internal/cpf/payout"
 	cpfProcessor "financial-chat-system/backend/internal/cpf/processor"
+	"financial-chat-system/backend/internal/cpf/retirement"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/growth"
 	"financial-chat-system/backend/internal/financial_v2/property"
@@ -700,9 +702,11 @@ func filterCPFAccountsByExcludedPersons(accounts []repo.CPFAccount, excludedPers
 
 // CPFContext holds CPF processor and balances for timeline calculations
 type CPFContext struct {
-	Processor   *cpfProcessor.Processor
-	Balances    *cpfProcessor.CPFBalances
-	EngineState *engine.CPFState // Engine state for interest, RA formation, and payouts
+	Processor    *cpfProcessor.Processor
+	Balances     *cpfProcessor.CPFBalances
+	EngineState  *engine.CPFState   // Engine state for interest, RA formation, and payouts
+	Assumptions  *engine.Assumptions // Assumptions for interest rates and payout settings
+	PreviousYear int                 // Previous year for YTD reset detection
 }
 
 // NewCPFContext creates a CPF context from an account, returns nil if no account
@@ -714,22 +718,28 @@ func NewCPFContext(cpfAccount *account.CPFAccount) *CPFContext {
 	balances := cpfProcessor.NewCPFBalances(cpfAccount)
 
 	// Create engine state for interest, RA formation, and payouts
-	// Note: Gender defaults to male for CPF LIFE calculations (can be updated when person data is available)
+	// Gender is fetched from persons table via JOIN; default to "male" if empty
+	gender := cpfAccount.Gender
+	if gender == "" {
+		gender = "male"
+	}
 	engineState := engine.NewCPFState(
 		&cpfAccount.OABalance,
 		&cpfAccount.SABalance,
 		&cpfAccount.MABalance,
 		&cpfAccount.RABalance,
 		cpfAccount.DateOfBirth,
-		"male", // Default; update via SetGender if person data available
+		gender,
 		mapAccountResidencyToConfig(cpfAccount.ResidencyStatus),
 		time.Now(),
 	)
 
 	return &CPFContext{
-		Processor:   proc,
-		Balances:    balances,
-		EngineState: engineState,
+		Processor:    proc,
+		Balances:     balances,
+		EngineState:  engineState,
+		Assumptions:  engine.DefaultAssumptions(),
+		PreviousYear: 0, // Will be set on first ApplyEngineProcessing call
 	}
 }
 
@@ -824,6 +834,10 @@ func (c *CPFContext) ProcessIncomes(
 // ApplyEngineProcessing applies CPF engine processing (interest, RA formation, payouts)
 // This syncs the engine state with processor balances, applies engine logic, and syncs back.
 // Call this after ProcessIncomes to apply monthly CPF lifecycle calculations.
+// Uses engine.ProcessMonth for full CPF lifecycle support including:
+// - RA formation at age 55
+// - CPF LIFE payout activation at age 65+
+// - Monthly payout deduction from RA
 func (c *CPFContext) ApplyEngineProcessing(date time.Time, applyToBalances bool) *engine.InterestResult {
 	if c == nil || c.EngineState == nil || !applyToBalances {
 		return nil
@@ -832,16 +846,30 @@ func (c *CPFContext) ApplyEngineProcessing(date time.Time, applyToBalances bool)
 	// Sync engine state with processor balances
 	c.syncEngineFromProcessor()
 
-	// Update engine state date
-	c.EngineState.AsOfDate = date
+	// Use full ProcessMonth for CPF lifecycle events (RA formation, payouts)
+	// Contributions are NOT passed here because they're already applied by ProcessIncomes
+	opts := engine.ProcessMonthOptions{
+		ApplyContributions: false, // Contributions handled separately by ProcessIncomes
+		TargetScheme:       retirement.TargetFRS,
+		PayoutStartAge:     65,
+		PayoutPlan:         payout.PlanStandard,
+		Assumptions:        c.Assumptions,
+		PreviousYear:       c.PreviousYear,
+	}
 
-	// Apply monthly interest using engine
-	interestResult := engine.ApplyMonthlyInterest(c.EngineState, nil) // nil = use default assumptions
+	monthResult, _ := engine.ProcessMonth(c.EngineState, date, opts)
+
+	// Update previous year for next call
+	c.PreviousYear = date.Year()
 
 	// Sync processor balances from engine state
 	c.syncProcessorFromEngine()
 
-	return interestResult
+	// Return interest result for backward compatibility
+	if monthResult != nil {
+		return monthResult.Interest
+	}
+	return nil
 }
 
 // syncEngineFromProcessor updates the engine state from processor balances
@@ -2532,4 +2560,283 @@ func getYearlyBalances(months []MonthDetailResponse) []TimelineYearlySummary {
 	}
 
 	return years
+}
+
+// =============================================================================
+// CPF Projection from Timeline (replaces standalone projector)
+// =============================================================================
+
+// CPFTimelineProjection contains year-by-year CPF projection extracted from the Timeline.
+// This replaces the standalone projector to ensure consistency with Timeline calculations.
+type CPFTimelineProjection struct {
+	Snapshots            []CPFYearlySnapshot `json:"snapshots"`            // Year-by-year balances
+	Age55Balances        *CPFBalanceSnapshot `json:"age55Balances"`        // Balances at age 55
+	Age65Balances        *CPFBalanceSnapshot `json:"age65Balances"`        // Balances at age 65
+	FRSAtAge55           *decimal.Decimal    `json:"frsAt55"`              // Full Retirement Sum at age 55
+	BRSAtAge55           *decimal.Decimal    `json:"brsAt55"`              // Basic Retirement Sum at age 55
+	ERSAtAge55           *decimal.Decimal    `json:"ersAt55"`              // Enhanced Retirement Sum at age 55
+	BHS                  *decimal.Decimal    `json:"bhs"`                  // Basic Healthcare Sum (MediSave cap)
+	BirthYear            int                 `json:"birthYear"`            // Person's birth year
+	Gender               string              `json:"gender"`               // Person's gender
+	CPFLifeMonthlyPayout *decimal.Decimal    `json:"cpfLifeMonthlyPayout"` // Monthly payout after age 65
+}
+
+// CPFYearlySnapshot represents CPF balances at a specific year, extracted from Timeline.
+type CPFYearlySnapshot struct {
+	Year              int              `json:"year"`
+	Age               int              `json:"age"`
+	OA                *decimal.Decimal `json:"oa"`
+	SA                *decimal.Decimal `json:"sa"`
+	MA                *decimal.Decimal `json:"ma"`
+	RA                *decimal.Decimal `json:"ra"`
+	Total             *decimal.Decimal `json:"total"`
+	Contributions     *decimal.Decimal `json:"contributions"`
+	Interest          *decimal.Decimal `json:"interest"`
+	MonthlyPayout     *decimal.Decimal `json:"monthlyPayout,omitempty"`
+	YearlyPayout      *decimal.Decimal `json:"yearlyPayout,omitempty"`
+	CumulativePayouts *decimal.Decimal `json:"cumulativePayouts,omitempty"`
+}
+
+// CPFBalanceSnapshot represents CPF balances at a milestone date.
+type CPFBalanceSnapshot struct {
+	OA       *decimal.Decimal `json:"oa"`
+	SA       *decimal.Decimal `json:"sa"`
+	MA       *decimal.Decimal `json:"ma"`
+	RA       *decimal.Decimal `json:"ra"`
+	AsOfDate time.Time        `json:"asOfDate"`
+}
+
+// ExtractCPFProjection computes the Timeline and extracts CPF yearly snapshots for a specific person.
+// This replaces the standalone CPF projector to ensure calculations include scenario impacts,
+// income growth, and all other Timeline factors.
+func (s *Service) ExtractCPFProjection(
+	ctx context.Context,
+	userID string,
+	cpfAccountID string,
+	personID string,
+	dateOfBirth time.Time,
+	gender string,
+	retirementAge int,
+	payoutStartAge int,
+) (*CPFTimelineProjection, error) {
+	// Default retirement age to 62 if not provided
+	if retirementAge == 0 {
+		retirementAge = 62
+	}
+	// Default payout start age to 65 if not provided
+	if payoutStartAge == 0 {
+		payoutStartAge = 65
+	}
+
+	// Calculate planning horizon based on person's age
+	now := time.Now()
+	currentAge := now.Year() - dateOfBirth.Year()
+	if now.YearDay() < dateOfBirth.YearDay() {
+		currentAge--
+	}
+
+	// Project until age 100 or at least 35 years
+	yearsToProject := 100 - currentAge
+	if yearsToProject < 35 {
+		yearsToProject = 35
+	}
+
+	// Start from January 1 of the current year
+	startDate := time.Date(now.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+	endDate := startDate.AddDate(yearsToProject, 0, 0)
+
+	opts := TimelineOptions{
+		StartDate:        startDate,
+		EndDate:          endDate,
+		IncludeScenarios: true,
+	}
+
+	// Compute full timeline snapshot
+	snapshot, err := s.ComputeFinancialSnapshot(ctx, userID, opts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute timeline: %w", err)
+	}
+
+	// Extract CPF yearly snapshots for the specific person
+	projection := extractCPFYearlySnapshots(snapshot.Months, cpfAccountID, personID, dateOfBirth, gender, payoutStartAge)
+
+	return projection, nil
+}
+
+// extractCPFYearlySnapshots extracts yearly CPF balances from monthly timeline data.
+// Uses December balances for each year (end-of-year snapshot).
+func extractCPFYearlySnapshots(
+	months []MonthDetailResponse,
+	cpfAccountID string,
+	personID string,
+	dateOfBirth time.Time,
+	gender string,
+	payoutStartAge int,
+) *CPFTimelineProjection {
+	birthYear := dateOfBirth.Year()
+
+	// Group months by year, keeping December (or last available month)
+	yearlyData := make(map[int]*MonthDetailResponse)
+	for i := range months {
+		m := &months[i]
+		existing, ok := yearlyData[m.Year]
+		if !ok || m.Month > existing.Month {
+			yearlyData[m.Year] = m
+		}
+	}
+
+	// Sort years
+	years := make([]int, 0, len(yearlyData))
+	for year := range yearlyData {
+		years = append(years, year)
+	}
+	sort.Ints(years)
+
+	// Build yearly snapshots
+	snapshots := make([]CPFYearlySnapshot, 0, len(years))
+	var age55Snapshot, age65Snapshot *CPFBalanceSnapshot
+	var cpfLifeMonthlyPayout *decimal.Decimal
+
+	for _, year := range years {
+		m := yearlyData[year]
+		// Calculate age at end of year (December 31)
+		// Using proper birthday-aware calculation to match frontend
+		snapshotDate := time.Date(year, 12, 31, 0, 0, 0, 0, time.UTC)
+		age := calculateAgeAtDate(dateOfBirth, snapshotDate)
+
+		// Extract CPF balances for this person
+		var oaPtr, saPtr, maPtr, raPtr *decimal.Decimal
+		for _, cpfAsset := range m.CPFAssets {
+			// Match by person ID (since we want this specific person's CPF)
+			if cpfAsset.PersonID != personID && personID != "" {
+				continue
+			}
+
+			balance := cpfAsset.Balance // Copy to avoid pointer to loop variable
+			switch {
+			case cpfAssetMatchesType(cpfAsset.ID, "oa"):
+				oaPtr = &balance
+			case cpfAssetMatchesType(cpfAsset.ID, "sa"):
+				saPtr = &balance
+			case cpfAssetMatchesType(cpfAsset.ID, "ma"):
+				maPtr = &balance
+			case cpfAssetMatchesType(cpfAsset.ID, "ra"):
+				raPtr = &balance
+			}
+		}
+
+		// Skip years where we have no CPF data for this person
+		if oaPtr == nil && saPtr == nil && maPtr == nil && raPtr == nil {
+			continue
+		}
+
+		// Calculate total
+		total := decimal.Zero()
+		if oaPtr != nil {
+			total = total.Add(oaPtr)
+		}
+		if saPtr != nil {
+			total = total.Add(saPtr)
+		}
+		if maPtr != nil {
+			total = total.Add(maPtr)
+		}
+		if raPtr != nil {
+			total = total.Add(raPtr)
+		}
+
+		// Create snapshot
+		snap := CPFYearlySnapshot{
+			Year:  year,
+			Age:   age,
+			OA:    oaPtr,
+			SA:    saPtr,
+			MA:    maPtr,
+			RA:    raPtr,
+			Total: total,
+			// Note: Contributions and Interest are tracked monthly in the Timeline
+			// We could aggregate them here if needed
+			Contributions: decimal.Zero(),
+			Interest:      decimal.Zero(),
+		}
+
+		snapshots = append(snapshots, snap)
+
+		// Capture milestone snapshots
+		if age == 55 {
+			age55Snapshot = &CPFBalanceSnapshot{
+				OA:       oaPtr,
+				SA:       saPtr,
+				MA:       maPtr,
+				RA:       raPtr,
+				AsOfDate: time.Date(year, 12, 31, 0, 0, 0, 0, time.UTC),
+			}
+		}
+		if age == 65 {
+			age65Snapshot = &CPFBalanceSnapshot{
+				OA:       oaPtr,
+				SA:       saPtr,
+				MA:       maPtr,
+				RA:       raPtr,
+				AsOfDate: time.Date(year, 12, 31, 0, 0, 0, 0, time.UTC),
+			}
+		}
+	}
+
+	// Calculate FRS/BRS/ERS at age 55 using engine assumptions
+	age55Year := birthYear + 55
+	assumptions := engine.DefaultAssumptions()
+	frs := assumptions.GetRetirementSum("frs", age55Year)
+	brs := assumptions.GetRetirementSum("brs", age55Year)
+	ers := assumptions.GetRetirementSum("ers", age55Year)
+	bhs := assumptions.GetBHS(age55Year)
+
+	// Calculate CPF LIFE payout if we have age 65 RA balance
+	if age65Snapshot != nil && age65Snapshot.RA != nil && !age65Snapshot.RA.IsZero() {
+		payoutGender := payout.GenderMale
+		if gender == "female" {
+			payoutGender = payout.GenderFemale
+		}
+		estimates, err := payout.CalculateAllPlans(birthYear, payoutGender, age65Snapshot.RA, payoutStartAge)
+		if err == nil && estimates != nil {
+			cpfLifeMonthlyPayout = estimates.Standard.MonthlyPayout
+		}
+	}
+
+	return &CPFTimelineProjection{
+		Snapshots:            snapshots,
+		Age55Balances:        age55Snapshot,
+		Age65Balances:        age65Snapshot,
+		FRSAtAge55:           frs,
+		BRSAtAge55:           brs,
+		ERSAtAge55:           ers,
+		BHS:                  bhs,
+		BirthYear:            birthYear,
+		Gender:               gender,
+		CPFLifeMonthlyPayout: cpfLifeMonthlyPayout,
+	}
+}
+
+// cpfAssetMatchesType checks if a CPF asset ID matches an account type (oa, sa, ma, ra)
+// IDs are formatted as "cpf-{type}" or "cpf-{type}-{personID}"
+// Examples: "cpf-oa", "cpf-sa-abc123", "cpf-ra-person-456"
+func cpfAssetMatchesType(id, accountType string) bool {
+	// Check for exact match: "cpf-oa", "cpf-sa", etc.
+	if id == "cpf-"+accountType {
+		return true
+	}
+	// Check for pattern: "cpf-oa-{personID}" where personID can contain hyphens
+	prefix := "cpf-" + accountType + "-"
+	return len(id) > len(prefix) && id[:len(prefix)] == prefix
+}
+
+// calculateAgeAtDate calculates a person's age at a given date, accounting for birthday
+func calculateAgeAtDate(dateOfBirth, atDate time.Time) int {
+	age := atDate.Year() - dateOfBirth.Year()
+	// Adjust if birthday hasn't occurred yet this year
+	birthdayThisYear := time.Date(atDate.Year(), dateOfBirth.Month(), dateOfBirth.Day(), 0, 0, 0, 0, time.UTC)
+	if atDate.Before(birthdayThisYear) {
+		age--
+	}
+	return age
 }

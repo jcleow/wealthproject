@@ -330,14 +330,15 @@ export interface CPFBalanceProjectionResponse {
 
 /**
  * Get CPF balance projection for charting.
- * Includes RA formation at 55, real income data, and CPF LIFE estimates.
+ * Uses the Timeline service to ensure consistency with all Timeline calculations
+ * including scenario impacts, income growth, and CPF lifecycle events.
  */
 export async function getCPFBalanceProjection(
   cpfAccountId: string,
   input: CPFBalanceProjectionInput = {}
 ): Promise<CPFBalanceProjectionResponse> {
   return apiClient.post<CPFBalanceProjectionResponse>(
-    `/cpf/account/${cpfAccountId}/balance-projection`,
+    `/cpf/account/${cpfAccountId}/timeline-projection`,
     input,
     { baseUrl: '/api/v2' }
   )

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,6 +14,7 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/cpf"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
+	timeline_v2 "financial-chat-system/backend/internal/financial_v2/timeline"
 )
 
 // GET /api/v2/cpf/account
@@ -194,14 +196,30 @@ type CPFV2Handler struct {
 	store           *repo.Store
 	service         *cpf.Service
 	assumptionsRepo *assumptions.Repository
+	timelineService TimelineService
+}
+
+// TimelineService interface for CPF projection from timeline
+type TimelineService interface {
+	ExtractCPFProjection(
+		ctx context.Context,
+		userID string,
+		cpfAccountID string,
+		personID string,
+		dateOfBirth time.Time,
+		gender string,
+		retirementAge int,
+		payoutStartAge int,
+	) (*timeline_v2.CPFTimelineProjection, error)
 }
 
 // NewCPFV2Handler creates a new v2 CPF handler.
-func NewCPFV2Handler(store *repo.Store, assumptionsRepo *assumptions.Repository) *CPFV2Handler {
+func NewCPFV2Handler(store *repo.Store, assumptionsRepo *assumptions.Repository, timelineService TimelineService) *CPFV2Handler {
 	return &CPFV2Handler{
 		store:           store,
 		service:         cpf.NewService(store),
 		assumptionsRepo: assumptionsRepo,
+		timelineService: timelineService,
 	}
 }
 
@@ -1043,4 +1061,184 @@ func (h *CPFV2Handler) HandleAge55Conversion(w http.ResponseWriter, r *http.Requ
 	}
 
 	writeJSON(w, response)
+}
+
+// POST /api/v2/cpf/account/{id}/timeline-projection
+// HandleCPFTimelineProjection projects CPF balances using the Timeline service.
+// This ensures consistency with all Timeline calculations including scenario impacts and income growth.
+// @Summary Project CPF balances using Timeline (recommended)
+// @Description Projects CPF account balances year by year using the Timeline service, which includes scenario impacts, income growth, and all CPF lifecycle events.
+// @Tags CPF V2
+// @Accept json
+// @Produce json
+// @Param id path string true "CPF account ID"
+// @Param body body cpfBalanceProjectionProjectionInput true "Projection input"
+// @Success 200 {object} cpfBalanceProjectionProjectionResponse
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/account/{id}/timeline-projection [post]
+func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *http.Request, cpfAccountID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	var input cpfBalanceProjectionProjectionInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		badRequest(w, err)
+		return
+	}
+
+	// Default retirement age to 62 if not provided
+	retirementAge := input.RetirementAge
+	if retirementAge == 0 {
+		retirementAge = 62
+	}
+
+	// Default payout start age to 65 if not provided
+	payoutStartAge := input.PayoutStartAge
+	if payoutStartAge == 0 {
+		payoutStartAge = 65
+	}
+
+	// Validate payout start age
+	if payoutStartAge < 65 || payoutStartAge > 70 {
+		badRequest(w, fmt.Errorf("payoutStartAge must be between 65 and 70"))
+		return
+	}
+
+	// Get CPF account to find personID and person details
+	cpfAccount, err := h.store.GetCPFAccountByID(r.Context(), userID, cpfAccountID)
+	if err != nil {
+		if err == repo.ErrNotFound {
+			notFound(w)
+			return
+		}
+		log.Printf("cpf.GetCPFAccountByID error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	// Get person details for birth date and gender
+	person, err := h.store.GetPerson(r.Context(), userID, cpfAccount.PersonID)
+	if err != nil {
+		log.Printf("cpf.GetPerson error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	// Use Timeline service to extract CPF projection
+	result, err := h.timelineService.ExtractCPFProjection(
+		r.Context(),
+		userID,
+		cpfAccountID,
+		cpfAccount.PersonID,
+		person.DateOfBirth,
+		person.Gender,
+		retirementAge,
+		payoutStartAge,
+	)
+	if err != nil {
+		log.Printf("cpf.ExtractCPFProjection error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	// Build response in the same format as HandleCPFBalanceProjection
+	bhsStr := "0"
+	if result.BHS != nil {
+		bhsStr = result.BHS.String()
+	}
+	response := cpfBalanceProjectionProjectionResponse{
+		Snapshots:  make([]cpfBalanceProjectionSnapshotResponse, len(result.Snapshots)),
+		FRSAtAge55: safeDecimalString(result.FRSAtAge55),
+		BRSAtAge55: safeDecimalString(result.BRSAtAge55),
+		ERSAtAge55: safeDecimalString(result.ERSAtAge55),
+		BHS:        bhsStr,
+		BirthYear:  result.BirthYear,
+		Gender:     result.Gender,
+	}
+
+	// Map snapshots
+	for i, snap := range result.Snapshots {
+		snapshotResponse := cpfBalanceProjectionSnapshotResponse{
+			Year:          snap.Year,
+			Age:           snap.Age,
+			OA:            safeDecimalString(snap.OA),
+			SA:            safeDecimalString(snap.SA),
+			MA:            safeDecimalString(snap.MA),
+			RA:            safeDecimalString(snap.RA),
+			Total:         safeDecimalString(snap.Total),
+			Contributions: safeDecimalString(snap.Contributions),
+			Interest:      safeDecimalString(snap.Interest),
+		}
+
+		// Include payout fields if available
+		if snap.MonthlyPayout != nil {
+			snapshotResponse.MonthlyPayout = snap.MonthlyPayout.String()
+		}
+		if snap.YearlyPayout != nil {
+			snapshotResponse.YearlyPayout = snap.YearlyPayout.String()
+		}
+		if snap.CumulativePayouts != nil {
+			snapshotResponse.CumulativePayouts = snap.CumulativePayouts.String()
+		}
+
+		response.Snapshots[i] = snapshotResponse
+	}
+
+	// Map age 55 balances
+	if result.Age55Balances != nil {
+		response.Age55Balances = &struct {
+			OA string `json:"oa"`
+			SA string `json:"sa"`
+			MA string `json:"ma"`
+			RA string `json:"ra"`
+		}{
+			OA: safeDecimalString(result.Age55Balances.OA),
+			SA: safeDecimalString(result.Age55Balances.SA),
+			MA: safeDecimalString(result.Age55Balances.MA),
+			RA: safeDecimalString(result.Age55Balances.RA),
+		}
+	}
+
+	// Map age 65 balances
+	if result.Age65Balances != nil {
+		response.Age65Balances = &struct {
+			OA string `json:"oa"`
+			SA string `json:"sa"`
+			MA string `json:"ma"`
+			RA string `json:"ra"`
+		}{
+			OA: safeDecimalString(result.Age65Balances.OA),
+			SA: safeDecimalString(result.Age65Balances.SA),
+			MA: safeDecimalString(result.Age65Balances.MA),
+			RA: safeDecimalString(result.Age65Balances.RA),
+		}
+	}
+
+	// Add CPF LIFE monthly payout if available
+	if result.CPFLifeMonthlyPayout != nil && result.Age65Balances != nil {
+		// Use CPF LIFE estimates format if we have enough data
+		response.CpfLifeEstimates = &cpfLifeEstimateResponse{
+			RABalanceAt65:  safeDecimalString(result.Age65Balances.RA),
+			PayoutStartAge: payoutStartAge,
+			BirthYear:      result.BirthYear,
+			Gender:         result.Gender,
+		}
+		response.CpfLifeEstimates.Estimates.Standard.MonthlyPayout = result.CPFLifeMonthlyPayout.String()
+	}
+
+	writeJSON(w, response)
+}
+
+// safeDecimalString converts a decimal pointer to string, returning "0" if nil
+func safeDecimalString(d *decimal.Decimal) string {
+	if d == nil {
+		return "0"
+	}
+	return d.String()
 }

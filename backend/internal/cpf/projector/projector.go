@@ -6,7 +6,9 @@ import (
 
 	"financial-chat-system/backend/internal/cpf/config"
 	"financial-chat-system/backend/internal/cpf/contribution"
+	"financial-chat-system/backend/internal/cpf/engine"
 	"financial-chat-system/backend/internal/cpf/payout"
+	"financial-chat-system/backend/internal/cpf/retirement"
 	"financial-chat-system/backend/internal/decimal"
 )
 
@@ -16,6 +18,69 @@ type Projector struct{}
 // New creates a new Projector instance
 func New() *Projector {
 	return &Projector{}
+}
+
+// convertToEngineAssumptions converts ProjectionAssumptions to engine.Assumptions
+func convertToEngineAssumptions(pa *ProjectionAssumptions) *engine.Assumptions {
+	if pa == nil {
+		return engine.DefaultAssumptions()
+	}
+
+	base := engine.DefaultAssumptions()
+
+	// Override with provided values (converting percentage to decimal if needed)
+	if pa.InterestRateOA != nil {
+		base.InterestRateOA = convertPercentageToDecimal(pa.InterestRateOA)
+	}
+	if pa.InterestRateSA != nil {
+		base.InterestRateSA = convertPercentageToDecimal(pa.InterestRateSA)
+	}
+	if pa.InterestRateMA != nil {
+		base.InterestRateMA = convertPercentageToDecimal(pa.InterestRateMA)
+	}
+	if pa.InterestRateRA != nil {
+		base.InterestRateRA = convertPercentageToDecimal(pa.InterestRateRA)
+	}
+	if pa.ExtraInterestFirst60K != nil {
+		base.ExtraInterestFirst60K = convertPercentageToDecimal(pa.ExtraInterestFirst60K)
+	}
+	if pa.ExtraInterestFirst30KAbove55 != nil {
+		base.ExtraInterestFirst30KAbove55 = convertPercentageToDecimal(pa.ExtraInterestFirst30KAbove55)
+	}
+	if pa.FRSGrowthRate != nil {
+		base.FRSGrowthRate = pa.FRSGrowthRate
+	}
+
+	return base
+}
+
+// convertPercentageToDecimal converts a rate from percentage (2.5) to decimal (0.025)
+// if it appears to be in percentage format (>= 1).
+func convertPercentageToDecimal(rate *decimal.Decimal) *decimal.Decimal {
+	if rate == nil {
+		return nil
+	}
+	one := decimal.NewFromInt64(1, 0)
+	if rate.Cmp(one) >= 0 {
+		hundred := decimal.NewFromInt64(100, 0)
+		return rate.Div(hundred)
+	}
+	return rate
+}
+
+// createEngineState creates an engine.CPFState from an AccountSnapshot
+func createEngineState(account AccountSnapshot) *engine.CPFState {
+	residency := parseResidency(account.ResidencyStatus)
+	return engine.NewCPFState(
+		account.OABalance,
+		account.SABalance,
+		account.MABalance,
+		account.RABalance,
+		account.DateOfBirth,
+		account.Gender,
+		residency,
+		account.AsOfDate,
+	)
 }
 
 // ProjectToDate calculates projected CPF balances at targetDate
@@ -28,20 +93,13 @@ func (p *Projector) ProjectToDate(
 	targetDate time.Time,
 	assumptions *ProjectionAssumptions,
 ) (*ProjectedBalances, error) {
-	// Initialize running balances from snapshot
-	oa := cloneOrZero(account.OABalance)
-	sa := cloneOrZero(account.SABalance)
-	ma := cloneOrZero(account.MABalance)
-	ra := cloneOrZero(account.RABalance)
+	// Create engine state from snapshot
+	state := createEngineState(account)
+	engineAssumptions := convertToEngineAssumptions(assumptions)
 
 	// Track contributions and interest separately for transparency
 	totalContribOA := decimal.Zero()
 	totalInterestOA := decimal.Zero()
-
-	// Initialize YTD wage tracking
-	ytdOW := decimal.Zero()
-	ytdAW := decimal.Zero()
-	currentYear := account.AsOfDate.Year()
 
 	// Convert residency string to config type
 	residency := parseResidency(account.ResidencyStatus)
@@ -53,10 +111,10 @@ func (p *Projector) ProjectToDate(
 	// If target is before or equal to current, return current balances
 	if !target.After(current) {
 		return &ProjectedBalances{
-			OA:              oa,
-			SA:              sa,
-			MA:              ma,
-			RA:              ra,
+			OA:              cloneOrZero(state.OA),
+			SA:              cloneOrZero(state.SA),
+			MA:              cloneOrZero(state.MA),
+			RA:              cloneOrZero(state.RA),
 			AsOfDate:        targetDate,
 			ContributionsOA: totalContribOA,
 			InterestOA:      totalInterestOA,
@@ -64,20 +122,13 @@ func (p *Projector) ProjectToDate(
 	}
 
 	// Move to next month to start projection (don't double-count current month)
+	previousYear := current.Year()
 	current = current.AddDate(0, 1, 0)
 
 	for !current.After(target) {
-		// Reset YTD at year boundary
-		if current.Year() != currentYear {
-			ytdOW = decimal.Zero()
-			ytdAW = decimal.Zero()
-			currentYear = current.Year()
-		}
-
 		// Get config for this date
 		cfg, err := config.GetByDate(current)
 		if err != nil {
-			// Fall back to latest available config
 			cfg, err = config.GetByYear(2025)
 			if err != nil {
 				return nil, err
@@ -88,7 +139,10 @@ func (p *Projector) ProjectToDate(
 		calc := contribution.NewCalculator(&cfg.Config)
 
 		// Calculate age at this date
-		age := ageAt(account.DateOfBirth, current)
+		age := state.AgeAt(current)
+
+		// Collect contributions for this month
+		var contributions []contribution.ContributionResult
 
 		// Process each active income
 		for _, income := range incomes {
@@ -102,70 +156,51 @@ func (p *Projector) ProjectToDate(
 			// Calculate contribution based on wage type
 			var result contribution.ContributionResult
 			if income.WageType == "aw" {
-				result = calc.CalculateAW(income.MonthlyAmount, age, residency, ytdOW, ytdAW)
-				// Update YTD AW
+				result = calc.CalculateAW(income.MonthlyAmount, age, residency, state.YTDOrdinaryWages, state.YTDAdditionalWages)
 				if result.CappedWage != nil {
-					ytdAW = ytdAW.Add(result.CappedWage)
+					state.YTDAdditionalWages = state.YTDAdditionalWages.Add(result.CappedWage)
 				}
 			} else {
-				// Default to OW
 				result = calc.CalculateOW(income.MonthlyAmount, age, residency)
-				// Update YTD OW
 				if result.CappedWage != nil {
-					ytdOW = ytdOW.Add(result.CappedWage)
+					state.YTDOrdinaryWages = state.YTDOrdinaryWages.Add(result.CappedWage)
 				}
 			}
 
-			// Add allocations to balances
+			// Track OA contributions separately
 			if result.Allocation.OA != nil {
-				oa = oa.Add(result.Allocation.OA)
 				totalContribOA = totalContribOA.Add(result.Allocation.OA)
 			}
-			if result.Allocation.SA != nil {
-				sa = sa.Add(result.Allocation.SA)
-			}
-			if result.Allocation.MA != nil {
-				ma = ma.Add(result.Allocation.MA)
-			}
-			if result.Allocation.RA != nil {
-				ra = ra.Add(result.Allocation.RA)
-			}
+
+			contributions = append(contributions, result)
 		}
 
-		// Get interest rates from assumptions (or use defaults)
-		oaRatePct, saRatePct, maRatePct, raRatePct := getInterestRates(assumptions)
+		// Use engine.ProcessMonth for consistent calculation
+		monthResult, err := engine.ProcessMonth(state, current, engine.ProcessMonthOptions{
+			ApplyContributions: true,
+			Contributions:      contributions,
+			Assumptions:        engineAssumptions,
+			PreviousYear:       previousYear,
+		})
+		if err != nil {
+			return nil, err
+		}
 
-		// Apply monthly base interest using the growth module
-		oaInterest := CalculateMonthlyInterest(oa, oaRatePct)
-		saInterest := CalculateMonthlyInterest(sa, saRatePct)
-		maInterest := CalculateMonthlyInterest(ma, maRatePct)
-		raInterest := CalculateMonthlyInterest(ra, raRatePct)
-
-		oa = oa.Add(oaInterest)
-		sa = sa.Add(saInterest)
-		ma = ma.Add(maInterest)
-		ra = ra.Add(raInterest)
-		totalInterestOA = totalInterestOA.Add(oaInterest)
-
-		// Apply extra interest on first $60k (and additional for 55+)
-		extraResult := CalculateExtraInterest(oa, sa, ma, ra, age, assumptions)
-		if extraResult.Amount != nil && !extraResult.Amount.IsZero() {
-			if extraResult.CreditTo == "ra" {
-				ra = ra.Add(extraResult.Amount)
-			} else {
-				sa = sa.Add(extraResult.Amount)
-			}
+		// Track OA interest
+		if monthResult.Interest != nil && monthResult.Interest.BaseInterestOA != nil {
+			totalInterestOA = totalInterestOA.Add(monthResult.Interest.BaseInterestOA)
 		}
 
 		// Move to next month
+		previousYear = current.Year()
 		current = current.AddDate(0, 1, 0)
 	}
 
 	return &ProjectedBalances{
-		OA:              oa.Round(2),
-		SA:              sa.Round(2),
-		MA:              ma.Round(2),
-		RA:              ra.Round(2),
+		OA:              state.OA.Round(2),
+		SA:              state.SA.Round(2),
+		MA:              state.MA.Round(2),
+		RA:              state.RA.Round(2),
 		AsOfDate:        targetDate,
 		ContributionsOA: totalContribOA.Round(2),
 		InterestOA:      totalInterestOA.Round(2),
@@ -197,52 +232,36 @@ func (p *Projector) ProjectBalances(
 	payoutStartAge int, // Age at which CPF LIFE payouts begin (65-70)
 	assumptions *ProjectionAssumptions,
 ) (*BalanceProjection, error) {
-	// Initialize running balances from snapshot
-	oa := cloneOrZero(account.OABalance)
-	sa := cloneOrZero(account.SABalance)
-	ma := cloneOrZero(account.MABalance)
+	// Create engine state from snapshot
+	state := createEngineState(account)
+	engineAssumptions := convertToEngineAssumptions(assumptions)
 
 	// For RA, only use the stored value if the person is already 55 or older.
 	// Before age 55, RA should be 0 (RA formation happens at 55).
-	currentAge := ageAt(account.DateOfBirth, account.AsOfDate)
-	var ra *decimal.Decimal
-	if currentAge >= 55 {
-		ra = cloneOrZero(account.RABalance)
-	} else {
-		// Person is under 55, RA should be 0 (will be formed at age 55)
-		ra = decimal.Zero()
+	currentAge := state.AgeAt(account.AsOfDate)
+	if currentAge < 55 {
+		state.RA = decimal.Zero()
+		state.RAFormed = false
 	}
-
 
 	// Track yearly contributions and interest
 	yearlyContrib := decimal.Zero()
 	yearlyInterest := decimal.Zero()
 
 	// CPF LIFE payout tracking
-	var monthlyPayout *decimal.Decimal  // Monthly payout amount (calculated at payout start age)
-	yearlyPayout := decimal.Zero()      // Payouts received this year
-	cumulativePayouts := decimal.Zero() // Total payouts received to date
-	payoutsStarted := false             // Whether CPF LIFE payouts have begun
+	yearlyPayout := decimal.Zero()
 
 	// Validate payout start age (default to 65 if invalid)
 	if payoutStartAge < 65 || payoutStartAge > 70 {
 		payoutStartAge = 65
 	}
 
-	// Initialize YTD wage tracking
-	ytdOW := decimal.Zero()
-	ytdAW := decimal.Zero()
-
 	// Convert residency string to config type
 	residency := parseResidency(account.ResidencyStatus)
 
 	// Calculate projection range
-	// (currentAge already calculated above for RA initialization)
 	startYear := account.AsOfDate.Year()
 	endAge := 100 // Project to age 100 for full lifetime view
-
-	// Track whether RA has been formed
-	raFormed := ra != nil && !ra.IsZero()
 
 	// Result containers
 	snapshots := make([]YearlySnapshot, 0)
@@ -250,10 +269,11 @@ func (p *Projector) ProjectBalances(
 
 	// Iterate year by year
 	currentYear := startYear
+	previousYear := startYear
 	current := firstOfMonth(account.AsOfDate).AddDate(0, 1, 0) // Start next month
 
 	for {
-		age := ageAt(account.DateOfBirth, current)
+		age := state.AgeAt(current)
 		if age > endAge {
 			break
 		}
@@ -261,45 +281,45 @@ func (p *Projector) ProjectBalances(
 		// Reset yearly tracking at year boundary
 		if current.Year() != currentYear {
 			// Capture snapshot for the completed year
-			total := oa.Add(sa).Add(ma).Add(ra)
+			total := state.TotalBalance()
 			snapshot := YearlySnapshot{
 				Year:          currentYear,
-				Age:           ageAt(account.DateOfBirth, time.Date(currentYear, 12, 31, 0, 0, 0, 0, time.UTC)),
-				OA:            oa.Round(2),
-				SA:            sa.Round(2),
-				MA:            ma.Round(2),
-				RA:            ra.Round(2),
+				Age:           state.AgeAt(time.Date(currentYear, 12, 31, 0, 0, 0, 0, time.UTC)),
+				OA:            state.OA.Round(2),
+				SA:            state.SA.Round(2),
+				MA:            state.MA.Round(2),
+				RA:            state.RA.Round(2),
 				Total:         total.Round(2),
 				Contributions: yearlyContrib.Round(2),
 				Interest:      yearlyInterest.Round(2),
 			}
 
 			// Add payout tracking if payouts have started
-			if payoutsStarted {
-				snapshot.MonthlyPayout = monthlyPayout
+			if state.PayoutsActive {
+				snapshot.MonthlyPayout = state.MonthlyPayout
 				snapshot.YearlyPayout = yearlyPayout.Round(2)
-				snapshot.CumulativePayouts = cumulativePayouts.Round(2)
+				snapshot.CumulativePayouts = state.CumulativePayouts.Round(2)
 			}
 
 			snapshots = append(snapshots, snapshot)
 
 			// Check for age milestones
-			snapshotAge := ageAt(account.DateOfBirth, time.Date(currentYear, 12, 31, 0, 0, 0, 0, time.UTC))
+			snapshotAge := state.AgeAt(time.Date(currentYear, 12, 31, 0, 0, 0, 0, time.UTC))
 			if snapshotAge == 55 && age55Balances == nil {
 				age55Balances = &ProjectedBalances{
-					OA:       oa.Round(2),
-					SA:       sa.Round(2),
-					MA:       ma.Round(2),
-					RA:       ra.Round(2),
+					OA:       state.OA.Round(2),
+					SA:       state.SA.Round(2),
+					MA:       state.MA.Round(2),
+					RA:       state.RA.Round(2),
 					AsOfDate: time.Date(currentYear, 12, 31, 0, 0, 0, 0, time.UTC),
 				}
 			}
 			if snapshotAge == 65 && age65Balances == nil {
 				age65Balances = &ProjectedBalances{
-					OA:       oa.Round(2),
-					SA:       sa.Round(2),
-					MA:       ma.Round(2),
-					RA:       ra.Round(2),
+					OA:       state.OA.Round(2),
+					SA:       state.SA.Round(2),
+					MA:       state.MA.Round(2),
+					RA:       state.RA.Round(2),
 					AsOfDate: time.Date(currentYear, 12, 31, 0, 0, 0, 0, time.UTC),
 				}
 			}
@@ -308,39 +328,7 @@ func (p *Projector) ProjectBalances(
 			currentYear = current.Year()
 			yearlyContrib = decimal.Zero()
 			yearlyInterest = decimal.Zero()
-			yearlyPayout = decimal.Zero() // Reset yearly payout for new year
-			ytdOW = decimal.Zero()
-			ytdAW = decimal.Zero()
-		}
-
-		// RA formation at age 55
-		if age == 55 && !raFormed {
-			// Calculate FRS for this year (using 2026 base)
-			yearsFromBase := current.Year() - 2026
-			if yearsFromBase < 0 {
-				yearsFromBase = 0
-			}
-			growthFactor, _ := decimal.MustFromFloat64(1 + retirementSumGrowthRate).Pow(decimal.NewFromInt64(int64(yearsFromBase), 0))
-			frs := decimal.NewFromInt64(frs2026, 0).Mul(growthFactor)
-
-			// Transfer from SA first, then OA if needed
-			saTransfer := sa
-			if sa.Cmp(frs) > 0 {
-				saTransfer = frs
-			}
-			remaining := frs.Sub(saTransfer)
-			oaTransfer := decimal.Zero()
-			if remaining.Cmp(decimal.Zero()) > 0 && oa.Cmp(decimal.Zero()) > 0 {
-				oaTransfer = oa
-				if oa.Cmp(remaining) > 0 {
-					oaTransfer = remaining
-				}
-			}
-
-			ra = ra.Add(saTransfer).Add(oaTransfer)
-			sa = sa.Sub(saTransfer)
-			oa = oa.Sub(oaTransfer)
-			raFormed = true
+			yearlyPayout = decimal.Zero()
 		}
 
 		// Get config for this date
@@ -355,9 +343,9 @@ func (p *Projector) ProjectBalances(
 		// Create calculator with config
 		calc := contribution.NewCalculator(&cfg.Config)
 
-		// Only contribute if still employed
+		// Collect contributions for this month (only if still employed)
+		var contributions []contribution.ContributionResult
 		if age <= retirementAge {
-			// Process each active income
 			for _, income := range incomes {
 				if !isActiveAt(income, current) {
 					continue
@@ -369,177 +357,84 @@ func (p *Projector) ProjectBalances(
 				// Calculate contribution based on wage type
 				var result contribution.ContributionResult
 				if income.WageType == "aw" {
-					result = calc.CalculateAW(income.MonthlyAmount, age, residency, ytdOW, ytdAW)
-					if result.CappedWage != nil {
-						ytdAW = ytdAW.Add(result.CappedWage)
-					}
+					result = calc.CalculateAW(income.MonthlyAmount, age, residency, state.YTDOrdinaryWages, state.YTDAdditionalWages)
 				} else {
 					result = calc.CalculateOW(income.MonthlyAmount, age, residency)
-					if result.CappedWage != nil {
-						ytdOW = ytdOW.Add(result.CappedWage)
-					}
 				}
 
-				// Add allocations to balances
-				if result.Allocation.OA != nil {
-					oa = oa.Add(result.Allocation.OA)
-					yearlyContrib = yearlyContrib.Add(result.Allocation.OA)
-				}
-				if result.Allocation.SA != nil {
-					sa = sa.Add(result.Allocation.SA)
-					yearlyContrib = yearlyContrib.Add(result.Allocation.SA)
-				}
-				if result.Allocation.MA != nil {
-					ma = ma.Add(result.Allocation.MA)
-					yearlyContrib = yearlyContrib.Add(result.Allocation.MA)
-				}
-				// Note: RA contributions start at 55+ when SA allocation goes to RA
-				if age >= 55 && result.Allocation.SA != nil {
-					// SA contributions redirect to RA after 55
-					ra = ra.Add(result.Allocation.SA)
-					sa = sa.Sub(result.Allocation.SA) // Undo the SA addition above
-				}
+				contributions = append(contributions, result)
 			}
 		}
 
-		// Get interest rates from assumptions (or use defaults)
-		oaRatePct, saRatePct, maRatePct, raRatePct := getInterestRates(assumptions)
-
-		// Apply monthly base interest
-		// Note: Once CPF LIFE payouts start, RA no longer earns separate interest
-		// (the RA becomes the premium pool for the annuity)
-		oaInterest := CalculateMonthlyInterest(oa, oaRatePct)
-		saInterest := CalculateMonthlyInterest(sa, saRatePct)
-		maInterest := CalculateMonthlyInterest(ma, maRatePct)
-
-		oa = oa.Add(oaInterest)
-		sa = sa.Add(saInterest)
-		ma = ma.Add(maInterest)
-		yearlyInterest = yearlyInterest.Add(oaInterest).Add(saInterest).Add(maInterest)
-
-		// RA only earns interest BEFORE CPF LIFE payouts start
-		if !payoutsStarted {
-			raInterest := CalculateMonthlyInterest(ra, raRatePct)
-			ra = ra.Add(raInterest)
-			yearlyInterest = yearlyInterest.Add(raInterest)
-
-			// Apply extra interest on first $60k (and additional for 55+)
-			// Once payouts start, extra interest goes to SA instead of RA
-			extraResult := CalculateExtraInterest(oa, sa, ma, ra, age, assumptions)
-			if extraResult.Amount != nil && !extraResult.Amount.IsZero() {
-				if extraResult.CreditTo == "ra" {
-					ra = ra.Add(extraResult.Amount)
-				} else {
-					sa = sa.Add(extraResult.Amount)
-				}
-				yearlyInterest = yearlyInterest.Add(extraResult.Amount)
-			}
-		} else {
-			// After CPF LIFE starts, extra interest (if any) goes to OA
-			// (SA is typically 0 by this point, RA is premium pool)
-			extraResult := CalculateExtraInterest(oa, sa, ma, decimal.Zero(), age, assumptions)
-			if extraResult.Amount != nil && !extraResult.Amount.IsZero() {
-				oa = oa.Add(extraResult.Amount)
-				yearlyInterest = yearlyInterest.Add(extraResult.Amount)
-			}
+		// Use engine.ProcessMonth for consistent calculation
+		// This handles: YTD reset, RA formation, contributions, SA→RA redirect, interest, payouts
+		monthResult, err := engine.ProcessMonth(state, current, engine.ProcessMonthOptions{
+			ApplyContributions: len(contributions) > 0,
+			Contributions:      contributions,
+			TargetScheme:       retirement.TargetFRS,
+			PayoutStartAge:     payoutStartAge,
+			PayoutPlan:         payout.PlanStandard,
+			Assumptions:        engineAssumptions,
+			PreviousYear:       previousYear,
+		})
+		if err != nil {
+			return nil, err
 		}
 
-		// CPF LIFE payout logic - starts at payoutStartAge
-		// Note: CPF LIFE is a lifelong annuity - payouts continue even after RA is depleted
-		if age >= payoutStartAge {
-			// Calculate payout amount once when payouts start
-			if !payoutsStarted && ra != nil && !ra.IsZero() {
-				// Determine gender for payout calculation
-				gender := payout.GenderMale
-				if account.Gender == "female" {
-					gender = payout.GenderFemale
-				}
+		// Track yearly contributions
+		if monthResult.TotalContributions != nil {
+			yearlyContrib = yearlyContrib.Add(monthResult.TotalContributions)
+		}
 
-				// Calculate CPF LIFE payout using Standard plan (most common)
-				payoutInput := payout.PayoutInput{
-					BirthYear:      account.DateOfBirth.Year(),
-					Gender:         gender,
-					Plan:           payout.PlanStandard,
-					RABalanceAt65:  ra, // Use RA balance at payout start age
-					PayoutStartAge: payoutStartAge,
-				}
-				payoutResult, err := payout.CalculatePayout(payoutInput)
-				if err == nil && payoutResult.MonthlyPayout != nil {
-					monthlyPayout = payoutResult.MonthlyPayout
-				}
-				payoutsStarted = true
-			}
+		// Track yearly interest
+		if monthResult.Interest != nil && monthResult.Interest.TotalInterest != nil {
+			yearlyInterest = yearlyInterest.Add(monthResult.Interest.TotalInterest)
+		}
 
-			// Track and deduct monthly payout (CPF LIFE is lifelong)
-			if monthlyPayout != nil && !monthlyPayout.IsZero() {
-				// Deduct from RA only if RA has balance remaining
-				if ra != nil && !ra.IsZero() {
-					if ra.Cmp(monthlyPayout) >= 0 {
-						ra = ra.Sub(monthlyPayout)
-					} else {
-						// RA is depleted, take whatever is left
-						ra = decimal.Zero()
-					}
-				}
-				// Always track payouts (lifelong annuity continues regardless of RA balance)
-				yearlyPayout = yearlyPayout.Add(monthlyPayout)
-				cumulativePayouts = cumulativePayouts.Add(monthlyPayout)
-			}
+		// Track yearly payouts
+		if monthResult.PayoutAmount != nil {
+			yearlyPayout = yearlyPayout.Add(monthResult.PayoutAmount)
 		}
 
 		// Move to next month
+		previousYear = current.Year()
 		current = current.AddDate(0, 1, 0)
 	}
 
 	// Capture final year snapshot if not yet captured
 	if len(snapshots) == 0 || snapshots[len(snapshots)-1].Year != currentYear-1 {
-		total := oa.Add(sa).Add(ma).Add(ra)
+		total := state.TotalBalance()
 		snapshot := YearlySnapshot{
 			Year:          currentYear - 1,
-			Age:           ageAt(account.DateOfBirth, time.Date(currentYear-1, 12, 31, 0, 0, 0, 0, time.UTC)),
-			OA:            oa.Round(2),
-			SA:            sa.Round(2),
-			MA:            ma.Round(2),
-			RA:            ra.Round(2),
+			Age:           state.AgeAt(time.Date(currentYear-1, 12, 31, 0, 0, 0, 0, time.UTC)),
+			OA:            state.OA.Round(2),
+			SA:            state.SA.Round(2),
+			MA:            state.MA.Round(2),
+			RA:            state.RA.Round(2),
 			Total:         total.Round(2),
 			Contributions: yearlyContrib.Round(2),
 			Interest:      yearlyInterest.Round(2),
 		}
 
-		// Add payout tracking if payouts have started
-		if payoutsStarted {
-			snapshot.MonthlyPayout = monthlyPayout
+		if state.PayoutsActive {
+			snapshot.MonthlyPayout = state.MonthlyPayout
 			snapshot.YearlyPayout = yearlyPayout.Round(2)
-			snapshot.CumulativePayouts = cumulativePayouts.Round(2)
+			snapshot.CumulativePayouts = state.CumulativePayouts.Round(2)
 		}
 
 		snapshots = append(snapshots, snapshot)
 	}
 
-	// Calculate retirement sums at age 55 (using 2026 base values)
-	// Project from 2026 to the year when user turns 55
+	// Calculate retirement sums at age 55 (using assumptions if available)
 	yearsToAge55 := 55 - currentAge
 	if yearsToAge55 < 0 {
 		yearsToAge55 = 0
 	}
 	yearAt55 := startYear + yearsToAge55
-	yearsFrom2026 := yearAt55 - 2026
-	if yearsFrom2026 < 0 {
-		yearsFrom2026 = 0
-	}
-	growthExp := decimal.NewFromInt64(int64(yearsFrom2026), 0)
-	growthFactorAt55, _ := decimal.MustFromFloat64(1 + retirementSumGrowthRate).Pow(growthExp)
-	brsAt55 := decimal.NewFromInt64(brs2026, 0).Mul(growthFactorAt55)
-	frsAt55 := decimal.NewFromInt64(frs2026, 0).Mul(growthFactorAt55)
-	ersAt55 := decimal.NewFromInt64(ers2026, 0).Mul(growthFactorAt55)
-
-	// BHS (Basic Healthcare Sum) - use official 2026 value with ~4% annual growth projection
-	yearsFromBHS2026 := startYear - 2026
-	if yearsFromBHS2026 < 0 {
-		yearsFromBHS2026 = 0
-	}
-	bhsGrowthFactor, _ := decimal.MustFromFloat64(1.04).Pow(decimal.NewFromInt64(int64(yearsFromBHS2026), 0))
-	currentBHS := decimal.NewFromInt64(bhs2026, 0).Mul(bhsGrowthFactor)
+	brsAt55 := engineAssumptions.GetRetirementSum("brs", yearAt55)
+	frsAt55 := engineAssumptions.GetRetirementSum("frs", yearAt55)
+	ersAt55 := engineAssumptions.GetRetirementSum("ers", yearAt55)
+	currentBHS := engineAssumptions.GetBHS(startYear)
 
 	return &BalanceProjection{
 		Snapshots:            snapshots,
@@ -549,7 +444,7 @@ func (p *Projector) ProjectBalances(
 		BRSAtAge55:           brsAt55.Round(0),
 		ERSAtAge55:           ersAt55.Round(0),
 		BHS:                  currentBHS.Round(0),
-		CPFLifeMonthlyPayout: monthlyPayout,
+		CPFLifeMonthlyPayout: state.MonthlyPayout,
 	}, nil
 }
 
@@ -559,22 +454,10 @@ func firstOfMonth(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 }
 
-func ageAt(dob, date time.Time) int {
-	age := date.Year() - dob.Year()
-	// Adjust if birthday hasn't occurred yet this year
-	dobThisYear := time.Date(date.Year(), dob.Month(), dob.Day(), 0, 0, 0, 0, dob.Location())
-	if date.Before(dobThisYear) {
-		age--
-	}
-	return age
-}
-
 func isActiveAt(income IncomeStream, date time.Time) bool {
-	// Check if income has started
 	if date.Before(income.StartDate) {
 		return false
 	}
-	// Check if income has ended
 	if income.EndDate != nil && date.After(*income.EndDate) {
 		return false
 	}
@@ -598,6 +481,22 @@ func cloneOrZero(d *decimal.Decimal) *decimal.Decimal {
 	if d == nil {
 		return decimal.Zero()
 	}
-	// Create a copy to avoid mutating the original
 	return decimal.Zero().Add(d)
+}
+
+// ageAt calculates age at a given date from date of birth.
+// Kept for test compatibility - use engine.CPFState.AgeAt() for production code.
+func ageAt(dob, date time.Time) int {
+	age := date.Year() - dob.Year()
+	dobThisYear := time.Date(date.Year(), dob.Month(), dob.Day(), 0, 0, 0, 0, dob.Location())
+	if date.Before(dobThisYear) {
+		age--
+	}
+	return age
+}
+
+// CalculateMonthlyInterest calculates interest for one month.
+// This is a wrapper around engine.CalculateMonthlyInterest for backwards compatibility.
+func CalculateMonthlyInterest(balance, annualRatePct *decimal.Decimal) *decimal.Decimal {
+	return engine.CalculateMonthlyInterest(balance, annualRatePct)
 }

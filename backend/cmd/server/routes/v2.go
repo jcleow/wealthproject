@@ -209,7 +209,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	}).Methods("POST")
 
 	// CPF account v2 endpoints (versioned update/delete/stop)
-	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore, deps.CPFAssumptionsRepo)
+	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore, deps.CPFAssumptionsRepo, deps.TimelineService)
 	router.HandleFunc("/cpf/accounts", cpfHandler.HandleList).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleGet).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleCreate).Methods("POST")
@@ -256,11 +256,19 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		cpfHandler.HandleCPFProjection(w, r, id)
 	}).Methods("POST")
 
-	// CPF balance projection endpoint (for charting)
+	// CPF balance projection endpoint (for charting) - uses standalone projector
 	router.HandleFunc("/cpf/account/{id}/balance-projection", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
 		cpfHandler.HandleCPFBalanceProjection(w, r, id)
+	}).Methods("POST")
+
+	// CPF timeline projection endpoint (for charting) - uses Timeline service for consistency
+	// This is the recommended endpoint as it includes scenario impacts and income growth
+	router.HandleFunc("/cpf/account/{id}/timeline-projection", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		cpfHandler.HandleCPFTimelineProjection(w, r, id)
 	}).Methods("POST")
 
 	// Person v2 endpoints (for multi-person household support)
