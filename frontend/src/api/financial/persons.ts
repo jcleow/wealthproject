@@ -48,12 +48,13 @@ export async function getPerson(id: string): Promise<Person> {
  * Create a new person
  */
 export async function createPerson(payload: PersonCreatePayload): Promise<Person> {
-  const body: PersonV2CreateInput = {
+  const body: PersonV2CreateInput & { gender?: string } = {
     name: payload.name,
     dateOfBirth: payload.dateOfBirth,
     residencyStatus: payload.residencyStatus,
     displayColor: payload.displayColor ?? undefined,
     prGrantDate: payload.prGrantDate ?? undefined,
+    gender: payload.gender,
   }
   const data = await apiClient.post<ApiPerson>('/persons', body, { baseUrl: '/api/v2' })
   return toPerson(data)
