@@ -11,6 +11,7 @@ import { ProfileSelectionModal } from '../modals/ProfileSelectionModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
 import { useTimelineStore, useFeatureModulesStore } from '@/stores'
+import { useShallow } from 'zustand/react/shallow'
 import type { ScenarioEvent } from '@/types/scenario'
 import clsx from 'clsx'
 
@@ -30,16 +31,30 @@ export function FinancialWorkspace({
   headerOnly = false,
   chartOnly = false,
 }: FinancialWorkspaceProps) {
-  // Get timeline selection state from Zustand store
-  const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
-  const setSelectedMonth = useTimelineStore((s) => s.setSelectedMonth)
+  // Get timeline selection state from Zustand store (batched with shallow comparison)
+  const { setSelectedYear, setSelectedMonth } = useTimelineStore(
+    useShallow((s) => ({
+      setSelectedYear: s.setSelectedYear,
+      setSelectedMonth: s.setSelectedMonth,
+    }))
+  )
 
-  // Get feature module actions from Zustand store
-  const openCPFView = useFeatureModulesStore((s) => s.openCPFView)
-  const openPropertyPlanner = useFeatureModulesStore((s) => s.openPropertyPlanner)
-  const openTaxPlanner = useFeatureModulesStore((s) => s.openTaxPlanner)
-  const openInsurancePlanner = useFeatureModulesStore((s) => s.openInsurancePlanner)
-  const openLayoutModal = useFeatureModulesStore((s) => s.openLayoutModal)
+  // Get feature module actions from Zustand store (batched with shallow comparison)
+  const {
+    openCPFView,
+    openPropertyPlanner,
+    openTaxPlanner,
+    openInsurancePlanner,
+    openLayoutModal,
+  } = useFeatureModulesStore(
+    useShallow((s) => ({
+      openCPFView: s.openCPFView,
+      openPropertyPlanner: s.openPropertyPlanner,
+      openTaxPlanner: s.openTaxPlanner,
+      openInsurancePlanner: s.openInsurancePlanner,
+      openLayoutModal: s.openLayoutModal,
+    }))
+  )
 
   // Get timeline data from hook (React Query)
   const timeline = useTimeline({ resolution: 'monthly' })
