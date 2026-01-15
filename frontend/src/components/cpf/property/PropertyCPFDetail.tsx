@@ -1,21 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useMemo } from 'react'
 import { Edit3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
-
-import { GrantsDisplay } from '@/components/modals/PropertyPlannerModal/components/CPFTabContent/GrantsDisplay'
-
-type DetailTab = 'all' | 'cpf-usage' | 'grants'
-
-const DETAIL_TABS: { id: DetailTab; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'cpf-usage', label: 'CPF' },
-  { id: 'grants', label: 'Grants' },
-]
 
 interface PropertyCPFDetailProps {
   scenario: PropertyScenarioFull
@@ -28,7 +18,6 @@ export function PropertyCPFDetail({
   cpfAccounts,
   onEditInPropertyPlanner,
 }: PropertyCPFDetailProps) {
-  const [activeTab, setActiveTab] = useState<DetailTab>('all')
   const sg = scenario.propertySG
   if (!sg) {
     return (
@@ -88,8 +77,6 @@ export function PropertyCPFDetail({
     }
   }, [sg, accountMap, holdingMonths])
 
-  const isPrivateProperty = sg.propertyType === 'private'
-
   return (
     <div className="rounded-xl border border-white/[0.06] overflow-hidden">
       {/* Header */}
@@ -110,32 +97,13 @@ export function PropertyCPFDetail({
               {formatCurrency(parseFloat(sg.propertyPrice))} • {holdingYears} year holding
             </p>
           </div>
-
-          {/* Section Tabs */}
-          <div className="flex items-center gap-6">
-            {DETAIL_TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "text-sm font-medium transition-colors pb-1",
-                  activeTab === tab.id
-                    ? "text-white border-b border-white"
-                    : "text-gray-500 hover:text-gray-300"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-4 space-y-6">
         {/* Per-Person CPF Usage - Tabular Layout */}
-        {(activeTab === 'all' || activeTab === 'cpf-usage') && borrower1 && (
+        {borrower1 && (
           <div>
             <h4 className="text-sm font-medium text-gray-300 uppercase tracking-wide mb-3">CPF Usage by Person</h4>
 
@@ -289,16 +257,15 @@ export function PropertyCPFDetail({
                   </div>
                 )}
               </div>
+
+              {/* TODO(human): Add Housing Grants row(s) here
+                  - Grants are property-level (not per-person), so consider using a spanning row or full-width section
+                  - Data: scenario.grants array with {name, amount}
+                  - Total: scenario.grants.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0)
+                  - Remember: grants are refunded WITHOUT accrued interest (unlike CPF contributions)
+                  - Consider: Should this show individual grants or just the total? */}
             </div>
           </div>
-        )}
-
-        {/* Grants Display */}
-        {(activeTab === 'all' || activeTab === 'grants') && (
-          <GrantsDisplay
-            grants={scenario.grants || []}
-            isPrivateProperty={isPrivateProperty}
-          />
         )}
       </div>
     </div>

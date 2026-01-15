@@ -140,8 +140,8 @@ export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardPr
   return (
     <Tooltip.Provider delayDuration={200}>
       <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
-        {/* Header row with title and column headers aligned */}
-        <div className="flex items-center justify-between mb-3">
+        {/* Header row - using same grid as data rows for alignment */}
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 items-center mb-3">
           <div className="flex items-center gap-1">
             <p className="text-xs text-slate-200 font-medium">CPF Retirement Targets</p>
             <Tooltip.Root>
@@ -154,7 +154,7 @@ export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardPr
                 <Tooltip.Content
                   side="bottom"
                   align="start"
-                  className="rounded-lg bg-gray-900 border border-white/10 px-3 py-2.5 text-xs text-slate-300 shadow-xl max-w-[280px]"
+                  className="z-[100] rounded-lg bg-gray-900 border border-white/10 px-3 py-2.5 text-xs text-slate-300 shadow-xl max-w-[280px]"
                   sideOffset={4}
                 >
                   <p className="font-medium text-slate-100 mb-1.5">Retirement Sums</p>
@@ -169,16 +169,18 @@ export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardPr
               </Tooltip.Portal>
             </Tooltip.Root>
           </div>
-          <div className="flex items-center gap-6 text-[10px] text-slate-300 uppercase tracking-wide font-medium">
-            <span>{currentYear}</span>
-            <span>{targetYear}</span>
-          </div>
+          <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium text-right min-w-[70px]">
+            {currentYear}
+          </span>
+          <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium text-right min-w-[70px]">
+            {targetYear}
+          </span>
         </div>
 
         {/* Target Rows */}
         <div className="space-y-2">
           {projectedTargets.map((target) => (
-            <div key={target.label} className="grid grid-cols-3 gap-2 items-center text-xs">
+            <div key={target.label} className="grid grid-cols-[1fr_auto_auto] gap-x-4 items-center text-xs">
               {/* Label with tooltip */}
               <Tooltip.Root>
                 <Tooltip.Trigger asChild>
@@ -190,7 +192,7 @@ export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardPr
                 <Tooltip.Portal>
                   <Tooltip.Content
                     side="top"
-                    className="rounded-lg bg-gray-900 border border-white/10 px-2.5 py-1.5 text-xs text-slate-200 shadow-xl"
+                    className="z-[100] rounded-lg bg-gray-900 border border-white/10 px-2.5 py-1.5 text-xs text-slate-200 shadow-xl"
                     sideOffset={4}
                   >
                     {TARGET_FULL_NAMES[target.label]}
@@ -200,12 +202,12 @@ export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardPr
               </Tooltip.Root>
 
               {/* Current value */}
-              <span className="font-mono tabular-nums text-slate-300 text-right">
+              <span className="font-mono tabular-nums text-slate-300 text-right min-w-[70px]">
                 {formatCurrency(target.value)}
               </span>
 
               {/* Projected value */}
-              <span className="font-mono tabular-nums text-slate-300 text-right">
+              <span className="font-mono tabular-nums text-slate-300 text-right min-w-[70px]">
                 {formatCurrency(target.projectedValue)}
               </span>
             </div>
