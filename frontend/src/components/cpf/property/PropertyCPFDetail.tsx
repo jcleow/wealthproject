@@ -1,26 +1,20 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Edit3, Banknote } from 'lucide-react'
+import { Edit3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
 
-// Reuse components from CPFTabContent
-import { PersonCPFUsageCard } from '@/components/modals/PropertyPlannerModal/components/CPFTabContent/PersonCPFUsageCard'
-import { AccruedInterestChart } from '@/components/modals/PropertyPlannerModal/components/CPFTabContent/AccruedInterestChart'
 import { GrantsDisplay } from '@/components/modals/PropertyPlannerModal/components/CPFTabContent/GrantsDisplay'
-import { SaleImpactSection } from '@/components/modals/PropertyPlannerModal/components/CPFTabContent/SaleImpactSection'
 
-type DetailTab = 'all' | 'cpf-usage' | 'interest' | 'grants' | 'sale'
+type DetailTab = 'all' | 'cpf-usage' | 'grants'
 
 const DETAIL_TABS: { id: DetailTab; label: string }[] = [
   { id: 'all', label: 'All' },
   { id: 'cpf-usage', label: 'CPF' },
-  { id: 'interest', label: 'Interest' },
   { id: 'grants', label: 'Grants' },
-  { id: 'sale', label: 'Sale' },
 ]
 
 interface PropertyCPFDetailProps {
@@ -94,132 +88,209 @@ export function PropertyCPFDetail({
     }
   }, [sg, accountMap, holdingMonths])
 
-  // Combined totals
-  const totalCpfUsed = (borrower1?.totalCpfUsed || 0) + (borrower2?.totalCpfUsed || 0)
-  const totalAccruedInterest = (borrower1?.accruedInterest || 0) + (borrower2?.accruedInterest || 0)
-
-  // Sale calculations
-  const expectedSalePrice = parseFloat(sg.saleExpectedPrice || '0') || parseFloat(sg.propertyPrice) * 1.2
-  const outstandingLoan = parseFloat(scenario.computed?.loanAmount || '0') * 0.7 // Rough estimate
-  const sellingCosts = expectedSalePrice * 0.02
-  const totalCpfRefund = totalCpfUsed + totalAccruedInterest
-  const netCashProceeds = expectedSalePrice - outstandingLoan - sellingCosts - totalCpfRefund
-
-  // Build borrower refunds for sale impact section
-  const borrowerRefunds = useMemo(() => {
-    const refunds = []
-    if (borrower1) {
-      refunds.push({
-        name: borrower1.name,
-        principal: borrower1.totalCpfUsed,
-        interest: borrower1.accruedInterest,
-        total: borrower1.totalCpfUsed + borrower1.accruedInterest,
-      })
-    }
-    if (borrower2) {
-      refunds.push({
-        name: borrower2.name,
-        principal: borrower2.totalCpfUsed,
-        interest: borrower2.accruedInterest,
-        total: borrower2.totalCpfUsed + borrower2.accruedInterest,
-      })
-    }
-    return refunds
-  }, [borrower1, borrower2])
-
   const isPrivateProperty = sg.propertyType === 'private'
 
   return (
     <div className="rounded-xl border border-white/[0.06] overflow-hidden">
       {/* Header */}
       <div className="px-4 py-4 border-b border-white/[0.06]">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-medium text-white">{sg.name}</h3>
-            <p className="text-sm text-gray-400 mt-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-medium text-white">{sg.name}</h3>
+              <button
+                type="button"
+                onClick={onEditInPropertyPlanner}
+                className="p-1 rounded text-gray-500 hover:text-white transition"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-400 mt-0.5">
               {formatCurrency(parseFloat(sg.propertyPrice))} • {holdingYears} year holding
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onEditInPropertyPlanner}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition"
-          >
-            <Edit3 className="h-4 w-4" />
-            Edit
-          </button>
-        </div>
 
-        {/* Segmented Control for Section Views */}
-        <div className="inline-flex rounded-lg bg-white/[0.03] p-1 border border-white/[0.08]">
-          {DETAIL_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150",
-                activeTab === tab.id
-                  ? "bg-gray-700 text-white shadow-sm"
-                  : "text-gray-400 hover:text-gray-200"
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {/* Section Tabs */}
+          <div className="flex items-center gap-6">
+            {DETAIL_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  "text-sm font-medium transition-colors pb-1",
+                  activeTab === tab.id
+                    ? "text-white border-b border-white"
+                    : "text-gray-500 hover:text-gray-300"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="p-4 space-y-6">
-        {/* Per-Person CPF Usage */}
-        {(activeTab === 'all' || activeTab === 'cpf-usage') && (
+        {/* Per-Person CPF Usage - Tabular Layout */}
+        {(activeTab === 'all' || activeTab === 'cpf-usage') && borrower1 && (
           <div>
             <h4 className="text-sm font-medium text-gray-300 uppercase tracking-wide mb-3">CPF Usage by Person</h4>
-            <div className={`grid gap-3 ${borrower2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-              {borrower1 && (
-                <PersonCPFUsageCard
-                  personName={borrower1.name}
-                  downpaymentCpfOa={borrower1.downpaymentCpfOa}
-                  monthlyCpfOa={borrower1.monthlyCpfOa}
-                  holdingMonths={holdingMonths}
-                  totalCpfUsed={borrower1.totalCpfUsed}
-                  accruedInterest={borrower1.accruedInterest}
-                />
-              )}
-              {borrower2 && (
-                <PersonCPFUsageCard
-                  personName={borrower2.name}
-                  downpaymentCpfOa={borrower2.downpaymentCpfOa}
-                  monthlyCpfOa={borrower2.monthlyCpfOa}
-                  holdingMonths={holdingMonths}
-                  totalCpfUsed={borrower2.totalCpfUsed}
-                  accruedInterest={borrower2.accruedInterest}
-                />
-              )}
-            </div>
 
-            {/* Combined Total (for joint) */}
-            {borrower2 && (
-              <div className="mt-3 p-3 rounded-lg border border-white/[0.06]">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-300">Combined Total</span>
-                  <span className="text-white font-medium font-mono tabular-nums">
-                    {formatCurrency(totalCpfUsed)} CPF + {formatCurrency(totalAccruedInterest)} interest = {formatCurrency(totalCpfUsed + totalAccruedInterest)}
-                  </span>
+            <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+              {/* Table Header - Names */}
+              <div className={cn(
+                "grid",
+                borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
+              )}>
+                <div className="p-3" /> {/* Empty label cell */}
+                <div className="p-3 text-center">
+                  <span className="text-sm font-medium text-white">{borrower1.name}</span>
+                </div>
+                {borrower2 && (
+                  <div className="p-3 text-center">
+                    <span className="text-sm font-medium text-white">{borrower2.name}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Down Payment Section */}
+              <div>
+                <div className={cn(
+                  "grid",
+                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
+                )}>
+                  <div className="p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Down Payment</p>
+                  </div>
+                  <div />
+                  {borrower2 && <div />}
+                </div>
+                <div className={cn(
+                  "grid",
+                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
+                )}>
+                  <div className="px-3 pb-3">
+                    <span className="text-sm text-gray-400 pl-3">CPF OA</span>
+                  </div>
+                  <div className="px-3 pb-3 text-right">
+                    <span className="text-sm text-white font-mono tabular-nums">{formatCurrency(borrower1.downpaymentCpfOa)}</span>
+                  </div>
+                  {borrower2 && (
+                    <div className="px-3 pb-3 text-right">
+                      <span className="text-sm text-white font-mono tabular-nums">{formatCurrency(borrower2.downpaymentCpfOa)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Accrued Interest Chart */}
-        {(activeTab === 'all' || activeTab === 'interest') && (
-          <AccruedInterestChart
-            totalPrincipal={totalCpfUsed}
-            holdingYears={holdingYears}
-            interestRate={0.025}
-          />
+              {/* Monthly Section */}
+              <div>
+                <div className={cn(
+                  "grid",
+                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
+                )}>
+                  <div className="p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Monthly ({holdingMonths} mo)</p>
+                  </div>
+                  <div />
+                  {borrower2 && <div />}
+                </div>
+                <div className={cn(
+                  "grid",
+                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
+                )}>
+                  <div className="px-3 pb-2">
+                    <span className="text-sm text-gray-400 pl-3">CPF OA</span>
+                  </div>
+                  <div className="px-3 pb-2 text-right">
+                    <span className="text-sm text-gray-300 font-mono tabular-nums">{formatCurrency(borrower1.monthlyCpfOa)}/mo</span>
+                  </div>
+                  {borrower2 && (
+                    <div className="px-3 pb-2 text-right">
+                      <span className="text-sm text-gray-300 font-mono tabular-nums">{formatCurrency(borrower2.monthlyCpfOa)}/mo</span>
+                    </div>
+                  )}
+                </div>
+                <div className={cn(
+                  "grid",
+                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
+                )}>
+                  <div className="px-3 pb-3">
+                    <span className="text-sm text-gray-400 pl-3">Total</span>
+                  </div>
+                  <div className="px-3 pb-3 text-right">
+                    <span className="text-sm text-white font-mono tabular-nums">{formatCurrency(borrower1.monthlyCpfOa * holdingMonths)}</span>
+                  </div>
+                  {borrower2 && (
+                    <div className="px-3 pb-3 text-right">
+                      <span className="text-sm text-white font-mono tabular-nums">{formatCurrency(borrower2.monthlyCpfOa * holdingMonths)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Totals Section */}
+              <div>
+                <div className={cn(
+                  "grid",
+                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
+                )}>
+                  <div className="p-3">
+                    <span className="text-sm text-gray-300">Total CPF Used</span>
+                  </div>
+                  <div className="p-3 text-right">
+                    <span className="text-sm text-white font-semibold font-mono tabular-nums">{formatCurrency(borrower1.totalCpfUsed)}</span>
+                  </div>
+                  {borrower2 && (
+                    <div className="p-3 text-right">
+                      <span className="text-sm text-white font-semibold font-mono tabular-nums">{formatCurrency(borrower2.totalCpfUsed)}</span>
+                    </div>
+                  )}
+                </div>
+                <div className={cn(
+                  "grid",
+                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
+                )}>
+                  <div className="px-3 pb-3">
+                    <span className="text-sm text-amber-400">+ Accrued Interest</span>
+                  </div>
+                  <div className="px-3 pb-3 text-right">
+                    <span className="text-sm text-amber-400 font-mono tabular-nums">{formatCurrency(borrower1.accruedInterest)}</span>
+                  </div>
+                  {borrower2 && (
+                    <div className="px-3 pb-3 text-right">
+                      <span className="text-sm text-amber-400 font-mono tabular-nums">{formatCurrency(borrower2.accruedInterest)}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Refund upon sale Row */}
+              <div className={cn(
+                "grid",
+                borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
+              )}>
+                <div className="p-3">
+                  <span className="text-sm text-gray-400">Refund upon sale</span>
+                </div>
+                <div className="p-3 text-right">
+                  <span className="text-lg font-semibold text-white font-mono tabular-nums">
+                    {formatCurrency(borrower1.totalCpfUsed + borrower1.accruedInterest)}
+                  </span>
+                </div>
+                {borrower2 && (
+                  <div className="p-3 text-right">
+                    <span className="text-lg font-semibold text-white font-mono tabular-nums">
+                      {formatCurrency(borrower2.totalCpfUsed + borrower2.accruedInterest)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Grants Display */}
@@ -228,31 +299,6 @@ export function PropertyCPFDetail({
             grants={scenario.grants || []}
             isPrivateProperty={isPrivateProperty}
           />
-        )}
-
-        {/* Sale Impact (only if sale date is set) */}
-        {(activeTab === 'all' || activeTab === 'sale') && sg.saleExpectedDate && (
-          <SaleImpactSection
-            expectedSaleDate={sg.saleExpectedDate}
-            expectedSalePrice={expectedSalePrice}
-            outstandingLoan={outstandingLoan}
-            sellingCosts={sellingCosts}
-            cpfPrincipal={totalCpfUsed}
-            cpfAccruedInterest={totalAccruedInterest}
-            netCashProceeds={netCashProceeds}
-            borrowerRefunds={borrowerRefunds}
-          />
-        )}
-
-        {/* Empty state for Sale tab when no sale date */}
-        {activeTab === 'sale' && !sg.saleExpectedDate && (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Banknote className="h-8 w-8 text-gray-500 mb-3" />
-            <p className="text-sm text-gray-300">No expected sale date set</p>
-            <p className="text-sm text-gray-400 mt-1">
-              Edit the property to add a sale date and see sale impact projections.
-            </p>
-          </div>
         )}
       </div>
     </div>
