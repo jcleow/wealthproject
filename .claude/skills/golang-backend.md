@@ -663,6 +663,38 @@ func CreateAssetFixture(t *testing.T, pool *pgxpool.Pool, userID, name string) s
 ❌ **Missing request timeouts** - use context with deadline
 ❌ **Blocking main goroutine** - use separate goroutines for cleanup tasks
 ❌ **Naked returns in complex functions** - use named returns only when helpful
+❌ **Magic numbers** - define named constants with clear meaning
+
+### Magic Numbers
+
+Never use unexplained numeric literals in code. Define constants with descriptive names:
+
+```go
+// ❌ BAD - magic numbers
+interestRate := totalAmount.Mul(decimal.MustFromString("0.025"))
+if monthsSinceStart > 360 {
+    monthsSinceStart = 360
+}
+outstandingLoan := price.Mul(decimal.MustFromString("0.56"))
+
+// ✅ GOOD - named constants
+const (
+    CPFAccruedInterestRate = "0.025" // 2.5% p.a. per CPF Board regulations
+    MaxLoanTermMonths      = 360     // 30 years maximum loan term
+    EstimatedLoanRemaining = "0.56"  // ~80% LTV * 70% remaining principal
+)
+
+interestRate := totalAmount.Mul(decimal.MustFromString(CPFAccruedInterestRate))
+if monthsSinceStart > MaxLoanTermMonths {
+    monthsSinceStart = MaxLoanTermMonths
+}
+outstandingLoan := price.Mul(decimal.MustFromString(EstimatedLoanRemaining))
+```
+
+Constants should be defined at:
+- **Package level** for domain-specific values (rates, limits, thresholds)
+- **Function level** for local loop bounds or array sizes
+- Include comments explaining the source or reasoning for the value
 
 ---
 
