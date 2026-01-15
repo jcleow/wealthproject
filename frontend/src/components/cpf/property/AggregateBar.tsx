@@ -1,7 +1,8 @@
 'use client'
 
 import { formatCurrency } from '@/lib/format'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, Info } from 'lucide-react'
+import * as Tooltip from '@radix-ui/react-tooltip'
 
 interface AggregateStats {
   activeCount: number
@@ -40,6 +41,33 @@ export function AggregateBar({ stats }: AggregateBarProps) {
             Across All Active Properties
           </span>
           <span className="text-xs text-slate-500">({stats.activeCount})</span>
+
+          {hasData && (
+            <Tooltip.Provider delayDuration={200}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button type="button" className="ml-auto flex items-center gap-1 text-slate-500 hover:text-slate-400 transition">
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="bottom"
+                    align="end"
+                    className="z-50 rounded-lg bg-slate-800 border border-white/[0.08] px-3 py-2 text-xs shadow-xl"
+                    sideOffset={4}
+                  >
+                    <p className="text-slate-400 mb-1">Must Refund at Sale</p>
+                    <p className="text-white font-medium font-mono tabular-nums">
+                      {formatCurrency(stats.mustRefundAtSale)}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-1">CPF Used + Accrued Interest</p>
+                    <Tooltip.Arrow className="fill-slate-800" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          )}
         </div>
 
         {!hasData ? (
@@ -101,15 +129,6 @@ export function AggregateBar({ stats }: AggregateBarProps) {
           </div>
         )}
 
-        {/* Must Refund Summary */}
-        {hasData && (
-          <div className="mt-4 pt-3 border-t border-white/[0.06] flex items-center justify-between">
-            <span className="text-xs text-slate-400">Must Refund at Sale (CPF + Interest)</span>
-            <span className="text-sm font-semibold text-white font-mono tabular-nums">
-              {formatCurrency(stats.mustRefundAtSale)}
-            </span>
-          </div>
-        )}
       </div>
     </div>
   )
