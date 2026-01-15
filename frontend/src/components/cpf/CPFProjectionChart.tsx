@@ -190,7 +190,6 @@ interface VisibleAccounts {
 export function CPFProjectionChart({ profile, className }: CPFProjectionChartProps) {
   const [assumptions, setAssumptions] = useState<CPFAssumptions>(DEFAULT_CPF_ASSUMPTIONS)
   const [chartView, setChartView] = useState<ChartView>('balance')
-  const [selectedPayoutPlan, setSelectedPayoutPlan] = useState<'standard' | 'basic' | 'escalating'>('standard')
   const [visibleAccounts, setVisibleAccounts] = useState<VisibleAccounts>({
     oa: true,
     sa: true,
@@ -245,7 +244,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
   const payoutProjection = useMemo(() => {
     if (!retirement) return []
 
-    const monthlyPayout = retirement.cpfLifeEstimates[selectedPayoutPlan]
+    const monthlyPayout = retirement.cpfLifeEstimates[assumptions.cpfLifePlan]
     if (!monthlyPayout || monthlyPayout <= 0) return []
 
     // Calculate birth year from profile age
@@ -258,13 +257,13 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     return generatePayoutProjection(
       monthlyPayout,
       assumptions.payoutStartAge,
-      selectedPayoutPlan,
+      assumptions.cpfLifePlan,
       birthYear,
       initialRA,
       assumptions.basicPlanPremiumPercent,
       assumptions.escalatingPlanGrowth
     )
-  }, [retirement, selectedPayoutPlan, profile.age, assumptions.payoutStartAge, assumptions.basicPlanPremiumPercent, assumptions.escalatingPlanGrowth])
+  }, [retirement, assumptions.cpfLifePlan, profile.age, assumptions.payoutStartAge, assumptions.basicPlanPremiumPercent, assumptions.escalatingPlanGrowth])
 
   const milestones = [
     { age: 55, label: 'RA Formation', color: '#f59e0b' },
@@ -407,138 +406,111 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
         <CPFLifePayoutCard
           estimates={retirement.cpfLifeEstimates}
           payoutStartAge={assumptions.payoutStartAge}
-          selectedPlan={selectedPayoutPlan}
-          onPlanChange={setSelectedPayoutPlan}
+          selectedPlan={assumptions.cpfLifePlan}
         />
         <RetirementTargetsCard />
       </div>
 
       {/* Main Chart */}
       <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-slate-300">
-                {chartView === 'balance' ? 'CPF Balance Projection' : 'CPF LIFE Payout Projection'}
-              </h3>
-              {isLoading && (
-                <span className="text-xs text-slate-500 animate-pulse">Loading...</span>
-              )}
-              {!isLoading && !!error && (
-                <span className="text-xs text-amber-400">Using estimates</span>
-              )}
-            </div>
-            <p className="text-xs text-slate-500">
-              {chartView === 'balance' ? (
-                projection && projection.length > 0
-                  ? `Age ${projection[0].age} to ${projection[projection.length - 1].age}`
-                  : `Age ${profile.age} to 100`
-              ) : (
-                payoutProjection.length > 0
-                  ? `Age ${payoutProjection[0].age} to ${payoutProjection[payoutProjection.length - 1].age}`
-                  : `Age ${assumptions.payoutStartAge} to 100`
-              )}
-            </p>
+        <div className="mb-4 flex items-center gap-3">
+          {/* Chart View Toggle */}
+          <div className="flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.06]">
+            <button
+              type="button"
+              onClick={() => setChartView('balance')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
+                chartView === 'balance'
+                  ? 'bg-white/[0.1] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              Balance
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartView('payout')}
+              className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
+                chartView === 'payout'
+                  ? 'bg-white/[0.1] text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-300'
+              }`}
+            >
+              Payout
+            </button>
           </div>
-          <div className="flex items-center gap-4">
-            {/* Legend - show different legend based on view */}
-            {chartView === 'balance' ? (
-              <div className="flex items-center gap-6">
-                {/* Account legend - clickable to toggle visibility */}
-                <div className="flex items-center gap-3">
-                  {[
-                    { key: 'oa' as AccountKey, label: 'OA', color: '#3b82f6', dashed: false },
-                    { key: 'sa' as AccountKey, label: 'SA', color: '#10b981', dashed: false },
-                    { key: 'ma' as AccountKey, label: 'MA', color: '#f59e0b', dashed: false },
-                    { key: 'ra' as AccountKey, label: 'RA', color: '#8b5cf6', dashed: false },
-                    { key: 'oaSa' as AccountKey, label: 'OA + SA', color: '#94a3b8', dashed: true },
-                  ].map((item) => {
-                    const isVisible = visibleAccounts[item.key]
-                    return (
-                      <button
-                        key={item.label}
-                        type="button"
-                        onClick={() => toggleAccount(item.key)}
-                        className={`flex items-center gap-1.5 px-1.5 py-0.5 rounded transition-all duration-150 hover:bg-white/[0.05] ${
-                          isVisible ? '' : 'opacity-40'
-                        }`}
-                        title={isVisible ? `Hide ${item.label}` : `Show ${item.label}`}
-                      >
-                        {item.dashed ? (
-                          <svg width="10" height="2" className="flex-shrink-0">
-                            <line x1="0" y1="1" x2="10" y2="1" stroke={item.color} strokeWidth="2" strokeDasharray="2 1" />
-                          </svg>
-                        ) : (
-                          <div
-                            className="h-2 w-2 rounded-full"
-                            style={{ backgroundColor: item.color }}
-                          />
-                        )}
-                        <span className={`text-xs ${isVisible ? 'text-slate-400' : 'text-slate-600'}`}>
-                          {item.label}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-                {/* Retirement sum thresholds legend */}
-                <div className="flex items-center gap-3 pl-3 border-l border-white/[0.08]">
-                  {[
-                    { label: 'BRS', color: '#facc15', Icon: Shield },
-                    { label: 'FRS', color: '#38bdf8', Icon: ShieldCheck },
-                    { label: 'ERS', color: '#a78bfa', Icon: Star },
-                    { label: 'BHS', color: '#f472b6', Icon: Heart },
-                  ].map((item) => (
-                    <div key={item.label} className="flex items-center gap-1">
-                      <div
-                        className="flex items-center justify-center w-4 h-4 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      >
-                        <item.Icon className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
-                      </div>
-                      <span className="text-xs text-slate-500">{item.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                {/* Payout legend */}
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <span className="text-xs text-slate-400">
-                    {selectedPayoutPlan.charAt(0).toUpperCase() + selectedPayoutPlan.slice(1)} Plan
-                  </span>
-                </div>
-              </div>
-            )}
 
-            {/* Chart View Toggle - positioned at far right */}
-            <div className="flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.06]">
-              <button
-                type="button"
-                onClick={() => setChartView('balance')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
-                  chartView === 'balance'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                Balance
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartView('payout')}
-                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150 ${
-                  chartView === 'payout'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                Payout
-              </button>
+          <div className="h-4 w-px bg-white/[0.08]" />
+
+          {/* Legend */}
+          {chartView === 'balance' ? (
+            <div className="flex items-center gap-2">
+              {[
+                { key: 'oa' as AccountKey, label: 'OA', color: '#3b82f6', dashed: false },
+                { key: 'sa' as AccountKey, label: 'SA', color: '#10b981', dashed: false },
+                { key: 'ma' as AccountKey, label: 'MA', color: '#f59e0b', dashed: false },
+                { key: 'ra' as AccountKey, label: 'RA', color: '#8b5cf6', dashed: false },
+                { key: 'oaSa' as AccountKey, label: 'OA+SA', color: '#94a3b8', dashed: true },
+              ].map((item) => {
+                const isVisible = visibleAccounts[item.key]
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => toggleAccount(item.key)}
+                    className={`flex items-center gap-1 px-1 py-0.5 rounded transition-all duration-150 hover:bg-white/[0.05] ${
+                      isVisible ? '' : 'opacity-40'
+                    }`}
+                    title={isVisible ? `Hide ${item.label}` : `Show ${item.label}`}
+                  >
+                    {item.dashed ? (
+                      <svg width="8" height="2" className="flex-shrink-0">
+                        <line x1="0" y1="1" x2="8" y2="1" stroke={item.color} strokeWidth="2" strokeDasharray="2 1" />
+                      </svg>
+                    ) : (
+                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    )}
+                    <span className={`text-[10px] ${isVisible ? 'text-slate-400' : 'text-slate-600'}`}>
+                      {item.label}
+                    </span>
+                  </button>
+                )
+              })}
+              <div className="h-3 w-px bg-white/[0.06] mx-1" />
+              {[
+                { label: 'BRS', color: '#facc15', Icon: Shield },
+                { label: 'FRS', color: '#38bdf8', Icon: ShieldCheck },
+                { label: 'ERS', color: '#a78bfa', Icon: Star },
+                { label: 'BHS', color: '#f472b6', Icon: Heart },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-0.5">
+                  <div
+                    className="flex items-center justify-center w-3.5 h-3.5 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  >
+                    <item.Icon className="w-2 h-2 text-white" strokeWidth={2.5} />
+                  </div>
+                  <span className="text-[10px] text-slate-500">{item.label}</span>
+                </div>
+              ))}
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+              <span className="text-[10px] text-slate-400">Balance</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 ml-2" />
+              <span className="text-[10px] text-slate-400">
+                {assumptions.cpfLifePlan.charAt(0).toUpperCase() + assumptions.cpfLifePlan.slice(1)} Payout
+              </span>
+            </div>
+          )}
+
+          {isLoading && (
+            <span className="text-[10px] text-slate-500 animate-pulse ml-auto">Loading...</span>
+          )}
+          {!isLoading && !!error && (
+            <span className="text-[10px] text-amber-400 ml-auto">Using estimates</span>
+          )}
         </div>
 
         <div className="h-80">
@@ -780,7 +752,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                               {formatCurrency(data.cumulativePayouts)}
                             </span>
                           </div>
-                          {selectedPayoutPlan === 'basic' && data.remainingRA > 0 && (
+                          {assumptions.cpfLifePlan === 'basic' && data.remainingRA > 0 && (
                             <div className="flex items-center justify-between gap-4 text-xs">
                               <span className="text-slate-500 pl-3">└ RA Balance</span>
                               <span className="font-mono text-slate-400">
@@ -799,7 +771,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                           </div>
                         </div>
 
-                        {selectedPayoutPlan === 'escalating' && (
+                        {assumptions.cpfLifePlan === 'escalating' && (
                           <p className="mt-2 text-xs text-slate-500">
                             Payouts increase +2% annually
                           </p>
@@ -931,21 +903,13 @@ function CPFLifePayoutCard({
   estimates,
   payoutStartAge,
   selectedPlan,
-  onPlanChange,
 }: {
   estimates: { standard: number; basic: number; escalating: number }
   payoutStartAge: number
   selectedPlan: 'standard' | 'basic' | 'escalating'
-  onPlanChange: (plan: 'standard' | 'basic' | 'escalating') => void
 }) {
-
-  const plans = [
-    { key: 'standard' as const, label: 'Standard', amount: estimates.standard },
-    { key: 'basic' as const, label: 'Basic', amount: estimates.basic },
-    { key: 'escalating' as const, label: 'Escalating', amount: estimates.escalating },
-  ]
-
-  const currentPlan = plans.find((p) => p.key === selectedPlan)!
+  const amount = estimates[selectedPlan]
+  const planLabel = selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
@@ -954,25 +918,17 @@ function CPFLifePayoutCard({
         <p className="text-xs text-slate-500">Starting at age {payoutStartAge}</p>
       </div>
       <p className="mt-1 text-xl font-semibold text-emerald-400">
-        {formatCurrency(currentPlan.amount)}/mo
+        {formatCurrency(amount)}/mo
       </p>
 
-      {/* Plan toggle */}
-      <div className="mt-3 flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.06]">
-        {plans.map((plan) => (
-          <button
-            key={plan.key}
-            type="button"
-            onClick={() => onPlanChange(plan.key)}
-            className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-150 ${
-              selectedPlan === plan.key
-                ? 'bg-white/[0.1] text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
-            {plan.label}
-          </button>
-        ))}
+      {/* Plan info - display only */}
+      <div className="mt-3 flex items-center gap-2">
+        <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] font-medium text-purple-300">
+          {planLabel} Plan
+        </span>
+        {selectedPlan === 'escalating' && (
+          <span className="text-[10px] text-slate-500">+2%/yr</span>
+        )}
       </div>
     </div>
   )
