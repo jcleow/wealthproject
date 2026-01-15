@@ -56,7 +56,7 @@ function PropertyScenarioCard({
       className={cn(
         "w-full text-left p-3 rounded-xl border transition-all",
         isSelected
-          ? "border-emerald-500/40 bg-emerald-500/10"
+          ? "border-gray-500 bg-gray-800"
           : isDraft
             ? "border-amber-500/20 bg-amber-500/5 hover:border-amber-500/30"
             : "border-gray-700 bg-gray-900/60 hover:border-gray-600 hover:bg-gray-800/60"
@@ -66,11 +66,11 @@ function PropertyScenarioCard({
         {/* Icon */}
         <div className={cn(
           "flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0",
-          isSelected ? "bg-emerald-500/20" : isDraft ? "bg-amber-500/20" : "bg-gray-800"
+          isSelected ? "bg-gray-700" : isDraft ? "bg-amber-500/20" : "bg-gray-800"
         )}>
           <PropertyIcon className={cn(
             "h-5 w-5",
-            isSelected ? "text-emerald-400" : isDraft ? "text-amber-400" : "text-gray-400"
+            isSelected ? "text-white" : isDraft ? "text-amber-400" : "text-gray-400"
           )} />
         </div>
 
