@@ -18,13 +18,14 @@ import {
   CPFContributionFlow,
   CPFISInvestmentDashboard,
   TopUpTaxReliefCalculator,
-  PropertyCPFUsage,
   CPFProjectionChart,
   CPFContributionCalculator,
   CPFHousingCalculator,
   CPFJourneyCalculator,
   Age55ConversionSimulator,
+  CPFLifePayoutDebug,
 } from '@/components/cpf'
+import { CPFPropertyOverview } from '@/components/cpf/property'
 import {
   mockCPFProfile,
   mockCPFISInvestments,
@@ -503,7 +504,7 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
           </div>
         )}
 
-        {activeTab === 'property' && <PropertyCPFUsage />}
+        {activeTab === 'property' && <CPFPropertyOverview />}
 
         {activeTab === 'learn' && (
           <div className="space-y-4">
@@ -564,6 +565,9 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
           )}
         </p>
       </div>
+
+      {/* Dev-only debug panel for CPF LIFE payout testing */}
+      <CPFLifePayoutDebug />
     </div>
   )
 }
