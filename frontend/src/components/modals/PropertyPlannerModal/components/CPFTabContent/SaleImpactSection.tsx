@@ -40,7 +40,7 @@ export function SaleImpactSection({
     : 'Not set'
 
   return (
-    <div className="rounded-xl border border-gray-700 bg-gray-900/60 p-4">
+    <div className="rounded-xl border border-white/[0.06] p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-base font-medium text-gray-200">Upon Sale</h4>
@@ -88,7 +88,7 @@ export function SaleImpactSection({
         </div>
 
         {/* Net Cash Proceeds */}
-        <div className="flex justify-between items-center pt-3 mt-2 border-t border-gray-700">
+        <div className="flex justify-between items-center pt-3 mt-2 border-t border-white/[0.06]">
           <span className="text-sm font-medium text-gray-300">Net Cash Proceeds</span>
           <span className={cn(
             "text-xl font-semibold font-mono tabular-nums",
@@ -104,10 +104,10 @@ export function SaleImpactSection({
 
       {/* CPF Refund Destinations */}
       {borrowerRefunds.length > 0 && (
-        <div className="pt-4 border-t border-gray-700">
+        <div className="pt-4 border-t border-white/[0.06]">
           <p className="text-sm font-medium text-gray-400 uppercase tracking-wide mb-3">CPF Refund Destinations</p>
 
-          <div className="rounded-lg bg-gray-800 border border-gray-700 p-3 space-y-2">
+          <div className="rounded-lg border border-white/[0.06] p-3 space-y-2">
             {borrowerRefunds.map((refund, index) => (
               <div key={index} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">

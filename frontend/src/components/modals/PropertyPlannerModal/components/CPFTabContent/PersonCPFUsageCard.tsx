@@ -23,7 +23,7 @@ export function PersonCPFUsageCard({
   const mustRefund = totalCpfUsed + accruedInterest
 
   return (
-    <div className="rounded-xl border border-gray-700 bg-gray-900/60 p-4">
+    <div className="rounded-xl border border-white/[0.06] p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
@@ -59,7 +59,7 @@ export function PersonCPFUsageCard({
       </div>
 
       {/* Divider */}
-      <div className="border-t border-gray-700 my-3" />
+      <div className="border-t border-white/[0.06] my-3" />
 
       {/* Totals */}
       <div className="space-y-2">
@@ -74,7 +74,7 @@ export function PersonCPFUsageCard({
       </div>
 
       {/* Must Refund */}
-      <div className="mt-4 pt-3 border-t border-gray-700">
+      <div className="mt-4 pt-3 border-t border-white/[0.06]">
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-400">Must Refund</span>
           <span className="text-xl font-semibold text-white font-mono tabular-nums">

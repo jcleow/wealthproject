@@ -150,10 +150,10 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
       <div className="flex h-full gap-4">
         <div className="w-[35%] space-y-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-900/60 border border-gray-700" />
+            <div key={i} className="h-24 animate-pulse rounded-xl border border-white/[0.06]" />
           ))}
         </div>
-        <div className="flex-1 h-96 animate-pulse rounded-xl bg-gray-900/60 border border-gray-700" />
+        <div className="flex-1 h-96 animate-pulse rounded-xl border border-white/[0.06]" />
       </div>
     )
   }
@@ -162,7 +162,7 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
   if (scenarios.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-800 mb-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/[0.06] mb-4">
           <Home className="h-8 w-8 text-gray-400" />
         </div>
         <h3 className="text-lg font-medium text-white mb-2">No Property Scenarios Yet</h3>
@@ -208,7 +208,7 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
               onEditInPropertyPlanner={() => onOpenPropertyPlanner?.(selectedScenario.scenario.id)}
             />
           ) : (
-            <div className="flex items-center justify-center h-full rounded-xl border border-gray-700 bg-gray-900/60">
+            <div className="flex items-center justify-center h-full rounded-xl border border-white/[0.06]">
               <p className="text-sm text-gray-400">Select a property to view CPF details</p>
             </div>
           )}

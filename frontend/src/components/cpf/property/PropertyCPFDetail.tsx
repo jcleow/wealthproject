@@ -130,9 +130,9 @@ export function PropertyCPFDetail({
   const isPrivateProperty = sg.propertyType === 'private'
 
   return (
-    <div className="rounded-xl border border-gray-700 bg-gray-900/60 overflow-hidden">
+    <div className="rounded-xl border border-white/[0.06] overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-4 border-b border-gray-700">
+      <div className="px-4 py-4 border-b border-white/[0.06]">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg font-medium text-white">{sg.name}</h3>
@@ -151,7 +151,7 @@ export function PropertyCPFDetail({
         </div>
 
         {/* Segmented Control for Section Views */}
-        <div className="inline-flex rounded-lg bg-gray-800 p-1 border border-gray-700">
+        <div className="inline-flex rounded-lg bg-white/[0.03] p-1 border border-white/[0.08]">
           {DETAIL_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -201,7 +201,7 @@ export function PropertyCPFDetail({
 
             {/* Combined Total (for joint) */}
             {borrower2 && (
-              <div className="mt-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700">
+              <div className="mt-3 p-3 rounded-lg border border-white/[0.06]">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-300">Combined Total</span>
                   <span className="text-white font-medium font-mono tabular-nums">

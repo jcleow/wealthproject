@@ -56,17 +56,17 @@ function PropertyScenarioCard({
       className={cn(
         "w-full text-left p-3 rounded-xl border transition-all",
         isSelected
-          ? "border-gray-500"
+          ? "border-white/20"
           : isDraft
-            ? "border-amber-500/30 hover:border-amber-500/50"
-            : "border-gray-700 hover:border-gray-500"
+            ? "border-amber-500/20 hover:border-amber-500/40"
+            : "border-white/[0.06] hover:border-white/[0.12]"
       )}
     >
       <div className="flex items-start gap-3">
         {/* Icon */}
         <div className={cn(
           "flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0 border",
-          isSelected ? "border-gray-500" : isDraft ? "border-amber-500/30" : "border-gray-700"
+          isSelected ? "border-white/20" : isDraft ? "border-amber-500/20" : "border-white/[0.06]"
         )}>
           <PropertyIcon className={cn(
             "h-5 w-5",
@@ -143,7 +143,7 @@ export function PropertyScenarioList({
 
       {/* Active Property Cards */}
       {activeScenarios.length === 0 ? (
-        <div className="rounded-xl border border-gray-700 bg-gray-900/60 p-4 text-center">
+        <div className="rounded-xl border border-white/[0.06] p-4 text-center">
           <p className="text-sm text-gray-400">No active properties</p>
         </div>
       ) : (

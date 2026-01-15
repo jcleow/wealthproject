@@ -32,7 +32,7 @@ export function AggregateBar({ stats }: AggregateBarProps) {
   const hasData = stats.activeCount > 0
 
   return (
-    <div className="rounded-xl border border-gray-700 bg-gray-900/60 p-4">
+    <div className="rounded-xl border border-white/[0.06] p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <BarChart3 className="h-4 w-4 text-gray-400" />
@@ -53,7 +53,7 @@ export function AggregateBar({ stats }: AggregateBarProps) {
                 <Tooltip.Content
                   side="bottom"
                   align="end"
-                  className="z-50 rounded-lg bg-gray-800 border border-gray-600 px-3 py-2.5 shadow-xl"
+                  className="z-50 rounded-lg border border-white/[0.08] px-3 py-2.5 shadow-xl bg-gray-900"
                   sideOffset={4}
                 >
                   <p className="text-sm font-medium text-gray-300 mb-1">Must Refund at Sale</p>
@@ -61,7 +61,7 @@ export function AggregateBar({ stats }: AggregateBarProps) {
                     {formatCurrency(stats.mustRefundAtSale)}
                   </p>
                   <p className="text-sm text-gray-400 mt-1.5">CPF Used + Accrued Interest</p>
-                  <Tooltip.Arrow className="fill-gray-800" />
+                  <Tooltip.Arrow className="fill-gray-900" />
                 </Tooltip.Content>
               </Tooltip.Portal>
             </Tooltip.Root>
