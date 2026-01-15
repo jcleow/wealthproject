@@ -60,13 +60,9 @@ export function SaleImpactSection({
 
       {/* Proceeds Breakdown */}
       <div className="space-y-3 mb-4">
-        <p className="text-sm font-medium text-gray-400 uppercase tracking-wide">Proceeds Breakdown</p>
+        <p className="text-sm font-medium text-gray-400 uppercase tracking-wide">Deductions</p>
 
         <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Expected Sale Price</span>
-            <span className="text-white font-mono tabular-nums">{formatCurrency(expectedSalePrice)}</span>
-          </div>
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">Less: Outstanding Loan</span>
             <span className="text-gray-300 font-mono tabular-nums">({formatCurrency(outstandingLoan)})</span>
