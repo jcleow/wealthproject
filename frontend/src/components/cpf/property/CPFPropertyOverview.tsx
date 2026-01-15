@@ -1,18 +1,14 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Home, Plus, LayoutGrid, List } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Home, Plus } from 'lucide-react'
 
 import { usePropertyPlannerV2ScenariosQuery } from '@/hooks/queries/usePropertyPlannerV2Query'
 import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
 import { PropertyScenarioList } from './PropertyScenarioList'
 import { PropertyCPFDetail } from './PropertyCPFDetail'
 import { AggregateBar } from './AggregateBar'
-import { CPFPropertyCard } from './CPFPropertyCard'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
-
-type ViewMode = 'overview' | 'list'
 
 interface CPFPropertyOverviewProps {
   onOpenPropertyPlanner?: (scenarioId?: string, initialTab?: string) => void
@@ -110,7 +106,6 @@ function useAggregateStats(scenarios: PropertyScenarioFull[], cpfAccounts: { id:
 }
 
 export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOverviewProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('overview')
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null)
 
   // Fetch property scenarios
@@ -188,133 +183,37 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header with View Mode Toggle */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-medium text-gray-200">CPF Property Overview</h2>
+      {/* Top Aggregate Bar */}
+      <AggregateBar stats={stats} />
 
-        {/* View Mode Toggle */}
-        <div className="inline-flex rounded-lg bg-gray-800 p-0.5 border border-gray-700">
-          <button
-            type="button"
-            onClick={() => setViewMode('overview')}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
-              viewMode === 'overview'
-                ? "bg-gray-700 text-white shadow-sm"
-                : "text-gray-400 hover:text-gray-200"
-            )}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-            Overview
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('list')}
-            className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
-              viewMode === 'list'
-                ? "bg-gray-700 text-white shadow-sm"
-                : "text-gray-400 hover:text-gray-200"
-            )}
-          >
-            <List className="h-3.5 w-3.5" />
-            List
-          </button>
+      {/* Main Two-Panel Layout */}
+      <div className="flex flex-1 gap-4 min-h-0 mt-4">
+        {/* Left Panel - Property List (35%) */}
+        <div className="w-[35%] flex-shrink-0 overflow-y-auto">
+          <PropertyScenarioList
+            activeScenarios={activeScenarios}
+            draftScenarios={draftScenarios}
+            selectedScenarioId={selectedScenarioId}
+            onSelectScenario={setSelectedScenarioId}
+            onOpenPropertyPlanner={onOpenPropertyPlanner}
+          />
         </div>
-      </div>
 
-      {viewMode === 'overview' ? (
-        <>
-          {/* Top Aggregate Bar */}
-          <AggregateBar stats={stats} />
-
-          {/* Main Two-Panel Layout */}
-          <div className="flex flex-1 gap-4 min-h-0 mt-4">
-            {/* Left Panel - Property List (35%) */}
-            <div className="w-[35%] flex-shrink-0 overflow-y-auto">
-              <PropertyScenarioList
-                activeScenarios={activeScenarios}
-                draftScenarios={draftScenarios}
-                selectedScenarioId={selectedScenarioId}
-                onSelectScenario={setSelectedScenarioId}
-                onOpenPropertyPlanner={onOpenPropertyPlanner}
-              />
-            </div>
-
-            {/* Right Panel - Selected Property Detail (65%) */}
-            <div className="flex-1 overflow-y-auto">
-              {selectedScenario ? (
-                <PropertyCPFDetail
-                  scenario={selectedScenario}
-                  cpfAccounts={cpfAccounts}
-                  onEditInPropertyPlanner={() => onOpenPropertyPlanner?.(selectedScenario.scenario.id)}
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full rounded-xl border border-gray-700 bg-gray-900/60">
-                  <p className="text-sm text-gray-400">Select a property to view CPF details</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </>
-      ) : (
-        /* List View - All properties in a single column */
-        <div className="flex-1 overflow-y-auto space-y-4">
-          {/* Add Property Button */}
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => onOpenPropertyPlanner?.()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Property
-            </button>
-          </div>
-
-          {/* Active Properties */}
-          {activeScenarios.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wide">
-                Active Properties ({activeScenarios.length})
-              </h3>
-              {activeScenarios.map(scenario => (
-                <CPFPropertyCard
-                  key={scenario.scenario.id}
-                  scenario={scenario}
-                  cpfAccounts={cpfAccounts}
-                  onViewDetails={() => onOpenPropertyPlanner?.(scenario.scenario.id, 'cpf')}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Draft Properties */}
-          {draftScenarios.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wide">
-                Draft Properties ({draftScenarios.length})
-              </h3>
-              {draftScenarios.map(scenario => (
-                <CPFPropertyCard
-                  key={scenario.scenario.id}
-                  scenario={scenario}
-                  cpfAccounts={cpfAccounts}
-                  isDraft
-                  onViewDetails={() => onOpenPropertyPlanner?.(scenario.scenario.id, 'cpf')}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Empty state */}
-          {scenarios.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-sm text-gray-400">No properties yet. Add one to get started.</p>
+        {/* Right Panel - Selected Property Detail (65%) */}
+        <div className="flex-1 overflow-y-auto">
+          {selectedScenario ? (
+            <PropertyCPFDetail
+              scenario={selectedScenario}
+              cpfAccounts={cpfAccounts}
+              onEditInPropertyPlanner={() => onOpenPropertyPlanner?.(selectedScenario.scenario.id)}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full rounded-xl border border-gray-700 bg-gray-900/60">
+              <p className="text-sm text-gray-400">Select a property to view CPF details</p>
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
