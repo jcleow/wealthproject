@@ -56,17 +56,17 @@ function PropertyScenarioCard({
       className={cn(
         "w-full text-left p-3 rounded-xl border transition-all",
         isSelected
-          ? "border-gray-500 bg-black/40"
+          ? "border-gray-500"
           : isDraft
-            ? "border-amber-500/20 bg-amber-500/5 hover:border-amber-500/30"
-            : "border-gray-700 bg-black/20 hover:border-gray-600 hover:bg-black/40"
+            ? "border-amber-500/30 hover:border-amber-500/50"
+            : "border-gray-700 hover:border-gray-500"
       )}
     >
       <div className="flex items-start gap-3">
         {/* Icon */}
         <div className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0",
-          isSelected ? "bg-black/60" : isDraft ? "bg-amber-500/20" : "bg-black/40"
+          "flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0 border",
+          isSelected ? "border-gray-500" : isDraft ? "border-amber-500/30" : "border-gray-700"
         )}>
           <PropertyIcon className={cn(
             "h-5 w-5",
