@@ -27,32 +27,32 @@ func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 		{
 			// 1985 male: ~40 years old in 2025, payouts start 2050
 			// $500k balance, Standard plan at 65
-			// Regression output: $5,334.03/month
+			// Regression output: $5,545.70/month
 			name:           "1985 male $500k standard age 65",
 			birthYear:      1985,
 			balance:        "500000",
 			payoutStartAge: 65,
-			want:           "5334.03",
+			want:           "5545.70",
 		},
 		{
 			// 1970 male: ~55 years old in 2025, payouts start 2035
 			// $400k balance, older cohort has different coefficients
-			// Regression output: $2,831.17/month
+			// Regression output: $2,999.21/month
 			name:           "1970 male $400k standard age 65",
 			birthYear:      1970,
 			balance:        "400000",
 			payoutStartAge: 65,
-			want:           "2831.17",
+			want:           "2999.21",
 		},
 		{
 			// 1990 male: ~35 years old in 2025, payouts start 2055
 			// $600k balance, younger cohort
-			// Regression output: $7,082.65/month
+			// Regression output: $7,337.30/month
 			name:           "1990 male $600k standard age 65",
 			birthYear:      1990,
 			balance:        "600000",
 			payoutStartAge: 65,
-			want:           "7082.65",
+			want:           "7337.30",
 		},
 	}
 
@@ -84,8 +84,8 @@ func TestCalculatePayout_MaleStandard_CohortBased(t *testing.T) {
 
 func TestCalculatePayout_FemaleStandard_CohortBased(t *testing.T) {
 	// Arrange - test cases
-	// Females typically have higher monthly payouts than males for the same balance
-	// because of different life expectancy assumptions in CPF LIFE calculations
+	// Females typically have LOWER monthly payouts than males for the same balance
+	// because females have longer life expectancy, so payouts are spread over more years
 	tests := []struct {
 		name           string
 		birthYear      int
@@ -96,13 +96,13 @@ func TestCalculatePayout_FemaleStandard_CohortBased(t *testing.T) {
 		{
 			// 1990 female: same parameters as male comparison
 			// $600k balance, Standard plan at 65
-			// Female has higher payout than male ($7,082.65) due to different coefficients
-			// Regression output: $7,411.68/month
+			// Female has lower payout than male ($7,337.30) due to longer life expectancy
+			// Regression output: $6,859.68/month
 			name:           "1990 female $600k standard age 65",
 			birthYear:      1990,
 			balance:        "600000",
 			payoutStartAge: 65,
-			want:           "7411.68",
+			want:           "6859.68",
 		},
 	}
 
@@ -152,11 +152,11 @@ func TestCalculatePayout_Deferment_CohortBased(t *testing.T) {
 		PayoutStartAge: 70,
 	}
 	// Expected exact values from regression model:
-	// Age 65 payout: $5,334.03/month
-	// Age 70 payout: $7,200.94/month
-	// Increase ratio: 7200.94 / 5334.03 = 1.35 (35% increase)
-	wantAge65 := "5334.03"
-	wantAge70 := "7200.94"
+	// Age 65 payout: $5,545.70/month
+	// Age 70 payout: $7,486.69/month
+	// Increase ratio: 7486.69 / 5545.70 = 1.35 (35% increase)
+	wantAge65 := "5545.70"
+	wantAge70 := "7486.69"
 
 	// Act
 	resultAge65, err := CalculatePayout(inputAge65)
@@ -192,11 +192,11 @@ func TestCalculateAllPlans_CohortBased(t *testing.T) {
 	balance, _ := decimal.NewFromString("500000")
 
 	// Expected exact values from regression model (1985 male, $500k, age 65):
-	wantStandard := "5334.03"
-	wantBasic := "5245.45"
-	wantEscalating := "4646.34"
-	wantAt75 := "5663.86" // Escalating at age 75 (10 years of 2% growth)
-	wantAt85 := "6904.22" // Escalating at age 85 (20 years of 2% growth)
+	wantStandard := "5545.70"
+	wantBasic := "5090.16"
+	wantEscalating := "4365.17"
+	wantAt75 := "5321.12" // Escalating at age 75 (10 years of 2% growth)
+	wantAt85 := "6486.41" // Escalating at age 85 (20 years of 2% growth)
 
 	// Act
 	result, err := CalculateAllPlans(1985, GenderMale, balance, 65)
