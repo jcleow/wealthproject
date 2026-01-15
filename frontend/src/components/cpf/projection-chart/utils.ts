@@ -121,6 +121,25 @@ export function generatePayoutProjection(
     const year = birthYear + age
     const annualPayout = currentPayout * 12
 
+    // Calculate total remaining balance at START of this year (before payouts)
+    const totalRemainingBalance = remainingPremium + remainingRA
+
+    // Calculate bequest value (what beneficiaries get if member passes at this age)
+    const bequestValue = totalRemainingBalance
+
+    projection.push({
+      age,
+      year,
+      monthlyPayout: currentPayout,
+      annualPayout,
+      cumulativePayouts,
+      remainingPremium,
+      remainingRA,
+      bequestValue,
+      totalRemainingBalance,
+    })
+
+    // Now subtract this year's payouts for the next iteration
     if (plan === 'basic') {
       if (remainingRA > 0 && age < 90) {
         remainingRA = Math.max(0, remainingRA - annualPayout)
@@ -132,19 +151,6 @@ export function generatePayoutProjection(
     }
 
     cumulativePayouts += annualPayout
-
-    const bequestValue = plan === 'basic' ? remainingRA + remainingPremium : remainingPremium
-
-    projection.push({
-      age,
-      year,
-      monthlyPayout: currentPayout,
-      annualPayout,
-      cumulativePayouts,
-      remainingPremium,
-      remainingRA,
-      bequestValue,
-    })
 
     if (plan === 'escalating') {
       currentPayout = currentPayout * (1 + escalatingGrowth)

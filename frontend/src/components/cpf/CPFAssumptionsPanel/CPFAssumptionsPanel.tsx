@@ -199,7 +199,7 @@ export function CPFAssumptionsPanel({
             </span>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="w-1/4">
             <PercentSlider
               label="FRS Growth Rate"
               value={assumptions.frsGrowthRate}
@@ -208,15 +208,6 @@ export function CPFAssumptionsPanel({
               max={0.05}
               color="blue"
               tooltip="Annual growth of retirement sum targets"
-            />
-            <PercentSlider
-              label="Escalating Plan Growth"
-              value={assumptions.escalatingPlanGrowth}
-              onChange={(v) => handleValueChange('escalatingPlanGrowth', v)}
-              min={0.01}
-              max={0.03}
-              color="blue"
-              tooltip="Annual payout increase for Escalating Plan"
             />
           </div>
         </div>
@@ -259,6 +250,7 @@ export function CPFAssumptionsPanel({
           </div>
 
           <div className="flex gap-4">
+            {/* Payout Start Age - always shown */}
             <div className="w-1/4 space-y-1.5">
               <PercentSlider
                 label="Payout Start Age"
@@ -278,19 +270,39 @@ export function CPFAssumptionsPanel({
                 </div>
               )}
             </div>
-            <div className="w-1/4 space-y-1.5">
-              <PercentSlider
-                label="Basic Plan Premium"
-                value={assumptions.basicPlanPremiumPercent}
-                onChange={(v) => handleValueChange('basicPlanPremiumPercent', v)}
-                min={0.10}
-                max={0.20}
-                step={0.01}
-                color="blue"
-                tooltip="Portion of RA set aside as CPF LIFE premium for Basic plan (10-20%)"
-                showSlider
-              />
-            </div>
+
+            {/* Basic Plan Premium - only shown for Basic plan */}
+            {assumptions.cpfLifePlan === 'basic' && (
+              <div className="w-1/4 space-y-1.5">
+                <PercentSlider
+                  label="Basic Plan Premium"
+                  value={assumptions.basicPlanPremiumPercent}
+                  onChange={(v) => handleValueChange('basicPlanPremiumPercent', v)}
+                  min={0.10}
+                  max={0.20}
+                  step={0.01}
+                  color="blue"
+                  tooltip="Portion of RA set aside as CPF LIFE premium for Basic plan (10-20%)"
+                  showSlider
+                />
+              </div>
+            )}
+
+            {/* Escalating Plan Growth - only shown for Escalating plan */}
+            {assumptions.cpfLifePlan === 'escalating' && (
+              <div className="w-1/4 space-y-1.5">
+                <PercentSlider
+                  label="Escalating Plan Growth"
+                  value={assumptions.escalatingPlanGrowth}
+                  onChange={(v) => handleValueChange('escalatingPlanGrowth', v)}
+                  min={0.01}
+                  max={0.03}
+                  color="blue"
+                  tooltip="Annual payout increase for Escalating Plan (default 2%)"
+                  showSlider
+                />
+              </div>
+            )}
           </div>
         </div>
 

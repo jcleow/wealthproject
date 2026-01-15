@@ -21,6 +21,7 @@ export interface PayoutProjectionYear {
   remainingPremium: number
   remainingRA: number
   bequestValue: number
+  totalRemainingBalance: number
 }
 
 export interface ThresholdAges {
