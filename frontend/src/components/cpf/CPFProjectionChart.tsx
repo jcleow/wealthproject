@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useRef } from 'react'
 import {
   Area,
   ComposedChart,
@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts'
-import { Shield, ShieldCheck, Star, Heart } from 'lucide-react'
+import { Shield, ShieldCheck, Star, Heart, Info } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 import { CPF_CONSTANTS } from '@/lib/cpf-constants'
@@ -206,22 +206,42 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
   }
 
   // Fetch real projection data from backend
+  // Use isFetching to show loading indicator while keeping previous data visible
   const {
     data: apiResponse,
     isLoading,
+    isFetching,
     error,
   } = useCpfBalanceProjectionQuery(profile.id, {
     retirementAge: assumptions.retirementAge,
     payoutStartAge: assumptions.payoutStartAge,
   })
 
+  // Store the last known good response to prevent flashing during refetch
+  const lastKnownResponseRef = useRef<CPFBalanceProjectionResponse | undefined>(apiResponse)
+  if (apiResponse) {
+    lastKnownResponseRef.current = apiResponse
+  }
+  // Use the current response if available, otherwise fall back to last known
+  const effectiveResponse = apiResponse ?? lastKnownResponseRef.current
+
   // Transform API response - no mock data fallback
-  const { projection, retirement } = useMemo(() => {
-    if (!apiResponse) {
+  const transformedData = useMemo(() => {
+    if (!effectiveResponse) {
       return { projection: null, retirement: null }
     }
-    return transformProjectionData(apiResponse)
-  }, [apiResponse])
+    return transformProjectionData(effectiveResponse)
+  }, [effectiveResponse])
+
+  // Store last known good projection data to prevent flashing during refetch
+  const lastKnownProjectionRef = useRef(transformedData)
+  if (transformedData.projection && transformedData.retirement) {
+    lastKnownProjectionRef.current = transformedData
+  }
+
+  // Use current data if available, otherwise fall back to last known
+  const projection = transformedData.projection ?? lastKnownProjectionRef.current.projection
+  const retirement = transformedData.retirement ?? lastKnownProjectionRef.current.retirement
 
   // Transform projection for chart display:
   // - SA ends at age 55 (becomes part of RA)
@@ -361,26 +381,22 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     )
   }
 
-  // Show loading or no-data state
-  if (isLoading) {
-    return (
-      <div className={`space-y-6 ${className}`}>
-        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-          <div className="flex items-center justify-center h-80">
-            <span className="text-slate-400 animate-pulse">Loading projection...</span>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
+  // Show loading/empty state only on initial load (when there's never been valid data)
+  // During refetch, we keep showing previous data with a loading indicator
+  // The refs ensure we never flash back to loading state once data has been loaded
   if (!projection || !retirement) {
     return (
       <div className={`space-y-6 ${className}`}>
         <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
           <div className="flex flex-col items-center justify-center h-80 gap-2">
-            <span className="text-slate-400">No CPF account found</span>
-            <span className="text-xs text-slate-500">Create a CPF account to see projections</span>
+            {isLoading ? (
+              <span className="text-slate-400 animate-pulse">Loading projection...</span>
+            ) : (
+              <>
+                <span className="text-slate-400">No CPF account found</span>
+                <span className="text-xs text-slate-500">Create a CPF account to see projections</span>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -402,6 +418,8 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
         <BalanceAtAgeCard
           displayAge={profile.age}
           projection={projection}
+          currentAge={profile.age}
+          currentBalances={profile.balances}
         />
         <CPFLifePayoutCard
           estimates={retirement.cpfLifeEstimates}
@@ -413,7 +431,79 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
       {/* Main Chart */}
       <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-        <div className="mb-4 flex items-center gap-3">
+        <div className="mb-4 flex items-center justify-end gap-3">
+          {isFetching && (
+            <span className="text-[10px] text-slate-500 animate-pulse">Updating...</span>
+          )}
+          {!isFetching && !!error && (
+            <span className="text-[10px] text-amber-400">Using estimates</span>
+          )}
+
+          {/* Legend */}
+          {chartView === 'balance' ? (
+            <div className="flex items-center gap-2">
+              {[
+                { key: 'oa' as AccountKey, label: 'OA', color: '#3b82f6', dashed: false },
+                { key: 'sa' as AccountKey, label: 'SA', color: '#10b981', dashed: false },
+                { key: 'ma' as AccountKey, label: 'MA', color: '#f59e0b', dashed: false },
+                { key: 'ra' as AccountKey, label: 'RA', color: '#8b5cf6', dashed: false },
+                { key: 'oaSa' as AccountKey, label: 'OA+SA', color: '#94a3b8', dashed: true },
+              ].map((item) => {
+                const isVisible = visibleAccounts[item.key]
+                return (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => toggleAccount(item.key)}
+                    className={`flex items-center gap-1 px-1 py-0.5 rounded transition-all duration-150 hover:bg-white/[0.05] ${
+                      isVisible ? '' : 'opacity-40'
+                    }`}
+                    title={isVisible ? `Hide ${item.label}` : `Show ${item.label}`}
+                  >
+                    {item.dashed ? (
+                      <svg width="12" height="3" className="flex-shrink-0">
+                        <line x1="0" y1="1.5" x2="12" y2="1.5" stroke={item.color} strokeWidth="3" strokeDasharray="3 2" />
+                      </svg>
+                    ) : (
+                      <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                    )}
+                    <span className={`text-xs ${isVisible ? 'text-slate-400' : 'text-slate-600'}`}>
+                      {item.label}
+                    </span>
+                  </button>
+                )
+              })}
+              <div className="h-3 w-px bg-white/[0.06] mx-1" />
+              {[
+                { label: 'BRS', color: '#facc15', Icon: Shield },
+                { label: 'FRS', color: '#38bdf8', Icon: ShieldCheck },
+                { label: 'ERS', color: '#a78bfa', Icon: Star },
+                { label: 'BHS', color: '#f472b6', Icon: Heart },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center gap-1">
+                  <div
+                    className="flex items-center justify-center w-5 h-5 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  >
+                    <item.Icon className="w-3 h-3 text-white" strokeWidth={2.5} />
+                  </div>
+                  <span className="text-xs text-slate-500">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-violet-500" />
+              <span className="text-[10px] text-slate-400">Balance</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 ml-2" />
+              <span className="text-[10px] text-slate-400">
+                {assumptions.cpfLifePlan.charAt(0).toUpperCase() + assumptions.cpfLifePlan.slice(1)} Payout
+              </span>
+            </div>
+          )}
+
+          <div className="h-4 w-px bg-white/[0.08]" />
+
           {/* Chart View Toggle */}
           <div className="flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.06]">
             <button
@@ -439,78 +529,6 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
               Payout
             </button>
           </div>
-
-          <div className="h-4 w-px bg-white/[0.08]" />
-
-          {/* Legend */}
-          {chartView === 'balance' ? (
-            <div className="flex items-center gap-2">
-              {[
-                { key: 'oa' as AccountKey, label: 'OA', color: '#3b82f6', dashed: false },
-                { key: 'sa' as AccountKey, label: 'SA', color: '#10b981', dashed: false },
-                { key: 'ma' as AccountKey, label: 'MA', color: '#f59e0b', dashed: false },
-                { key: 'ra' as AccountKey, label: 'RA', color: '#8b5cf6', dashed: false },
-                { key: 'oaSa' as AccountKey, label: 'OA+SA', color: '#94a3b8', dashed: true },
-              ].map((item) => {
-                const isVisible = visibleAccounts[item.key]
-                return (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => toggleAccount(item.key)}
-                    className={`flex items-center gap-1 px-1 py-0.5 rounded transition-all duration-150 hover:bg-white/[0.05] ${
-                      isVisible ? '' : 'opacity-40'
-                    }`}
-                    title={isVisible ? `Hide ${item.label}` : `Show ${item.label}`}
-                  >
-                    {item.dashed ? (
-                      <svg width="8" height="2" className="flex-shrink-0">
-                        <line x1="0" y1="1" x2="8" y2="1" stroke={item.color} strokeWidth="2" strokeDasharray="2 1" />
-                      </svg>
-                    ) : (
-                      <div className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: item.color }} />
-                    )}
-                    <span className={`text-[10px] ${isVisible ? 'text-slate-400' : 'text-slate-600'}`}>
-                      {item.label}
-                    </span>
-                  </button>
-                )
-              })}
-              <div className="h-3 w-px bg-white/[0.06] mx-1" />
-              {[
-                { label: 'BRS', color: '#facc15', Icon: Shield },
-                { label: 'FRS', color: '#38bdf8', Icon: ShieldCheck },
-                { label: 'ERS', color: '#a78bfa', Icon: Star },
-                { label: 'BHS', color: '#f472b6', Icon: Heart },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center gap-0.5">
-                  <div
-                    className="flex items-center justify-center w-3.5 h-3.5 rounded-full"
-                    style={{ backgroundColor: item.color }}
-                  >
-                    <item.Icon className="w-2 h-2 text-white" strokeWidth={2.5} />
-                  </div>
-                  <span className="text-[10px] text-slate-500">{item.label}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <div className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-              <span className="text-[10px] text-slate-400">Balance</span>
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 ml-2" />
-              <span className="text-[10px] text-slate-400">
-                {assumptions.cpfLifePlan.charAt(0).toUpperCase() + assumptions.cpfLifePlan.slice(1)} Payout
-              </span>
-            </div>
-          )}
-
-          {isLoading && (
-            <span className="text-[10px] text-slate-500 animate-pulse ml-auto">Loading...</span>
-          )}
-          {!isLoading && !!error && (
-            <span className="text-[10px] text-amber-400 ml-auto">Using estimates</span>
-          )}
         </div>
 
         <div className="h-80">
@@ -665,7 +683,11 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
               </ComposedChart>
             ) : (
-              <ComposedChart data={payoutProjection} margin={{ top: 20, right: 60, left: 0, bottom: 0 }}>
+              <ComposedChart
+                key={`payout-${assumptions.cpfLifePlan}-${assumptions.payoutStartAge}`}
+                data={payoutProjection}
+                margin={{ top: 20, right: 60, left: 0, bottom: 0 }}
+              >
                 <defs>
                   <linearGradient id="payoutGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -831,15 +853,25 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 function BalanceAtAgeCard({
   displayAge,
   projection,
+  currentAge,
+  currentBalances,
 }: {
   displayAge: number
   projection: CPFProjectionYear[]
+  currentAge?: number
+  currentBalances?: { oa: number; sa: number; ma: number; ra: number }
 }) {
-  // Find balances for the display age from projection data
+  // Use current balances if displaying current age, otherwise use projection data
+  // This ensures the initial balance matches the overview's current balance,
+  // while future ages show projected end-of-year balances
+  const isCurrentAge = currentAge !== undefined && displayAge === currentAge
   const selectedData = projection.find((p) => p.age === displayAge)
-  const balances = selectedData
-    ? { oa: selectedData.oa, sa: selectedData.sa, ma: selectedData.ma, ra: selectedData.ra }
-    : { oa: 0, sa: 0, ma: 0, ra: 0 }
+
+  const balances = isCurrentAge && currentBalances
+    ? currentBalances
+    : selectedData
+      ? { oa: selectedData.oa, sa: selectedData.sa, ma: selectedData.ma, ra: selectedData.ra }
+      : { oa: 0, sa: 0, ma: 0, ra: 0 }
   const total = balances.oa + balances.sa + balances.ma + balances.ra
   const year = selectedData?.year ?? new Date().getFullYear()
 
@@ -914,10 +946,21 @@ function CPFLifePayoutCard({
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-400">Est. CPF LIFE Payout</p>
+        <div className="flex items-center gap-1">
+          <p className="text-xs text-slate-400">Est. CPF LIFE Payout</p>
+          <div className="group relative">
+            <Info className="h-3.5 w-3.5 text-slate-500 cursor-help" />
+            <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50">
+              <div className="rounded-xl bg-[#1a1a2e] border border-white/10 px-4 py-3 text-sm text-slate-300 shadow-xl min-w-[280px]">
+                <p className="font-semibold text-slate-100 mb-2">Disclaimer</p>
+                <p className="leading-relaxed">These are our own estimates based on current CPF rules. Please check the official CPF website for accurate projections.</p>
+              </div>
+            </div>
+          </div>
+        </div>
         <p className="text-xs text-slate-500">Starting at age {payoutStartAge}</p>
       </div>
-      <p className="mt-1 text-xl font-semibold text-emerald-400">
+      <p className="mt-1 text-xl font-semibold text-white">
         {formatCurrency(amount)}/mo
       </p>
 
