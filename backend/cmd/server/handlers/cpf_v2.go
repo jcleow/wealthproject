@@ -10,7 +10,6 @@ import (
 
 	"financial-chat-system/backend/internal/cpf/assumptions"
 	"financial-chat-system/backend/internal/cpf/payout"
-	"financial-chat-system/backend/internal/cpf/projector"
 	"financial-chat-system/backend/internal/cpf/retirement"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/cpf"
@@ -221,23 +220,6 @@ func NewCPFV2Handler(store *repo.Store, assumptionsRepo *assumptions.Repository,
 		service:         cpf.NewService(store),
 		assumptionsRepo: assumptionsRepo,
 		timelineService: timelineService,
-	}
-}
-
-// convertToProjectorAssumptions converts CPF assumptions from the database format
-// to the projector format. Returns nil if input is nil.
-func convertToProjectorAssumptions(a *assumptions.CPFAssumptions) *projector.ProjectionAssumptions {
-	if a == nil {
-		return nil
-	}
-	return &projector.ProjectionAssumptions{
-		InterestRateOA:               &a.InterestRateOA,
-		InterestRateSA:               &a.InterestRateSA,
-		InterestRateMA:               &a.InterestRateMA,
-		InterestRateRA:               &a.InterestRateRA,
-		ExtraInterestFirst60K:        &a.ExtraInterestFirst60K,
-		ExtraInterestFirst30KAbove55: &a.ExtraInterestFirst30KAbove55,
-		FRSGrowthRate:                &a.FRSGrowthRate,
 	}
 }
 
@@ -710,150 +692,6 @@ type cpfBalanceProjectionProjectionResponse struct {
 	Gender    string `json:"gender"`
 
 	CpfLifeEstimates *cpfLifeEstimateResponse `json:"cpfLifeEstimates,omitempty"`
-}
-
-// POST /api/v2/cpf/account/{id}/projection/balance-projection
-// HandleCPFBalanceProjection projects CPF balances year by year and calculates CPF LIFE estimates.
-// @Summary Project CPF balances year by year
-// @Description Projects CPF account balances year by year using linked incomes, handles RA formation at 55, and calculates CPF LIFE payout estimates using projected RA at 65.
-// @Tags CPF V2
-// @Accept json
-// @Produce json
-// @Param id path string true "CPF account ID"
-// @Param body body cpfBalanceProjectionProjectionInput true "Projection input"
-// @Success 200 {object} cpfBalanceProjectionProjectionResponse
-// @Failure 400 {object} map[string]interface{}
-// @Failure 404 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
-// @Security SessionID
-// @Security AuthToken
-// @Router /v2/cpf/account/{id}/projection/balance-projection [post]
-func (h *CPFV2Handler) HandleCPFBalanceProjection(w http.ResponseWriter, r *http.Request, cpfAccountID string) {
-	userID, ok := requireUserID(w, r)
-	if !ok {
-		return
-	}
-
-	var input cpfBalanceProjectionProjectionInput
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		badRequest(w, err)
-		return
-	}
-
-	// Default retirement age to 62 if not provided
-	retirementAge := input.RetirementAge
-	if retirementAge == 0 {
-		retirementAge = 62
-	}
-
-	// Default payout start age to 65 if not provided
-	payoutStartAge := input.PayoutStartAge
-	if payoutStartAge == 0 {
-		payoutStartAge = 65
-	}
-
-	// Validate payout start age
-	if payoutStartAge < 65 || payoutStartAge > 70 {
-		badRequest(w, fmt.Errorf("payoutStartAge must be between 65 and 70"))
-		return
-	}
-
-	// Fetch user assumptions for this CPF account (or use defaults)
-	cpfAssumptions, err := h.assumptionsRepo.GetOrCreateDefault(r.Context(), cpfAccountID)
-	if err != nil {
-		log.Printf("cpf.GetOrCreateDefault error: %v", err)
-		// Continue with nil assumptions (will use official rates)
-		cpfAssumptions = nil
-	}
-	projectorAssumptions := convertToProjectorAssumptions(cpfAssumptions)
-
-	// Delegate to service layer
-	result, err := h.service.ProjectCPFBalanceProjection(r.Context(), userID, cpfAccountID, retirementAge, payoutStartAge, projectorAssumptions)
-	if err != nil {
-		log.Printf("cpf.ProjectCPFBalanceProjection error: %v", err)
-		badRequest(w, err)
-		return
-	}
-
-	// Build response
-	bhsStr := "0"
-	if result.BHS != nil {
-		bhsStr = result.BHS.String()
-	}
-	response := cpfBalanceProjectionProjectionResponse{
-		Snapshots:  make([]cpfBalanceProjectionSnapshotResponse, len(result.Snapshots)),
-		FRSAtAge55: result.FRSAtAge55.String(),
-		BRSAtAge55: result.BRSAtAge55.String(),
-		ERSAtAge55: result.ERSAtAge55.String(),
-		BHS:        bhsStr,
-		BirthYear:  result.BirthYear,
-		Gender:     result.Gender,
-	}
-
-	// Map snapshots
-	for i, snap := range result.Snapshots {
-		snapshotResponse := cpfBalanceProjectionSnapshotResponse{
-			Year:          snap.Year,
-			Age:           snap.Age,
-			OA:            snap.OA.String(),
-			SA:            snap.SA.String(),
-			MA:            snap.MA.String(),
-			RA:            snap.RA.String(),
-			Total:         snap.Total.String(),
-			Contributions: snap.Contributions.String(),
-			Interest:      snap.Interest.String(),
-		}
-
-		// Include payout fields if available
-		if snap.MonthlyPayout != nil {
-			snapshotResponse.MonthlyPayout = snap.MonthlyPayout.String()
-		}
-		if snap.YearlyPayout != nil {
-			snapshotResponse.YearlyPayout = snap.YearlyPayout.String()
-		}
-		if snap.CumulativePayouts != nil {
-			snapshotResponse.CumulativePayouts = snap.CumulativePayouts.String()
-		}
-
-		response.Snapshots[i] = snapshotResponse
-	}
-
-	// Map age 55 balances
-	if result.Age55Balances != nil {
-		response.Age55Balances = &struct {
-			OA string `json:"oa"`
-			SA string `json:"sa"`
-			MA string `json:"ma"`
-			RA string `json:"ra"`
-		}{
-			OA: result.Age55Balances.OA.String(),
-			SA: result.Age55Balances.SA.String(),
-			MA: result.Age55Balances.MA.String(),
-			RA: result.Age55Balances.RA.String(),
-		}
-	}
-
-	// Map age 65 balances
-	if result.Age65Balances != nil {
-		response.Age65Balances = &struct {
-			OA string `json:"oa"`
-			SA string `json:"sa"`
-			MA string `json:"ma"`
-			RA string `json:"ra"`
-		}{
-			OA: result.Age65Balances.OA.String(),
-			SA: result.Age65Balances.SA.String(),
-			MA: result.Age65Balances.MA.String(),
-			RA: result.Age65Balances.RA.String(),
-		}
-	}
-
-	// Add CPF LIFE estimates if available
-	if result.CPFLifeEstimates != nil {
-		response.CpfLifeEstimates = buildCpfLifeEstimateResponse(result.CPFLifeEstimates)
-	}
-
-	writeJSON(w, response)
 }
 
 // buildCpfLifeEstimateResponse builds a CPF LIFE estimate response from service result.

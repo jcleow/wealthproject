@@ -194,6 +194,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     ra: true,
     oaSa: true,
   })
+  const [selectedViewAge, setSelectedViewAge] = useState<number>(55)
 
   const toggleAccount = (account: AccountKey) => {
     setVisibleAccounts((prev) => ({
@@ -396,9 +397,12 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
       {/* Retirement Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Age55And65Card
-          age55Balances={retirement.age55Balances}
-          age65RA={retirement.age65Balances.ra}
+        <BalanceAtAgeCard
+          selectedAge={selectedViewAge}
+          onAgeChange={setSelectedViewAge}
+          projection={projection}
+          minAge={projection[0]?.age ?? profile.age}
+          maxAge={projection[projection.length - 1]?.age ?? 100}
         />
         <CPFLifePayoutCard
           estimates={retirement.cpfLifeEstimates}
@@ -852,28 +856,62 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
   )
 }
 
-function Age55And65Card({
-  age55Balances,
-  age65RA,
+function BalanceAtAgeCard({
+  selectedAge,
+  onAgeChange,
+  projection,
+  minAge,
+  maxAge,
 }: {
-  age55Balances: { oa: number; sa: number; ma: number; ra: number }
-  age65RA: number
+  selectedAge: number
+  onAgeChange: (age: number) => void
+  projection: CPFProjectionYear[]
+  minAge: number
+  maxAge: number
 }) {
-  const total55 = age55Balances.oa + age55Balances.sa + age55Balances.ma + age55Balances.ra
+  // Find balances for the selected age
+  const selectedData = projection.find((p) => p.age === selectedAge)
+  const balances = selectedData
+    ? { oa: selectedData.oa, sa: selectedData.sa, ma: selectedData.ma, ra: selectedData.ra }
+    : { oa: 0, sa: 0, ma: 0, ra: 0 }
+  const total = balances.oa + balances.sa + balances.ma + balances.ra
+  const year = selectedData?.year ?? new Date().getFullYear() + (selectedAge - minAge)
 
+  // SA only exists before age 55, RA from 55 onwards
   const accounts = [
-    { label: 'OA', value: age55Balances.oa, color: '#3b82f6' },
-    { label: 'SA', value: age55Balances.sa, color: '#10b981' },
-    { label: 'MA', value: age55Balances.ma, color: '#f59e0b' },
-    { label: 'RA', value: age55Balances.ra, color: '#8b5cf6' },
-  ]
+    { label: 'OA', value: balances.oa, color: '#3b82f6', show: true },
+    { label: 'SA', value: balances.sa, color: '#10b981', show: selectedAge <= 55 },
+    { label: 'MA', value: balances.ma, color: '#f59e0b', show: true },
+    { label: 'RA', value: balances.ra, color: '#8b5cf6', show: selectedAge >= 55 },
+  ].filter((acc) => acc.show)
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
-      {/* Age 55 Section */}
+      {/* Age Slider */}
+      <div className="mb-3">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs text-slate-400">View Balance at Age</p>
+          <p className="text-xs text-slate-500">{year}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <input
+            type="range"
+            min={minAge}
+            max={maxAge}
+            value={selectedAge}
+            onChange={(e) => onAgeChange(Number(e.target.value))}
+            className="w-full h-1.5 bg-white/[0.06] rounded-lg appearance-none cursor-pointer accent-blue-500"
+          />
+          <span className="min-w-[32px] text-right font-mono text-sm font-medium text-white">
+            {selectedAge}
+          </span>
+        </div>
+      </div>
+
+      {/* Balance Section */}
       <div>
-        <p className="text-xs text-slate-400">Total CPF Balance at Age 55</p>
-        <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(total55)}</p>
+        <p className="text-xs text-slate-400">Total CPF Balance at Age {selectedAge}</p>
+        <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(total)}</p>
 
         {/* Account breakdown */}
         <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1">
@@ -887,15 +925,6 @@ function Age55And65Card({
             </div>
           ))}
         </div>
-      </div>
-
-      {/* Divider */}
-      <div className="my-3 border-t border-white/[0.06]" />
-
-      {/* Age 65 Section */}
-      <div>
-        <p className="text-xs text-slate-400">Projected RA at 65</p>
-        <p className="mt-1 text-lg font-semibold text-violet-400">{formatCurrency(age65RA)}</p>
       </div>
     </div>
   )

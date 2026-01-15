@@ -256,13 +256,6 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		cpfHandler.HandleCPFProjection(w, r, id)
 	}).Methods("POST")
 
-	// CPF balance projection endpoint (for charting) - uses standalone projector
-	router.HandleFunc("/cpf/account/{id}/balance-projection", func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		id := vars["id"]
-		cpfHandler.HandleCPFBalanceProjection(w, r, id)
-	}).Methods("POST")
-
 	// CPF timeline projection endpoint (for charting) - uses Timeline service for consistency
 	// This is the recommended endpoint as it includes scenario impacts and income growth
 	router.HandleFunc("/cpf/account/{id}/timeline-projection", func(w http.ResponseWriter, r *http.Request) {
