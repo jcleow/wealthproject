@@ -42,6 +42,12 @@ ChartJS.register(
   currentPositionLinePlugin
 )
 
+// Static array extracted outside component to avoid recreation on each render
+const MONTH_NAMES_SHORT = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const
+
 export interface ProjectionChartJSProps {
   displayData: ProjectionPoint[]
   enhancedDisplayData: ProjectionPoint[]
@@ -220,11 +226,7 @@ export function ProjectionChartJS({
         // When zoomed in close, show month
         if (visibleRangeMonths < 24) {
           const monthIndex = yearIndex % 12
-          const monthNames = [
-            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-          ]
-          return `${monthNames[monthIndex]} ${year}`
+          return `${MONTH_NAMES_SHORT[monthIndex]} ${year}`
         }
 
         // When showing years

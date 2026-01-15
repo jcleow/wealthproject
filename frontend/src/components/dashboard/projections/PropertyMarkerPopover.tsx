@@ -10,6 +10,9 @@ import { formatCurrency } from '@/lib/format'
 
 const EditIcon = LucideIcons.Pencil as ComponentType<{ className?: string }>
 
+// Static array extracted outside function to avoid recreation on each call
+const MONTH_NAMES_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
+
 // Build a map of icon name to component for dynamic rendering
 const ICON_MAP: Record<string, ComponentType<{ className?: string; style?: React.CSSProperties }>> = {}
 Object.entries(LucideIcons).forEach(([key, component]) => {
@@ -56,9 +59,8 @@ function getMilestoneIconComponent(milestone: PropertyMilestone): ComponentType<
 function formatMilestoneDate(date: string): string {
   // date is in YYYY-MM format
   const [year, month] = date.split('-')
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
   const monthIndex = parseInt(month, 10) - 1
-  return `${monthNames[monthIndex]} ${year}`
+  return `${MONTH_NAMES_SHORT[monthIndex]} ${year}`
 }
 
 interface PropertyMarkerPopoverProps {

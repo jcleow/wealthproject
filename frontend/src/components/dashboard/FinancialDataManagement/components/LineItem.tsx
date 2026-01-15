@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Pencil, Trash2, Home, Info, ChevronRight, Star, GitBranch } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import type { TimelineItem } from '@/types/timeline'
@@ -34,7 +35,7 @@ interface LineItemProps {
   onOpenPropertyPlanner?: (link: PropertyLinkRecord) => void
 }
 
-export function LineItem({
+export const LineItem = memo(function LineItem({
   item,
   category,
   index,
@@ -320,7 +321,7 @@ transition-colors`}
       )}
     </div>
   )
-}
+})
 
 // Subcomponent for rendering scenario indicator icons (property fee, start event, or generic dot)
 interface ScenarioIndicatorProps {
@@ -329,7 +330,7 @@ interface ScenarioIndicatorProps {
   hasScenarios: boolean
 }
 
-function ScenarioIndicator({ item, startEvent, hasScenarios }: ScenarioIndicatorProps) {
+const ScenarioIndicator = memo(function ScenarioIndicator({ item, startEvent, hasScenarios }: ScenarioIndicatorProps) {
   // Property fee indicator
   if (item.itemType === 'property_fee' && item.icon && item.scenarioEventId) {
     const Icon = getIconByName(item.icon)
@@ -420,7 +421,7 @@ function ScenarioIndicator({ item, startEvent, hasScenarios }: ScenarioIndicator
   }
 
   return null
-}
+})
 
 interface ScenarioImpactsListProps {
   item: TimelineItem
@@ -428,7 +429,7 @@ interface ScenarioImpactsListProps {
   showMonthlyData: boolean
 }
 
-function ScenarioImpactsList({ item, scenarioImpacts, showMonthlyData }: ScenarioImpactsListProps) {
+const ScenarioImpactsList = memo(function ScenarioImpactsList({ item, scenarioImpacts, showMonthlyData }: ScenarioImpactsListProps) {
   return (
     <div className="space-y-1">
       <div className={`flex items-center justify-between
@@ -512,4 +513,4 @@ text-[10px] font-bold text-white`}
       })}
     </div>
   )
-}
+})

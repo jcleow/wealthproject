@@ -1,7 +1,8 @@
 'use client'
 
 import { useRef, useEffect, useCallback } from 'react'
-import { PanelLeftOpen } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { PanelLeftOpen, Loader2 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 
@@ -11,11 +12,33 @@ import { FinancialDataSection } from './FinancialDataSection'
 import { FinancialWorkspace } from './FinancialWorkspace'
 import { MiniChart } from './MiniChart'
 import { ResizableChartSection } from './ResizableChartSection'
-import { CPFSimulationView } from '../cpf/CPFSimulationView'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import { LayoutPreviewModal } from '@/components/modals/LayoutPreviewModal'
-import { TaxPlannerV2View } from '@/app/tax-planner/page'
-import { InsurancePlannerView } from '@/app/insurance-planner/page'
+
+// Loading skeleton for feature modules
+function FeatureModuleLoading() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+    </div>
+  )
+}
+
+// Dynamically import heavy feature modules (only loaded when shown)
+const CPFSimulationView = dynamic(
+  () => import('../cpf/CPFSimulationView').then(mod => ({ default: mod.CPFSimulationView })),
+  { ssr: false, loading: FeatureModuleLoading }
+)
+
+const TaxPlannerV2View = dynamic(
+  () => import('@/app/tax-planner/page').then(mod => ({ default: mod.TaxPlannerV2View })),
+  { ssr: false, loading: FeatureModuleLoading }
+)
+
+const InsurancePlannerView = dynamic(
+  () => import('@/app/insurance-planner/page').then(mod => ({ default: mod.InsurancePlannerView })),
+  { ssr: false, loading: FeatureModuleLoading }
+)
 import { useTimeline } from '@/hooks/useTimeline'
 import { usePictureInPicture } from '@/hooks/usePictureInPicture'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -24,6 +47,7 @@ import { generateUUID } from '@/lib/utils'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { useTimelineStore, useFeatureModulesStore } from '@/stores'
+import { useShallow } from 'zustand/react/shallow'
 
 export function Dashboard() {
   const chatIdRef = useRef<string>(generateUUID())
@@ -31,36 +55,62 @@ export function Dashboard() {
   const queryClient = useQueryClient()
   const windowWidth = useWindowWidth()
 
-  // Feature modules state from Zustand store
-  const showCPFView = useFeatureModulesStore((s) => s.showCPFView)
-  const closeCPFView = useFeatureModulesStore((s) => s.closeCPFView)
-  const showTaxPlanner = useFeatureModulesStore((s) => s.showTaxPlanner)
-  const closeTaxPlanner = useFeatureModulesStore((s) => s.closeTaxPlanner)
-  const showInsurancePlanner = useFeatureModulesStore((s) => s.showInsurancePlanner)
-  const closeInsurancePlanner = useFeatureModulesStore((s) => s.closeInsurancePlanner)
-  const showPropertyPlanner = useFeatureModulesStore((s) => s.showPropertyPlanner)
-  const propertyScenarioToEdit = useFeatureModulesStore((s) => s.propertyScenarioToEdit)
-  const openPropertyPlanner = useFeatureModulesStore((s) => s.openPropertyPlanner)
-  const closePropertyPlanner = useFeatureModulesStore((s) => s.closePropertyPlanner)
-  const showLayoutModal = useFeatureModulesStore((s) => s.showLayoutModal)
-  const closeLayoutModal = useFeatureModulesStore((s) => s.closeLayoutModal)
-
-  // Chat sidebar state from Zustand store
-  const isChatCollapsed = useFeatureModulesStore((s) => s.isChatCollapsed)
-  const isHistoryOpen = useFeatureModulesStore((s) => s.isHistoryOpen)
-  const toggleChat = useFeatureModulesStore((s) => s.toggleChat)
-  const collapseChat = useFeatureModulesStore((s) => s.collapseChat)
-  const expandChat = useFeatureModulesStore((s) => s.expandChat)
-  const toggleHistory = useFeatureModulesStore((s) => s.toggleHistory)
-
-  // Dashboard layout from Zustand store
-  const dashboardLayout = useFeatureModulesStore((s) => s.dashboardLayout)
-  const setDashboardLayout = useFeatureModulesStore((s) => s.setDashboardLayout)
-  const initializeLayout = useFeatureModulesStore((s) => s.initializeLayout)
+  // Feature modules state from Zustand store (batched with shallow comparison)
+  const {
+    showCPFView,
+    closeCPFView,
+    showTaxPlanner,
+    closeTaxPlanner,
+    showInsurancePlanner,
+    closeInsurancePlanner,
+    showPropertyPlanner,
+    propertyScenarioToEdit,
+    openPropertyPlanner,
+    closePropertyPlanner,
+    showLayoutModal,
+    closeLayoutModal,
+    isChatCollapsed,
+    isHistoryOpen,
+    toggleChat,
+    collapseChat,
+    expandChat,
+    toggleHistory,
+    dashboardLayout,
+    setDashboardLayout,
+    initializeLayout,
+  } = useFeatureModulesStore(
+    useShallow((s) => ({
+      showCPFView: s.showCPFView,
+      closeCPFView: s.closeCPFView,
+      showTaxPlanner: s.showTaxPlanner,
+      closeTaxPlanner: s.closeTaxPlanner,
+      showInsurancePlanner: s.showInsurancePlanner,
+      closeInsurancePlanner: s.closeInsurancePlanner,
+      showPropertyPlanner: s.showPropertyPlanner,
+      propertyScenarioToEdit: s.propertyScenarioToEdit,
+      openPropertyPlanner: s.openPropertyPlanner,
+      closePropertyPlanner: s.closePropertyPlanner,
+      showLayoutModal: s.showLayoutModal,
+      closeLayoutModal: s.closeLayoutModal,
+      isChatCollapsed: s.isChatCollapsed,
+      isHistoryOpen: s.isHistoryOpen,
+      toggleChat: s.toggleChat,
+      collapseChat: s.collapseChat,
+      expandChat: s.expandChat,
+      toggleHistory: s.toggleHistory,
+      dashboardLayout: s.dashboardLayout,
+      setDashboardLayout: s.setDashboardLayout,
+      initializeLayout: s.initializeLayout,
+    }))
+  )
 
   // Get timeline setters from store for PropertyPlannerModal
-  const setSelectedYear = useTimelineStore((s) => s.setSelectedYear)
-  const setSelectedMonth = useTimelineStore((s) => s.setSelectedMonth)
+  const { setSelectedYear, setSelectedMonth } = useTimelineStore(
+    useShallow((s) => ({
+      setSelectedYear: s.setSelectedYear,
+      setSelectedMonth: s.setSelectedMonth,
+    }))
+  )
 
   // Initialize timeline hook (triggers data fetch and store sync)
   // Also get chart data for MiniChart component

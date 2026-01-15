@@ -1,6 +1,9 @@
 import type { TimeResolution } from '@/types/timeline'
 import { DEFAULT_STARTING_AGE, type AxisMode } from './types'
 
+// Static array extracted outside component to avoid recreation on each render
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
+
 interface YearTickProps {
   x?: number
   y?: number
@@ -48,10 +51,9 @@ export function YearTick({
 
     if (showMonths) {
       // Show month abbreviation with year suffix (e.g., "Sep'25", "Oct'25")
-      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
       const calendarYear = (baseCalendarYear ?? new Date().getFullYear()) + yearOffset
       const yearSuffix = `'${String(calendarYear).slice(-2)}`
-      labelValue = `${monthNames[month]}${yearSuffix}`
+      labelValue = `${MONTH_NAMES[month]}${yearSuffix}`
     } else {
       // Show year only when showing 2+ years (24+ months)
       labelValue = mode === 'age'
