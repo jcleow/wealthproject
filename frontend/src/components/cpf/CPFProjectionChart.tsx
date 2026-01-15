@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useRef } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Area,
   ComposedChart,
@@ -217,31 +217,14 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     payoutStartAge: assumptions.payoutStartAge,
   })
 
-  // Store the last known good response to prevent flashing during refetch
-  const lastKnownResponseRef = useRef<CPFBalanceProjectionResponse | undefined>(apiResponse)
-  if (apiResponse) {
-    lastKnownResponseRef.current = apiResponse
-  }
-  // Use the current response if available, otherwise fall back to last known
-  const effectiveResponse = apiResponse ?? lastKnownResponseRef.current
-
-  // Transform API response - no mock data fallback
-  const transformedData = useMemo(() => {
-    if (!effectiveResponse) {
+  // Transform API response - with keepPreviousData in the query hook,
+  // apiResponse will retain previous data during refetch, so no ref needed
+  const { projection, retirement } = useMemo(() => {
+    if (!apiResponse) {
       return { projection: null, retirement: null }
     }
-    return transformProjectionData(effectiveResponse)
-  }, [effectiveResponse])
-
-  // Store last known good projection data to prevent flashing during refetch
-  const lastKnownProjectionRef = useRef(transformedData)
-  if (transformedData.projection && transformedData.retirement) {
-    lastKnownProjectionRef.current = transformedData
-  }
-
-  // Use current data if available, otherwise fall back to last known
-  const projection = transformedData.projection ?? lastKnownProjectionRef.current.projection
-  const retirement = transformedData.retirement ?? lastKnownProjectionRef.current.retirement
+    return transformProjectionData(apiResponse)
+  }, [apiResponse])
 
   // Transform projection for chart display:
   // - SA ends at age 55 (becomes part of RA)
@@ -381,9 +364,9 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     )
   }
 
-  // Show loading/empty state only on initial load (when there's never been valid data)
-  // During refetch, we keep showing previous data with a loading indicator
-  // The refs ensure we never flash back to loading state once data has been loaded
+  // Show loading/empty state only on initial load (when there's no data yet)
+  // With keepPreviousData in the query, apiResponse retains previous data during refetch,
+  // so projection/retirement remain valid and this early return won't trigger during refetch
   if (!projection || !retirement) {
     return (
       <div className={`space-y-6 ${className}`}>

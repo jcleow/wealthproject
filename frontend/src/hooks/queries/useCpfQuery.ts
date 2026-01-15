@@ -289,5 +289,7 @@ export function useCpfBalanceProjectionQuery(
       }),
     enabled: !!isValidUuid,
     staleTime: 0, // Force fresh fetch every time (was 5 minutes)
+    // Keep previous data visible while fetching new data (prevents loading flash)
+    keepPreviousData: true,
   })
 }
