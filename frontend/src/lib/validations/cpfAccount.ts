@@ -23,14 +23,13 @@ const numericStringField = z
 
 // CPF Account form schema - person-related fields (dateOfBirth, residencyStatus, prGrantDate)
 // are now managed through the Person entity, not through CPF accounts.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 export const cpfAccountFormSchema = z.object({
   personId: z.string().min(1, 'Person is required'),
   oaBalance: numericStringField,
   saBalance: numericStringField,
   maBalance: numericStringField,
   raBalance: numericStringField,
-  oaUsedForHousing: numericStringField,
-  housingStartDate: z.string(),
 })
 
 export type CpfAccountFormData = z.infer<typeof cpfAccountFormSchema>
@@ -41,6 +40,4 @@ export const defaultCpfAccountFormValues: CpfAccountFormData = {
   saBalance: '',
   maBalance: '',
   raBalance: '',
-  oaUsedForHousing: '',
-  housingStartDate: '',
 }

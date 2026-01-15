@@ -223,24 +223,20 @@ type Expense struct {
 
 // CPFAccount represents a user's CPF account with balances and profile data.
 // Supports versioning via parent_id + start_date/end_date for timeline-aware edits.
+// Note: CPF housing usage (OA used for property) is derived from property scenarios.
+// See GetCPFOAUsageByAccount() in property_planner.go for aggregation.
 type CPFAccount struct {
-	ID               string          `json:"id"`
-	UserID           string          `json:"userId"`
-	PersonID         string          `json:"personId"`             // FK to persons table (required)
-	PersonName       string          `json:"personName,omitempty"` // Display name from persons table (read-only, populated via JOIN)
-	ParentID         string          `json:"parentId"`             // Groups versions of same logical account
-	StartDate        time.Time       `json:"startDate"`            // When this version starts
-	EndDate          *time.Time      `json:"endDate,omitempty"`    // When this version ends (NULL = ongoing)
-	OABalance        decimal.Decimal `json:"oaBalance"`            // Ordinary Account balance
-	SABalance        decimal.Decimal `json:"saBalance"`            // Special Account balance
-	MABalance        decimal.Decimal `json:"maBalance"`            // MediSave Account balance
-	RABalance        decimal.Decimal `json:"raBalance"`            // Retirement Account balance (only after age 55)
-	// OAUsedForHousing tracks OA withdrawals for housing purposes (for accrued interest calculation).
-	// TODO: For multiple property scenarios, consider a 1:M relationship (cpf_housing_usages table)
-	// with fields: property_scenario_id, amount_used, withdrawal_date, property_link_id.
-	// This would allow tracking different OA usage amounts per property scenario.
-	OAUsedForHousing decimal.Decimal `json:"oaUsedForHousing"`
-	HousingStartDate *time.Time      `json:"housingStartDate,omitempty"`
+	ID         string          `json:"id"`
+	UserID     string          `json:"userId"`
+	PersonID   string          `json:"personId"`             // FK to persons table (required)
+	PersonName string          `json:"personName,omitempty"` // Display name from persons table (read-only, populated via JOIN)
+	ParentID   string          `json:"parentId"`             // Groups versions of same logical account
+	StartDate  time.Time       `json:"startDate"`            // When this version starts
+	EndDate    *time.Time      `json:"endDate,omitempty"`    // When this version ends (NULL = ongoing)
+	OABalance  decimal.Decimal `json:"oaBalance"`            // Ordinary Account balance
+	SABalance  decimal.Decimal `json:"saBalance"`            // Special Account balance
+	MABalance  decimal.Decimal `json:"maBalance"`            // MediSave Account balance
+	RABalance  decimal.Decimal `json:"raBalance"`            // Retirement Account balance (only after age 55)
 	// Person-related fields (read-only, populated via JOIN from persons table)
 	DateOfBirth     time.Time  `json:"dateOfBirth"`
 	ResidencyStatus string     `json:"residencyStatus"` // 'citizen', 'pr_year_1', 'pr_year_2', 'pr_year_3_plus'
@@ -894,8 +890,6 @@ func (s *Store) GetCPFAccount(
 		c.sa_balance,
 		c.ma_balance,
 		c.ra_balance,
-		c.oa_used_for_housing,
-		c.housing_start_date,
 		c.person_id,
 		p.name,
 		p.date_of_birth,
@@ -920,8 +914,6 @@ func (s *Store) GetCPFAccount(
 		&cpf.SABalance,
 		&cpf.MABalance,
 		&cpf.RABalance,
-		&cpf.OAUsedForHousing,
-		&cpf.HousingStartDate,
 		&cpf.PersonID,
 		&cpf.PersonName,
 		&cpf.DateOfBirth,

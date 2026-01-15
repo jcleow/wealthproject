@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -81,14 +82,13 @@ func (h *CPFV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 
 // cpfV2CreateInput is the JSON input struct for CPF v2 create.
 // Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 type cpfV2CreateInput struct {
-	PersonID         string  `json:"personId"` // Required FK to persons table
-	OABalance        string  `json:"oaBalance"`
-	SABalance        string  `json:"saBalance"`
-	MABalance        string  `json:"maBalance"`
-	RABalance        string  `json:"raBalance"`
-	OAUsedForHousing string  `json:"oaUsedForHousing"`
-	HousingStartDate *string `json:"housingStartDate"`
+	PersonID  string `json:"personId"` // Required FK to persons table
+	OABalance string `json:"oaBalance"`
+	SABalance string `json:"saBalance"`
+	MABalance string `json:"maBalance"`
+	RABalance string `json:"raBalance"`
 }
 
 // POST /api/v2/cpf/account
@@ -140,31 +140,13 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	if raBalance == nil {
 		raBalance = decimal.Zero()
 	}
-	oaUsedForHousing, _ := decimal.NewFromString(input.OAUsedForHousing)
-	if oaUsedForHousing == nil {
-		oaUsedForHousing = decimal.Zero()
-	}
-
-	// Parse optional housing start date
-	var housingStartDate *time.Time
-	if input.HousingStartDate != nil && *input.HousingStartDate != "" {
-		t, err := time.Parse(time.RFC3339, *input.HousingStartDate)
-		if err != nil {
-			t, err = time.Parse("2006-01-02", *input.HousingStartDate)
-		}
-		if err == nil {
-			housingStartDate = &t
-		}
-	}
 
 	cpfAccount := repo.CPFAccount{
-		PersonID:         input.PersonID,
-		OABalance:        *oaBalance,
-		SABalance:        *saBalance,
-		MABalance:        *maBalance,
-		RABalance:        *raBalance,
-		OAUsedForHousing: *oaUsedForHousing,
-		HousingStartDate: housingStartDate,
+		PersonID:  input.PersonID,
+		OABalance: *oaBalance,
+		SABalance: *saBalance,
+		MABalance: *maBalance,
+		RABalance: *raBalance,
 	}
 
 	created, err := h.store.CreateCPFAccount(r.Context(), userID, cpfAccount)
@@ -181,16 +163,15 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 // cpfV2Input is the JSON input struct for CPF v2 update.
 // Uses string for decimal values to avoid float64 precision loss.
 // Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 type cpfV2Input struct {
-	PersonID         string  `json:"personId"` // Required FK to persons table
-	OABalance        string  `json:"oaBalance"`
-	SABalance        string  `json:"saBalance"`
-	MABalance        string  `json:"maBalance"`
-	RABalance        string  `json:"raBalance"`
-	OAUsedForHousing string  `json:"oaUsedForHousing"`
-	HousingStartDate *string `json:"housingStartDate"`
-	StartDate        *string `json:"startDate"`
-	UpdateMode       string  `json:"updateMode,omitempty"`
+	PersonID   string  `json:"personId"` // Required FK to persons table
+	OABalance  string  `json:"oaBalance"`
+	SABalance  string  `json:"saBalance"`
+	MABalance  string  `json:"maBalance"`
+	RABalance  string  `json:"raBalance"`
+	StartDate  *string `json:"startDate"`
+	UpdateMode string  `json:"updateMode,omitempty"`
 }
 
 // CPFV2Handler serves CPF v2 endpoints.
@@ -275,23 +256,6 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 		badRequest(w, err)
 		return
 	}
-	oaUsedForHousing, err := decimal.NewFromString(input.OAUsedForHousing)
-	if err != nil {
-		badRequest(w, err)
-		return
-	}
-
-	// Parse optional housing start date
-	var housingStartDate *time.Time
-	if input.HousingStartDate != nil && *input.HousingStartDate != "" {
-		t, err := time.Parse(time.RFC3339, *input.HousingStartDate)
-		if err != nil {
-			t, err = time.Parse("2006-01-02", *input.HousingStartDate)
-		}
-		if err == nil {
-			housingStartDate = &t
-		}
-	}
 
 	var startDate *time.Time
 	if input.StartDate != nil {
@@ -305,16 +269,14 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 
 	// Build service input
 	serviceInput := cpf.UpdateInput{
-		ID:               id,
-		PersonID:         input.PersonID,
-		OABalance:        *oaBalance,
-		SABalance:        *saBalance,
-		MABalance:        *maBalance,
-		RABalance:        *raBalance,
-		OAUsedForHousing: *oaUsedForHousing,
-		HousingStartDate: housingStartDate,
-		StartDate:        startDate,
-		UpdateMode:       input.UpdateMode,
+		ID:         id,
+		PersonID:   input.PersonID,
+		OABalance:  *oaBalance,
+		SABalance:  *saBalance,
+		MABalance:  *maBalance,
+		RABalance:  *raBalance,
+		StartDate:  startDate,
+		UpdateMode: input.UpdateMode,
 	}
 
 	// Delegate to service layer
@@ -1116,4 +1078,205 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 	}
 
 	writeJSON(w, response)
+}
+
+// =============================================================================
+// CPF Housing Usage Types (derived from property scenarios)
+// =============================================================================
+
+// cpfHousingUsageDownPayment represents the down payment CPF usage
+type cpfHousingUsageDownPayment struct {
+	OAUsed        string  `json:"oaUsed"`
+	CashUsed      string  `json:"cashUsed"`
+	GrantReceived string  `json:"grantReceived"`
+	GrantType     *string `json:"grantType"` // EHG, FHG, PHG, STEP_UP, or null
+}
+
+// cpfHousingMonthlyPayment represents a single month's payment
+type cpfHousingMonthlyPayment struct {
+	Month            string `json:"month"` // YYYY-MM format
+	OAUsed           string `json:"oaUsed"`
+	CashUsed         string `json:"cashUsed"`
+	PrincipalPortion string `json:"principalPortion"`
+	InterestPortion  string `json:"interestPortion"`
+}
+
+// cpfHousingUsageTotals represents aggregated totals
+type cpfHousingUsageTotals struct {
+	TotalOAUsed          string `json:"totalOAUsed"`
+	TotalCashUsed        string `json:"totalCashUsed"`
+	OAForDownPayment     string `json:"oaForDownPayment"`
+	OAForMonthlyPayments string `json:"oaForMonthlyPayments"`
+}
+
+// cpfYearlyAccrued represents accrued interest for one year
+type cpfYearlyAccrued struct {
+	Year               int    `json:"year"`
+	StartingPrincipal  string `json:"startingPrincipal"`
+	InterestForYear    string `json:"interestForYear"`
+	CumulativeInterest string `json:"cumulativeInterest"`
+}
+
+// cpfAccruedInterestSchedule represents the full accrued interest breakdown
+type cpfAccruedInterestSchedule struct {
+	AsOfDate        string             `json:"asOfDate"`
+	TotalAccrued    string             `json:"totalAccrued"`
+	YearlyBreakdown []cpfYearlyAccrued `json:"yearlyBreakdown"`
+}
+
+// cpfHousingUsageResponse is the full response for CPF housing usage
+type cpfHousingUsageResponse struct {
+	PropertyScenarioID string                     `json:"propertyScenarioId"`
+	DownPayment        cpfHousingUsageDownPayment `json:"downPayment"`
+	MonthlyPayments    []cpfHousingMonthlyPayment `json:"monthlyPayments"`
+	Totals             cpfHousingUsageTotals      `json:"totals"`
+	AccruedInterest    cpfAccruedInterestSchedule `json:"accruedInterest"`
+}
+
+// cpfPropertySaleAnalysis represents the sale analysis for a property
+type cpfPropertySaleAnalysis struct {
+	SaleDate          string `json:"saleDate"`
+	GrossProceeds     string `json:"grossProceeds"`
+	OutstandingLoan   string `json:"outstandingLoan"`
+	SellingCosts      string `json:"sellingCosts"`
+	CpfRefundRequired struct {
+		PrincipalUsed   string `json:"principalUsed"`
+		AccruedInterest string `json:"accruedInterest"`
+		TotalRefund     string `json:"totalRefund"`
+	} `json:"cpfRefundRequired"`
+	RefundDestination struct {
+		ToOA   string `json:"toOA"`
+		ToRA   string `json:"toRA"`
+		Reason string `json:"reason"`
+	} `json:"refundDestination"`
+	NetCashProceeds string   `json:"netCashProceeds"`
+	Warnings        []string `json:"warnings"`
+}
+
+// cpfHousingUsageFullResponse includes both usage and sale analysis
+type cpfHousingUsageFullResponse struct {
+	Usage        *cpfHousingUsageResponse `json:"usage"`
+	SaleAnalysis *cpfPropertySaleAnalysis `json:"saleAnalysis,omitempty"`
+}
+
+// GET /api/v2/cpf/housing-usage/{scenarioId}
+// HandleCPFHousingUsage returns CPF housing usage derived from a property scenario.
+// @Summary Get CPF housing usage for property scenario
+// @Description Computes CPF housing usage (down payment, monthly payments, accrued interest) from a property scenario
+// @Tags CPF V2
+// @Produce json
+// @Param scenarioId path string true "Property scenario ID"
+// @Success 200 {object} cpfHousingUsageFullResponse
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Security SessionID
+// @Security AuthToken
+// @Router /v2/cpf/housing-usage/{scenarioId} [get]
+func (h *CPFV2Handler) HandleCPFHousingUsage(w http.ResponseWriter, r *http.Request, scenarioID string) {
+	userID, ok := requireUserID(w, r)
+	if !ok {
+		return
+	}
+
+	ctx := r.Context()
+
+	// Delegate to service for computation
+	result, err := h.service.ComputeHousingUsage(ctx, userID, scenarioID)
+	if err != nil {
+		if errors.Is(err, repo.ErrNotFound) {
+			notFound(w)
+			return
+		}
+		log.Printf("cpf.housing-usage ComputeHousingUsage error: %v", err)
+		internalError(w, err)
+		return
+	}
+
+	// Convert service types to response types
+	response := h.convertHousingUsageResult(result)
+	writeJSON(w, response)
+}
+
+// convertHousingUsageResult converts service types to handler response types
+func (h *CPFV2Handler) convertHousingUsageResult(result *cpf.HousingUsageFullResult) cpfHousingUsageFullResponse {
+	var usage *cpfHousingUsageResponse
+	if result.Usage != nil {
+		monthlyPayments := make([]cpfHousingMonthlyPayment, len(result.Usage.MonthlyPayments))
+		for i, mp := range result.Usage.MonthlyPayments {
+			monthlyPayments[i] = cpfHousingMonthlyPayment{
+				Month:            mp.Month,
+				OAUsed:           common.SafeDecimalString(mp.OAUsed),
+				CashUsed:         common.SafeDecimalString(mp.CashUsed),
+				PrincipalPortion: common.SafeDecimalString(mp.PrincipalPortion),
+				InterestPortion:  common.SafeDecimalString(mp.InterestPortion),
+			}
+		}
+
+		yearlyBreakdown := make([]cpfYearlyAccrued, len(result.Usage.AccruedInterest.YearlyBreakdown))
+		for i, yb := range result.Usage.AccruedInterest.YearlyBreakdown {
+			yearlyBreakdown[i] = cpfYearlyAccrued{
+				Year:               yb.Year,
+				StartingPrincipal:  common.SafeDecimalString(yb.StartingPrincipal),
+				InterestForYear:    common.SafeDecimalString(yb.InterestForYear),
+				CumulativeInterest: common.SafeDecimalString(yb.CumulativeInterest),
+			}
+		}
+
+		usage = &cpfHousingUsageResponse{
+			PropertyScenarioID: result.Usage.PropertyScenarioID,
+			DownPayment: cpfHousingUsageDownPayment{
+				OAUsed:        common.SafeDecimalString(result.Usage.DownPayment.OAUsed),
+				CashUsed:      common.SafeDecimalString(result.Usage.DownPayment.CashUsed),
+				GrantReceived: common.SafeDecimalString(result.Usage.DownPayment.GrantReceived),
+				GrantType:     result.Usage.DownPayment.GrantType,
+			},
+			MonthlyPayments: monthlyPayments,
+			Totals: cpfHousingUsageTotals{
+				TotalOAUsed:          common.SafeDecimalString(result.Usage.Totals.TotalOAUsed),
+				TotalCashUsed:        common.SafeDecimalString(result.Usage.Totals.TotalCashUsed),
+				OAForDownPayment:     common.SafeDecimalString(result.Usage.Totals.OAForDownPayment),
+				OAForMonthlyPayments: common.SafeDecimalString(result.Usage.Totals.OAForMonthlyPayments),
+			},
+			AccruedInterest: cpfAccruedInterestSchedule{
+				AsOfDate:        result.Usage.AccruedInterest.AsOfDate.Format(time.RFC3339),
+				TotalAccrued:    common.SafeDecimalString(result.Usage.AccruedInterest.TotalAccrued),
+				YearlyBreakdown: yearlyBreakdown,
+			},
+		}
+	}
+
+	var saleAnalysis *cpfPropertySaleAnalysis
+	if result.SaleAnalysis != nil {
+		saleAnalysis = &cpfPropertySaleAnalysis{
+			SaleDate:        result.SaleAnalysis.SaleDate,
+			GrossProceeds:   common.SafeDecimalString(result.SaleAnalysis.GrossProceeds),
+			OutstandingLoan: common.SafeDecimalString(result.SaleAnalysis.OutstandingLoan),
+			SellingCosts:    common.SafeDecimalString(result.SaleAnalysis.SellingCosts),
+			CpfRefundRequired: struct {
+				PrincipalUsed   string `json:"principalUsed"`
+				AccruedInterest string `json:"accruedInterest"`
+				TotalRefund     string `json:"totalRefund"`
+			}{
+				PrincipalUsed:   common.SafeDecimalString(result.SaleAnalysis.CpfRefundRequired.PrincipalUsed),
+				AccruedInterest: common.SafeDecimalString(result.SaleAnalysis.CpfRefundRequired.AccruedInterest),
+				TotalRefund:     common.SafeDecimalString(result.SaleAnalysis.CpfRefundRequired.TotalRefund),
+			},
+			RefundDestination: struct {
+				ToOA   string `json:"toOA"`
+				ToRA   string `json:"toRA"`
+				Reason string `json:"reason"`
+			}{
+				ToOA:   common.SafeDecimalString(result.SaleAnalysis.RefundDestination.ToOA),
+				ToRA:   common.SafeDecimalString(result.SaleAnalysis.RefundDestination.ToRA),
+				Reason: result.SaleAnalysis.RefundDestination.Reason,
+			},
+			NetCashProceeds: common.SafeDecimalString(result.SaleAnalysis.NetCashProceeds),
+			Warnings:        result.SaleAnalysis.Warnings,
+		}
+	}
+
+	return cpfHousingUsageFullResponse{
+		Usage:        usage,
+		SaleAnalysis: saleAnalysis,
+	}
 }

@@ -29,6 +29,7 @@ export const QUERY_KEYS = {
     cashflow: ['financial', 'cashflow'] as const,
     growth: ['financial', 'growth'] as const,
     persons: ['financial', 'persons'] as const,
+    cpf: ['financial', 'cpf'] as const,
   },
 
   // Settings namespace

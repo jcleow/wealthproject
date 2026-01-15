@@ -223,22 +223,8 @@ func TestCPFAccount_PRGrantDate(t *testing.T) {
 	}
 }
 
-func TestCPFAccount_HousingTracking(t *testing.T) {
-	housingStart := time.Date(2020, 3, 1, 0, 0, 0, 0, time.UTC)
-	acc := &CPFAccount{
-		OABalance:        *decimal.MustFromString("50000.50"),
-		OAUsedForHousing: *decimal.MustFromString("30000.25"),
-		HousingStartDate: &housingStart,
-	}
-
-	expected := decimal.MustFromString("30000.25")
-	if acc.OAUsedForHousing.Cmp(expected) != 0 {
-		t.Errorf("Expected $30,000.25 used for housing, got %s", acc.OAUsedForHousing.String())
-	}
-	if acc.HousingStartDate == nil {
-		t.Fatal("Expected housing start date to be set")
-	}
-}
+// Note: Housing tracking (OAUsedForHousing, HousingStartDate) is now derived from
+// property scenarios. See GetCPFOAUsageByAccount() in property_planner.go.
 
 func TestErrNotFound(t *testing.T) {
 	if ErrNotFound == nil {

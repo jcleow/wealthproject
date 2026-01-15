@@ -16,10 +16,7 @@ import { formatCurrency } from '@/lib/format'
 import { generateUUID } from '@/lib/utils'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import type { CPFHousingUsage, PropertySaleAnalysis } from '@/types/cpf'
-import {
-  mockCPFHousingUsage,
-  mockPropertySaleAnalysis,
-} from '@/lib/cpf-mock-data'
+import { useCPFHousingUsageQuery } from '@/hooks/queries/useCPFHousingUsageQuery'
 
 // Types for property scenarios and grants
 export interface PropertyScenario {
@@ -79,8 +76,33 @@ export function PropertyCPFUsage({
     [grants]
   )
 
-  // TODO: Map selectedScenarioId to actual usage/sale data
-  // For now, still using mock data until integration is complete
+  // Fetch CPF housing usage from selected property scenario
+  const { data: housingUsage, saleAnalysis, isLoading } = useCPFHousingUsageQuery(
+    selectedScenarioId ?? undefined
+  )
+
+  // Default empty usage for display when no scenario selected
+  const defaultUsage: CPFHousingUsage = {
+    propertyScenarioId: '',
+    downPayment: { oaUsed: 0, cashUsed: 0, grantReceived: 0, grantType: null },
+    monthlyPayments: [],
+    totals: { totalOAUsed: 0, totalCashUsed: 0, oaForDownPayment: 0, oaForMonthlyPayments: 0 },
+    accruedInterest: { asOfDate: new Date().toISOString(), totalAccrued: 0, yearlyBreakdown: [] },
+  }
+
+  const defaultSale: PropertySaleAnalysis = {
+    saleDate: '',
+    grossProceeds: 0,
+    outstandingLoan: 0,
+    sellingCosts: 0,
+    cpfRefundRequired: { principalUsed: 0, accruedInterest: 0, totalRefund: 0 },
+    refundDestination: { toOA: 0, toRA: 0, reason: '' },
+    netCashProceeds: 0,
+    warnings: [],
+  }
+
+  const displayUsage = housingUsage ?? defaultUsage
+  const displaySale = saleAnalysis ?? defaultSale
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -141,9 +163,16 @@ export function PropertyCPFUsage({
         </button>
       </div>
 
-      {activeTab === 'usage' && <CPFUsageTab usage={mockCPFHousingUsage} />}
-      {activeTab === 'sale' && (
-        <SaleSimulatorTab usage={mockCPFHousingUsage} sale={mockPropertySaleAnalysis} />
+      {isLoading && selectedScenarioId && (
+        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-8 text-center">
+          <div className="inline-flex h-8 w-8 animate-spin rounded-full border-2 border-slate-600 border-t-blue-400" />
+          <p className="mt-3 text-sm text-slate-400">Loading CPF usage data...</p>
+        </div>
+      )}
+
+      {!isLoading && activeTab === 'usage' && <CPFUsageTab usage={displayUsage} />}
+      {!isLoading && activeTab === 'sale' && (
+        <SaleSimulatorTab usage={displayUsage} sale={displaySale} />
       )}
       {activeTab === 'grants' && (
         <HousingGrantsTab

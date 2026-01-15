@@ -89,14 +89,13 @@ func TestV2CPF_Update_Success(t *testing.T) {
 	cpfID := testutil.CreateCPFAccountFixture(t, ts.Pool, ts.UserID)
 
 	payload := map[string]interface{}{
-		"oaBalance":        "60000.00",
-		"saBalance":        "35000.00",
-		"maBalance":        "25000.00",
-		"raBalance":        "0.00",
-		"oaUsedForHousing": "0.00",
-		"dateOfBirth":      "1990-01-15",
-		"residencyStatus":  "citizen",
-		"startDate":        "2025-01-01T00:00:00Z",
+		"oaBalance":       "60000.00",
+		"saBalance":       "35000.00",
+		"maBalance":       "25000.00",
+		"raBalance":       "0.00",
+		"dateOfBirth":     "1990-01-15",
+		"residencyStatus": "citizen",
+		"startDate":       "2025-01-01T00:00:00Z",
 	}
 
 	resp := ts.Request("PUT", "/api/v2/cpf/account/"+cpfID).
@@ -114,14 +113,13 @@ func TestV2CPF_Update_NotFound(t *testing.T) {
 	ts := testutil.NewTestServer(t)
 
 	payload := map[string]interface{}{
-		"oaBalance":        "60000.00",
-		"saBalance":        "35000.00",
-		"maBalance":        "25000.00",
-		"raBalance":        "0.00",
-		"oaUsedForHousing": "0.00",
-		"dateOfBirth":      "1990-01-15",
-		"residencyStatus":  "citizen",
-		"startDate":        "2025-01-01T00:00:00Z",
+		"oaBalance":       "60000.00",
+		"saBalance":       "35000.00",
+		"maBalance":       "25000.00",
+		"raBalance":       "0.00",
+		"dateOfBirth":     "1990-01-15",
+		"residencyStatus": "citizen",
+		"startDate":       "2025-01-01T00:00:00Z",
 	}
 
 	resp := ts.Request("PUT", "/api/v2/cpf/account/"+testutil.NonexistentUUID).

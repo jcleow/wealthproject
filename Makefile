@@ -1,4 +1,4 @@
-.PHONY: help build run test test-e2e clean docker-up docker-down migrate
+.PHONY: help build run test test-e2e clean docker-up docker-down migrate swagger
 
 # Default target
 help:
@@ -11,6 +11,7 @@ help:
 	@echo "  docker-up  - Start services with Docker Compose"
 	@echo "  docker-down - Stop Docker Compose services"
 	@echo "  migrate    - Run database migrations"
+	@echo "  swagger    - Regenerate swagger documentation"
 
 # Build the Go backend
 build:
@@ -73,3 +74,9 @@ deps:
 	@echo "Installing Go dependencies..."
 	go mod download
 	go mod tidy
+
+# Regenerate swagger documentation
+swagger:
+	@echo "Regenerating swagger documentation..."
+	cd backend && swag init -g cmd/server/main.go -o cmd/server/docs --parseDependency --parseInternal
+	@echo "Swagger docs regenerated at backend/cmd/server/docs/"

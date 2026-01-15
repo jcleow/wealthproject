@@ -285,6 +285,39 @@ type PaginatedResult[T any] struct {
 
 ## Service Layer Pattern
 
+**CRITICAL RULE: Handlers must NEVER contain calculations or business logic.**
+
+Handlers are thin wrappers that:
+1. Extract user context
+2. Parse/validate request input
+3. Call service methods
+4. Return response
+
+All calculations, transformations, and business logic MUST live in the service layer (`internal/financial_v2/{domain}/service.go`).
+
+❌ **BAD** - Calculation in handler:
+```go
+func (h *Handler) GetUsage(w http.ResponseWriter, r *http.Request) {
+    scenario, _ := h.store.GetScenario(ctx, id)
+    // DON'T DO THIS - calculation belongs in service
+    totalUsed := scenario.Borrower1CPF + scenario.Borrower2CPF
+    interest := totalUsed * 0.025
+    // ...
+}
+```
+
+✅ **GOOD** - Handler delegates to service:
+```go
+func (h *Handler) GetUsage(w http.ResponseWriter, r *http.Request) {
+    usage, err := h.service.ComputeUsage(ctx, userID, scenarioID)
+    if err != nil {
+        internalError(w, err)
+        return
+    }
+    jsonResponse(w, http.StatusOK, usage)
+}
+```
+
 Use services for complex business logic beyond simple CRUD:
 
 ```go
@@ -630,6 +663,38 @@ func CreateAssetFixture(t *testing.T, pool *pgxpool.Pool, userID, name string) s
 ❌ **Missing request timeouts** - use context with deadline
 ❌ **Blocking main goroutine** - use separate goroutines for cleanup tasks
 ❌ **Naked returns in complex functions** - use named returns only when helpful
+❌ **Magic numbers** - define named constants with clear meaning
+
+### Magic Numbers
+
+Never use unexplained numeric literals in code. Define constants with descriptive names:
+
+```go
+// ❌ BAD - magic numbers
+interestRate := totalAmount.Mul(decimal.MustFromString("0.025"))
+if monthsSinceStart > 360 {
+    monthsSinceStart = 360
+}
+outstandingLoan := price.Mul(decimal.MustFromString("0.56"))
+
+// ✅ GOOD - named constants
+const (
+    CPFAccruedInterestRate = "0.025" // 2.5% p.a. per CPF Board regulations
+    MaxLoanTermMonths      = 360     // 30 years maximum loan term
+    EstimatedLoanRemaining = "0.56"  // ~80% LTV * 70% remaining principal
+)
+
+interestRate := totalAmount.Mul(decimal.MustFromString(CPFAccruedInterestRate))
+if monthsSinceStart > MaxLoanTermMonths {
+    monthsSinceStart = MaxLoanTermMonths
+}
+outstandingLoan := price.Mul(decimal.MustFromString(EstimatedLoanRemaining))
+```
+
+Constants should be defined at:
+- **Package level** for domain-specific values (rates, limits, thresholds)
+- **Function level** for local loop bounds or array sizes
+- Include comments explaining the source or reasoning for the value
 
 ---
 
@@ -643,6 +708,52 @@ func CreateAssetFixture(t *testing.T, pool *pgxpool.Pool, userID, name string) s
 | Tests | `{file}_test.go` | `asset_test.go` |
 | E2E Tests | `{feature}_e2e_test.go` | `asset_e2e_test.go` |
 | Middleware | Descriptive name | `auth.go`, `ratelimit.go` |
+
+---
+
+## Swagger Documentation
+
+**IMPORTANT**: After adding or modifying API endpoints, ALWAYS regenerate swagger documentation.
+
+### Regenerate Swagger
+
+```bash
+cd backend && /Users/jitcorn/go/bin/swag init -g cmd/server/main.go -o cmd/server/docs --parseDependency --parseInternal
+```
+
+Or use the make target:
+```bash
+make swagger
+```
+
+### When to Regenerate
+
+Regenerate swagger when you:
+- Add new API endpoints
+- Modify request/response structs
+- Change swagger annotations (`@Summary`, `@Param`, etc.)
+- Add or remove handler methods
+
+### Swagger Annotations
+
+Document endpoints in handlers using swaggo annotations:
+
+```go
+// ListAssets godoc
+// @Summary List all assets
+// @Description Get paginated list of non-cash assets for the authenticated user
+// @Tags Assets
+// @Accept json
+// @Produce json
+// @Param limit query int false "Max results" default(50)
+// @Param offset query int false "Offset for pagination" default(0)
+// @Success 200 {object} repository.PaginatedResult[repository.NonCashAsset]
+// @Failure 401 {object} ErrorResponse
+// @Router /api/v2/assets [get]
+func (h *AssetV2Handler) List(w http.ResponseWriter, r *http.Request) {
+    // ...
+}
+```
 
 ---
 

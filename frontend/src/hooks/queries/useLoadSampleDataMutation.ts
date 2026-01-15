@@ -72,13 +72,13 @@ export function useLoadSampleDataMutation() {
         if (!person) continue
 
         try {
+          // Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount()
           const cpfAccount = await financialApi.createCPFAccount({
             personId: person.id,
             oaBalance: cpfConfig.oaBalance,
             saBalance: cpfConfig.saBalance,
             maBalance: cpfConfig.maBalance,
             raBalance: cpfConfig.raBalance,
-            oaUsedForHousing: cpfConfig.oaUsedForHousing,
           })
           createdCpfAccounts.push(cpfAccount)
         } catch (error) {

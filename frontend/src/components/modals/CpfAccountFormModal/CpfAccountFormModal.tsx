@@ -128,23 +128,7 @@ transition`}
           />
         </div>
 
-        {/* Housing Usage */}
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            label="OA Used for Housing"
-            type="number"
-            step="0.01"
-            placeholder="0.00"
-            registration={form.register('oaUsedForHousing')}
-            error={errors.oaUsedForHousing?.message}
-          />
-          <FormField
-            label="Housing Start Date"
-            type="date"
-            registration={form.register('housingStartDate')}
-            hint="When you started using OA for housing"
-          />
-        </div>
+        {/* Note: CPF housing usage is derived from property scenarios */}
 
         {submitError && <p className="text-sm text-rose-300">{submitError}</p>}
 

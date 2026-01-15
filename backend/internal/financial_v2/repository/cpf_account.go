@@ -10,6 +10,7 @@ import (
 
 // GetCPFAccountByID retrieves a CPF account by its ID.
 // Person-related fields (date_of_birth, residency_status, pr_grant_date) are read from persons table via JOIN.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFAccount, error) {
 	query := `
 	SELECT
@@ -24,8 +25,6 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 		c.sa_balance,
 		c.ma_balance,
 		c.ra_balance,
-		c.oa_used_for_housing,
-		c.housing_start_date,
 		p.date_of_birth,
 		p.residency_status,
 		p.pr_grant_date,
@@ -51,8 +50,6 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 		&cpf.SABalance,
 		&cpf.MABalance,
 		&cpf.RABalance,
-		&cpf.OAUsedForHousing,
-		&cpf.HousingStartDate,
 		&cpf.DateOfBirth,
 		&cpf.ResidencyStatus,
 		&cpf.PRGrantDate,
@@ -72,6 +69,7 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 
 // UpdateCPFAccount updates an existing CPF account record.
 // Note: Person-related fields are no longer stored in cpf_accounts - they are read from persons table via JOIN.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAccount) (*CPFAccount, error) {
 	query := `
 	WITH updated AS (
@@ -81,8 +79,6 @@ func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 		    sa_balance = $5,
 		    ma_balance = $6,
 		    ra_balance = $7,
-		    oa_used_for_housing = $8,
-		    housing_start_date = $9,
 		    updated_at = NOW()
 		WHERE user_id = $1 AND id = $2
 		RETURNING *
@@ -90,7 +86,6 @@ func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 	SELECT u.id, u.user_id, u.person_id, COALESCE(p.name, '') as person_name,
 	       COALESCE(u.parent_id, u.id), COALESCE(u.start_date, u.created_at), u.end_date,
 	       u.oa_balance, u.sa_balance, u.ma_balance, u.ra_balance,
-	       u.oa_used_for_housing, u.housing_start_date,
 	       p.date_of_birth, p.residency_status, p.pr_grant_date,
 	       COALESCE(p.gender, 'male') as gender,
 	       u.created_at, u.updated_at
@@ -99,7 +94,6 @@ func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 
 	args := []any{
 		userID, cpf.ID, cpf.PersonID, cpf.OABalance, cpf.SABalance, cpf.MABalance, cpf.RABalance,
-		cpf.OAUsedForHousing, cpf.HousingStartDate,
 	}
 
 	logQuery(query, args)
@@ -117,8 +111,6 @@ func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 		&updated.SABalance,
 		&updated.MABalance,
 		&updated.RABalance,
-		&updated.OAUsedForHousing,
-		&updated.HousingStartDate,
 		&updated.DateOfBirth,
 		&updated.ResidencyStatus,
 		&updated.PRGrantDate,
@@ -175,7 +167,6 @@ func (s *Store) StopCPFAccount(ctx context.Context, userID, id string, endDate t
 	SELECT u.id, u.user_id, u.person_id, COALESCE(p.name, '') as person_name,
 	       COALESCE(u.parent_id, u.id), COALESCE(u.start_date, u.created_at), u.end_date,
 	       u.oa_balance, u.sa_balance, u.ma_balance, u.ra_balance,
-	       u.oa_used_for_housing, u.housing_start_date,
 	       p.date_of_birth, p.residency_status, p.pr_grant_date,
 	       COALESCE(p.gender, 'male') as gender,
 	       u.created_at, u.updated_at
@@ -197,8 +188,6 @@ func (s *Store) StopCPFAccount(ctx context.Context, userID, id string, endDate t
 		&updated.SABalance,
 		&updated.MABalance,
 		&updated.RABalance,
-		&updated.OAUsedForHousing,
-		&updated.HousingStartDate,
 		&updated.DateOfBirth,
 		&updated.ResidencyStatus,
 		&updated.PRGrantDate,
@@ -236,8 +225,6 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 		c.sa_balance,
 		c.ma_balance,
 		c.ra_balance,
-		c.oa_used_for_housing,
-		c.housing_start_date,
 		p.date_of_birth,
 		p.residency_status,
 		p.pr_grant_date,
@@ -263,8 +250,6 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 		&cpf.SABalance,
 		&cpf.MABalance,
 		&cpf.RABalance,
-		&cpf.OAUsedForHousing,
-		&cpf.HousingStartDate,
 		&cpf.DateOfBirth,
 		&cpf.ResidencyStatus,
 		&cpf.PRGrantDate,
@@ -286,6 +271,7 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 // For new accounts (no parent_id), inserts with NULL parent_id first,
 // then the RETURNING clause returns COALESCE(parent_id, id) as parent_id.
 // Note: Person-related fields are read from persons table via JOIN, not stored in cpf_accounts.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAccount) (CPFAccount, error) {
 	startDate := cpf.StartDate
 	if startDate.IsZero() {
@@ -298,15 +284,13 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 		WITH inserted AS (
 			INSERT INTO cpf_accounts (
 				user_id, person_id, parent_id, start_date, end_date,
-				oa_balance, sa_balance, ma_balance, ra_balance,
-				oa_used_for_housing, housing_start_date
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+				oa_balance, sa_balance, ma_balance, ra_balance
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING *
 		)
 		SELECT i.id, i.user_id, i.person_id, COALESCE(p.name, '') as person_name,
 		       COALESCE(i.parent_id, i.id), i.start_date, i.end_date,
 		       i.oa_balance, i.sa_balance, i.ma_balance, i.ra_balance,
-		       i.oa_used_for_housing, i.housing_start_date,
 		       p.date_of_birth, p.residency_status, p.pr_grant_date,
 		       COALESCE(p.gender, 'male') as gender,
 		       i.created_at, i.updated_at
@@ -316,7 +300,6 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 	args := []any{
 		userID, cpf.PersonID, nullIfEmpty(cpf.ParentID), startDate, cpf.EndDate,
 		cpf.OABalance, cpf.SABalance, cpf.MABalance, cpf.RABalance,
-		cpf.OAUsedForHousing, cpf.HousingStartDate,
 	}
 
 	logQuery(query, args)
@@ -335,8 +318,6 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 		&created.SABalance,
 		&created.MABalance,
 		&created.RABalance,
-		&created.OAUsedForHousing,
-		&created.HousingStartDate,
 		&created.DateOfBirth,
 		&created.ResidencyStatus,
 		&created.PRGrantDate,
@@ -352,6 +333,7 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 
 // ListCPFAccounts returns all CPF account versions for a user.
 // Person-related fields are read from persons table via JOIN.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 func (s *Store) ListCPFAccounts(
 	ctx context.Context,
 	userID string,
@@ -370,8 +352,6 @@ func (s *Store) ListCPFAccounts(
 		c.sa_balance,
 		c.ma_balance,
 		c.ra_balance,
-		c.oa_used_for_housing,
-		c.housing_start_date,
 		p.date_of_birth,
 		p.residency_status,
 		p.pr_grant_date,
@@ -422,8 +402,6 @@ func (s *Store) ListCPFAccounts(
 			&cpf.SABalance,
 			&cpf.MABalance,
 			&cpf.RABalance,
-			&cpf.OAUsedForHousing,
-			&cpf.HousingStartDate,
 			&cpf.DateOfBirth,
 			&cpf.ResidencyStatus,
 			&cpf.PRGrantDate,
