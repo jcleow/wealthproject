@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/cpf/assumptions"
+	"financial-chat-system/backend/internal/cpf/payout"
 	"financial-chat-system/backend/internal/cpf/projector"
 	"financial-chat-system/backend/internal/cpf/retirement"
 	"financial-chat-system/backend/internal/decimal"
@@ -1220,16 +1221,46 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 		}
 	}
 
-	// Add CPF LIFE monthly payout if available
-	if result.CPFLifeMonthlyPayout != nil && result.Age65Balances != nil {
-		// Use CPF LIFE estimates format if we have enough data
-		response.CpfLifeEstimates = &cpfLifeEstimateResponse{
-			RABalanceAt65:  safeDecimalString(result.Age65Balances.RA),
-			PayoutStartAge: payoutStartAge,
-			BirthYear:      result.BirthYear,
-			Gender:         result.Gender,
+	// Calculate CPF LIFE estimates for all plans if we have age 65 RA balance
+	if result.Age65Balances != nil && result.Age65Balances.RA != nil && !result.Age65Balances.RA.IsZero() {
+		// Determine gender for payout calculation
+		var gender payout.Gender
+		if result.Gender == "male" {
+			gender = payout.GenderMale
+		} else {
+			gender = payout.GenderFemale
 		}
-		response.CpfLifeEstimates.Estimates.Standard.MonthlyPayout = result.CPFLifeMonthlyPayout.String()
+
+		// Calculate all plan estimates
+		estimates, err := payout.CalculateAllPlans(result.BirthYear, gender, result.Age65Balances.RA, payoutStartAge)
+		if err != nil {
+			log.Printf("cpf.CalculateAllPlans error: %v", err)
+		} else {
+			response.CpfLifeEstimates = &cpfLifeEstimateResponse{
+				RABalanceAt65:  safeDecimalString(result.Age65Balances.RA),
+				PayoutStartAge: payoutStartAge,
+				BirthYear:      result.BirthYear,
+				Gender:         result.Gender,
+				Disclaimer:     estimates.Disclaimer,
+			}
+
+			// Standard plan
+			response.CpfLifeEstimates.Estimates.Standard.MonthlyPayout = estimates.Standard.MonthlyPayout.String()
+			response.CpfLifeEstimates.Estimates.Standard.AnnualPayout = estimates.Standard.AnnualPayout.String()
+			response.CpfLifeEstimates.Estimates.Standard.PayoutRate = estimates.Standard.PayoutRate.String()
+
+			// Basic plan
+			response.CpfLifeEstimates.Estimates.Basic.MonthlyPayout = estimates.Basic.MonthlyPayout.String()
+			response.CpfLifeEstimates.Estimates.Basic.AnnualPayout = estimates.Basic.AnnualPayout.String()
+			response.CpfLifeEstimates.Estimates.Basic.PayoutRate = estimates.Basic.PayoutRate.String()
+
+			// Escalating plan
+			response.CpfLifeEstimates.Estimates.Escalating.MonthlyPayout = estimates.Escalating.MonthlyPayout.String()
+			response.CpfLifeEstimates.Estimates.Escalating.AnnualPayout = estimates.Escalating.AnnualPayout.String()
+			response.CpfLifeEstimates.Estimates.Escalating.PayoutRate = estimates.Escalating.PayoutRate.String()
+			response.CpfLifeEstimates.Estimates.Escalating.PayoutAt75 = estimates.Escalating.PayoutAt75.String()
+			response.CpfLifeEstimates.Estimates.Escalating.PayoutAt85 = estimates.Escalating.PayoutAt85.String()
+		}
 	}
 
 	writeJSON(w, response)
