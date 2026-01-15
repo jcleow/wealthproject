@@ -173,7 +173,7 @@ func Config2026() CPFConfiguration {
 				ERS: 440800,
 			},
 
-			BHS: 75500, // Updated for 2026 (estimated ~$4k increase)
+			BHS: 79000, // Official 2026 BHS (for members below 65)
 
 			InterestRates: InterestRates{
 				OA:                       d("0.025"),

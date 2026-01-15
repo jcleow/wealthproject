@@ -124,9 +124,9 @@ func TestConfig2026(t *testing.T) {
 		t.Errorf("Expected 2026 ERS $440,800, got $%d", cfg.Config.RetirementSums.ERS)
 	}
 
-	// Verify 2026 BHS
-	if cfg.Config.BHS != 75500 {
-		t.Errorf("Expected 2026 BHS $75,500, got $%d", cfg.Config.BHS)
+	// Verify 2026 BHS (official value for members below 65)
+	if cfg.Config.BHS != 79000 {
+		t.Errorf("Expected 2026 BHS $79,000, got $%d", cfg.Config.BHS)
 	}
 }
 

@@ -34,6 +34,7 @@ type CPFAccount struct {
 	DateOfBirth      time.Time              `json:"dateOfBirth"`
 	ResidencyStatus  config.ResidencyStatus `json:"residencyStatus"`
 	PRGrantDate      *time.Time             `json:"prGrantDate"`
+	Gender           string                 `json:"gender"` // 'male' or 'female' - from persons table via JOIN
 	CreatedAt        time.Time              `json:"createdAt"`
 	UpdatedAt        time.Time              `json:"updatedAt"`
 }

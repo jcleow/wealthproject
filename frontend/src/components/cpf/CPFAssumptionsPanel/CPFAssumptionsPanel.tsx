@@ -6,16 +6,14 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  RotateCcw,
   Percent,
   TrendingUp,
   Zap,
   HelpCircle,
 } from 'lucide-react'
 import type { CPFAssumptions, AssumptionPreset } from '@/types/cpf'
-import { DEFAULT_CPF_ASSUMPTIONS, ASSUMPTION_PRESETS } from '@/types/cpf'
 import { EXTERNAL_LINKS } from '@/lib/external-links'
-import { PercentSlider, PresetButton, AssumptionsInfoModal } from './components'
+import { PercentSlider, AssumptionsInfoModal } from './components'
 
 interface CPFAssumptionsPanelProps {
   assumptions: CPFAssumptions
@@ -35,24 +33,6 @@ export function CPFAssumptionsPanel({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const [activePreset, setActivePreset] = useState<AssumptionPreset>('official')
   const [showInfoModal, setShowInfoModal] = useState(false)
-
-  const handlePresetChange = useCallback(
-    (preset: AssumptionPreset) => {
-      setActivePreset(preset)
-      if (preset !== 'custom') {
-        const presetData = ASSUMPTION_PRESETS[preset]
-        onChange({
-          ...DEFAULT_CPF_ASSUMPTIONS,
-          ...presetData.assumptions,
-          interestRates: {
-            ...DEFAULT_CPF_ASSUMPTIONS.interestRates,
-            ...(presetData.assumptions.interestRates || {}),
-          },
-        })
-      }
-    },
-    [onChange]
-  )
 
   const handleValueChange = useCallback(
     (path: string, value: number | boolean | string) => {
@@ -74,11 +54,6 @@ export function CPFAssumptionsPanel({
     [assumptions, onChange]
   )
 
-  const handleReset = useCallback(() => {
-    setActivePreset('official')
-    onChange(DEFAULT_CPF_ASSUMPTIONS)
-  }, [onChange])
-
   const header = (
     <div
       className={`flex items-center justify-between ${collapsible ? 'cursor-pointer' : ''}`}
@@ -91,9 +66,7 @@ export function CPFAssumptionsPanel({
         </span>
         {activePreset !== 'official' && (
           <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] text-purple-400">
-            {activePreset === 'custom'
-              ? 'Custom'
-              : ASSUMPTION_PRESETS[activePreset].label}
+            Custom
           </span>
         )}
       </div>
@@ -147,46 +120,6 @@ export function CPFAssumptionsPanel({
       <div className="border-b border-white/[0.06] p-4">{header}</div>
 
       <div className="space-y-5 p-4">
-        {/* Preset Selection */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs uppercase tracking-wider text-slate-500">
-              Quick Presets
-            </span>
-            <button
-              type="button"
-              onClick={handleReset}
-              className="flex items-center gap-1 text-xs text-slate-500 transition hover:text-slate-300"
-            >
-              <RotateCcw className="h-3 w-3" />
-              Reset
-            </button>
-          </div>
-          <div className="flex gap-2">
-            <PresetButton
-              preset="official"
-              label="Official"
-              description="CPF defaults"
-              isSelected={activePreset === 'official'}
-              onClick={() => handlePresetChange('official')}
-            />
-            <PresetButton
-              preset="conservative"
-              label="Conservative"
-              description="Lower growth"
-              isSelected={activePreset === 'conservative'}
-              onClick={() => handlePresetChange('conservative')}
-            />
-            <PresetButton
-              preset="optimistic"
-              label="Optimistic"
-              description="Higher returns"
-              isSelected={activePreset === 'optimistic'}
-              onClick={() => handlePresetChange('optimistic')}
-            />
-          </div>
-        </div>
-
         {/* Interest Rates Section */}
         <div className="space-y-3">
           <div className="flex items-center gap-2">
@@ -266,7 +199,7 @@ export function CPFAssumptionsPanel({
             </span>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="w-1/4">
             <PercentSlider
               label="FRS Growth Rate"
               value={assumptions.frsGrowthRate}
@@ -275,15 +208,6 @@ export function CPFAssumptionsPanel({
               max={0.05}
               color="blue"
               tooltip="Annual growth of retirement sum targets"
-            />
-            <PercentSlider
-              label="Escalating Plan Growth"
-              value={assumptions.escalatingPlanGrowth}
-              onChange={(v) => handleValueChange('escalatingPlanGrowth', v)}
-              min={0.01}
-              max={0.03}
-              color="blue"
-              tooltip="Annual payout increase for Escalating Plan"
             />
           </div>
         </div>
@@ -297,8 +221,37 @@ export function CPFAssumptionsPanel({
             </span>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+          {/* Plan Type Selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400">Plan Type</label>
+            <div className="w-1/4">
+              <div className="flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.06]">
+                {(['standard', 'basic', 'escalating'] as const).map((plan) => (
+                  <button
+                    key={plan}
+                    type="button"
+                    onClick={() => handleValueChange('cpfLifePlan', plan)}
+                    className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-150 ${
+                      assumptions.cpfLifePlan === plan
+                        ? 'bg-purple-500/20 text-purple-300 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {plan.charAt(0).toUpperCase() + plan.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500">
+              {assumptions.cpfLifePlan === 'standard' && 'Higher monthly payouts, lower bequest'}
+              {assumptions.cpfLifePlan === 'basic' && 'Lower payouts, higher bequest for beneficiaries'}
+              {assumptions.cpfLifePlan === 'escalating' && 'Payouts increase 2% yearly to keep up with inflation'}
+            </p>
+          </div>
+
+          <div className="flex gap-4">
+            {/* Payout Start Age - always shown */}
+            <div className="w-1/4 space-y-1.5">
               <PercentSlider
                 label="Payout Start Age"
                 value={assumptions.payoutStartAge}
@@ -317,6 +270,39 @@ export function CPFAssumptionsPanel({
                 </div>
               )}
             </div>
+
+            {/* Basic Plan Premium - only shown for Basic plan */}
+            {assumptions.cpfLifePlan === 'basic' && (
+              <div className="w-1/4 space-y-1.5">
+                <PercentSlider
+                  label="Basic Plan Premium"
+                  value={assumptions.basicPlanPremiumPercent}
+                  onChange={(v) => handleValueChange('basicPlanPremiumPercent', v)}
+                  min={0.10}
+                  max={0.20}
+                  step={0.01}
+                  color="blue"
+                  tooltip="Portion of RA set aside as CPF LIFE premium for Basic plan (10-20%)"
+                  showSlider
+                />
+              </div>
+            )}
+
+            {/* Escalating Plan Growth - only shown for Escalating plan */}
+            {assumptions.cpfLifePlan === 'escalating' && (
+              <div className="w-1/4 space-y-1.5">
+                <PercentSlider
+                  label="Escalating Plan Growth"
+                  value={assumptions.escalatingPlanGrowth}
+                  onChange={(v) => handleValueChange('escalatingPlanGrowth', v)}
+                  min={0.01}
+                  max={0.03}
+                  color="blue"
+                  tooltip="Annual payout increase for Escalating Plan (default 2%)"
+                  showSlider
+                />
+              </div>
+            )}
           </div>
         </div>
 

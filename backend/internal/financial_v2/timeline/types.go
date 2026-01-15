@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"financial-chat-system/backend/internal/common"
+	"financial-chat-system/backend/internal/cpf/engine"
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial_v2/property"
 	"financial-chat-system/backend/internal/financial_v2/repository"
@@ -95,6 +96,8 @@ type TimelineOptions struct {
 	EndDate          time.Time // End date (inclusive)
 	InitialState     bool      // If true, return base annualized amounts without date filtering
 	IncludeScenarios bool      // If true, apply scenario impacts to eventAdjBalance/eventAdjAmount
+	PayoutStartAge   int       // CPF LIFE payout start age (65-70), 0 defaults to 65
+	Assumptions      *engine.Assumptions // Custom CPF assumptions for projection (nil = use defaults)
 }
 
 // ========== Timeline V2 Response Types ==========

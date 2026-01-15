@@ -29,6 +29,7 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 		p.date_of_birth,
 		p.residency_status,
 		p.pr_grant_date,
+		COALESCE(p.gender, 'male') as gender,
 		c.created_at,
 		c.updated_at
 	FROM cpf_accounts c
@@ -55,6 +56,7 @@ func (s *Store) GetCPFAccountByID(ctx context.Context, userID, id string) (*CPFA
 		&cpf.DateOfBirth,
 		&cpf.ResidencyStatus,
 		&cpf.PRGrantDate,
+		&cpf.Gender,
 		&cpf.CreatedAt,
 		&cpf.UpdatedAt,
 	)
@@ -90,6 +92,7 @@ func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 	       u.oa_balance, u.sa_balance, u.ma_balance, u.ra_balance,
 	       u.oa_used_for_housing, u.housing_start_date,
 	       p.date_of_birth, p.residency_status, p.pr_grant_date,
+	       COALESCE(p.gender, 'male') as gender,
 	       u.created_at, u.updated_at
 	FROM updated u
 	LEFT JOIN persons p ON u.person_id = p.id`
@@ -119,6 +122,7 @@ func (s *Store) UpdateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 		&updated.DateOfBirth,
 		&updated.ResidencyStatus,
 		&updated.PRGrantDate,
+		&updated.Gender,
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 	)
@@ -173,6 +177,7 @@ func (s *Store) StopCPFAccount(ctx context.Context, userID, id string, endDate t
 	       u.oa_balance, u.sa_balance, u.ma_balance, u.ra_balance,
 	       u.oa_used_for_housing, u.housing_start_date,
 	       p.date_of_birth, p.residency_status, p.pr_grant_date,
+	       COALESCE(p.gender, 'male') as gender,
 	       u.created_at, u.updated_at
 	FROM updated u
 	LEFT JOIN persons p ON u.person_id = p.id`
@@ -197,6 +202,7 @@ func (s *Store) StopCPFAccount(ctx context.Context, userID, id string, endDate t
 		&updated.DateOfBirth,
 		&updated.ResidencyStatus,
 		&updated.PRGrantDate,
+		&updated.Gender,
 		&updated.CreatedAt,
 		&updated.UpdatedAt,
 	)
@@ -235,6 +241,7 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 		p.date_of_birth,
 		p.residency_status,
 		p.pr_grant_date,
+		COALESCE(p.gender, 'male') as gender,
 		c.created_at,
 		c.updated_at
 	FROM cpf_accounts c
@@ -261,6 +268,7 @@ func (s *Store) FindCPFAccountByParentAndStartDate(
 		&cpf.DateOfBirth,
 		&cpf.ResidencyStatus,
 		&cpf.PRGrantDate,
+		&cpf.Gender,
 		&cpf.CreatedAt,
 		&cpf.UpdatedAt,
 	)
@@ -300,6 +308,7 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 		       i.oa_balance, i.sa_balance, i.ma_balance, i.ra_balance,
 		       i.oa_used_for_housing, i.housing_start_date,
 		       p.date_of_birth, p.residency_status, p.pr_grant_date,
+		       COALESCE(p.gender, 'male') as gender,
 		       i.created_at, i.updated_at
 		FROM inserted i
 		LEFT JOIN persons p ON i.person_id = p.id`
@@ -331,6 +340,7 @@ func (s *Store) CreateCPFAccount(ctx context.Context, userID string, cpf CPFAcco
 		&created.DateOfBirth,
 		&created.ResidencyStatus,
 		&created.PRGrantDate,
+		&created.Gender,
 		&created.CreatedAt,
 		&created.UpdatedAt,
 	); err != nil {
@@ -365,6 +375,7 @@ func (s *Store) ListCPFAccounts(
 		p.date_of_birth,
 		p.residency_status,
 		p.pr_grant_date,
+		COALESCE(p.gender, 'male') as gender,
 		c.created_at,
 		c.updated_at
 	FROM cpf_accounts c
@@ -416,6 +427,7 @@ func (s *Store) ListCPFAccounts(
 			&cpf.DateOfBirth,
 			&cpf.ResidencyStatus,
 			&cpf.PRGrantDate,
+			&cpf.Gender,
 			&cpf.CreatedAt,
 			&cpf.UpdatedAt,
 		)

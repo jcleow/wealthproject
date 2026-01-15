@@ -262,3 +262,34 @@ export function useCpfProjectionMutation() {
       }),
   })
 }
+
+// UUID regex pattern for validation
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * Query hook for balance-projection CPF projection (for charts).
+ * Includes real income data, RA formation at 55, and CPF LIFE estimates.
+ */
+export function useCpfBalanceProjectionQuery(
+  cpfAccountId: string | undefined,
+  options?: {
+    retirementAge?: number
+    payoutStartAge?: number
+  }
+) {
+  // Only enable if we have a valid UUID (not a mock ID like "cpf-profile-1")
+  const isValidUuid = cpfAccountId && UUID_REGEX.test(cpfAccountId)
+
+  return useQuery({
+    queryKey: ['cpf', 'projection', 'balance-projection', cpfAccountId, options],
+    queryFn: () =>
+      cpfApi.getCPFBalanceProjection(cpfAccountId!, {
+        retirementAge: options?.retirementAge,
+        payoutStartAge: options?.payoutStartAge,
+      }),
+    enabled: !!isValidUuid,
+    staleTime: 0, // Force fresh fetch every time (was 5 minutes)
+    // Keep previous data visible while fetching new data (prevents loading flash)
+    keepPreviousData: true,
+  })
+}

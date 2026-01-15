@@ -294,6 +294,7 @@ export interface RetirementProjection {
   frsTarget: number
   brsTarget: number
   ersTarget: number
+  bhsTarget: number // Basic Healthcare Sum (MediSave cap)
   cpfLifeEstimates: {
     standard: number
     basic: number
@@ -361,6 +362,7 @@ export interface CPFAssumptions {
   cpfLifePlan: 'standard' | 'basic' | 'escalating'
   payoutStartAge: 65 | 66 | 67 | 68 | 69 | 70
   escalatingPlanGrowth: number // Annual growth for escalating plan (default: 2.0%)
+  basicPlanPremiumPercent: number // Portion of RA set aside as CPF LIFE premium for Basic plan (10-20%, default: 17%)
 }
 
 /**
@@ -382,6 +384,7 @@ export const DEFAULT_CPF_ASSUMPTIONS: CPFAssumptions = {
   cpfLifePlan: 'standard',
   payoutStartAge: 65,
   escalatingPlanGrowth: 0.02, // 2.0%
+  basicPlanPremiumPercent: 0.17, // 17% of RA set aside as premium for Basic plan
 }
 
 /**

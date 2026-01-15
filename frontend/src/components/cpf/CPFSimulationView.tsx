@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import {
   Wallet,
   Home,
@@ -8,7 +9,6 @@ import {
   GraduationCap,
   X,
   Layers,
-  Sunset,
   User,
 } from 'lucide-react'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
@@ -31,14 +31,14 @@ import {
   mockInvestibleBalance,
 } from '@/lib/cpf-mock-data'
 import { EXTERNAL_LINKS } from '@/lib/external-links'
-import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
+import { useCpfAccountsQuery, useCpfBalanceProjectionQuery } from '@/hooks/queries/useCpfQuery'
 import {
   cpfAccountToProfile,
   computeAgeFromDob,
   formatAccountLabel,
 } from '@/lib/cpf-utils'
 
-type TabId = 'overview' | 'projection' | 'strategies' | 'property' | 'retirement' | 'learn'
+type TabId = 'overview' | 'projection' | 'strategies' | 'property' | 'learn'
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; description: string }[] = [
   {
@@ -58,12 +58,6 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     label: 'Property',
     icon: <Home className="h-4 w-4" />,
     description: 'Housing & grants',
-  },
-  {
-    id: 'retirement',
-    label: 'Retirement',
-    icon: <Sunset className="h-4 w-4" />,
-    description: 'Age 55 & CPF LIFE',
   },
   {
     id: 'strategies',
@@ -95,6 +89,7 @@ const STRATEGIES: { id: StrategyId; label: string; description: string }[] = [
 
 interface CPFSimulationViewProps {
   onClose: () => void
+  initialTab?: TabId
 }
 
 // Placeholder component for strategies that don't have dedicated implementations yet
@@ -126,32 +121,75 @@ function StrategyPlaceholder({ title, description, points }: StrategyPlaceholder
   )
 }
 
-type LearnCalculator = 'journey' | 'contribution' | 'housing'
+type LearnCalculator = 'journey' | 'contribution' | 'housing' | 'retirement'
 
 const LEARN_CALCULATORS: { id: LearnCalculator; label: string; description: string }[] = [
   { id: 'journey', label: 'CPF Journey', description: 'Complete lifecycle overview' },
   { id: 'contribution', label: 'CPF Contributions', description: 'How salary flows to OA/SA/MA' },
   { id: 'housing', label: 'Housing Limits', description: 'Valuation & Withdrawal Limits' },
+  { id: 'retirement', label: 'Retirement', description: 'Age 55 & CPF LIFE' },
 ]
 
-export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
-  const [activeTab, setActiveTab] = useState<TabId>('overview')
+export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimulationViewProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab)
   const [activeCalculator, setActiveCalculator] = useState<LearnCalculator>('journey')
   const [activeStrategy, setActiveStrategy] = useState<StrategyId>('contributions')
+
+  // Check if we're in routed mode (URL-based navigation)
+  const isRoutedMode = pathname?.startsWith('/dashboard/cpf')
+
+  // Handle tab change - use URL navigation if in routed mode
+  const handleTabChange = (tabId: TabId) => {
+    if (isRoutedMode) {
+      // Navigate to the appropriate route
+      if (tabId === 'overview') {
+        router.push('/dashboard/cpf')
+      } else if (tabId === 'learn') {
+        // Learn tab stays in the current page (no dedicated route)
+        setActiveTab(tabId)
+      } else {
+        router.push(`/dashboard/cpf/${tabId}`)
+      }
+    } else {
+      // Not in routed mode, just update state
+      setActiveTab(tabId)
+    }
+  }
 
   // CPF Account selection state
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
   const [simulatedAge, setSimulatedAge] = useState<number>(34)
+  const [baseAge, setBaseAge] = useState<number>(34) // User's actual current age
+  const [displayMode, setDisplayMode] = useState<'age' | 'year'>('age')
+
+  // Current year for age/year conversion
+  const currentYear = new Date().getFullYear()
+
+  // Convert between age and year
+  const ageToYear = (age: number) => currentYear + (age - baseAge)
+  const yearToAge = (year: number) => baseAge + (year - currentYear)
+
+  // Current display value (age or year)
+  const displayValue = displayMode === 'age' ? simulatedAge : ageToYear(simulatedAge)
+  const minValue = displayMode === 'age' ? baseAge : currentYear
+  const maxValue = displayMode === 'age' ? 100 : ageToYear(100)
 
   // Fetch real CPF accounts
   const { data: cpfAccounts, isLoading: isLoadingAccounts } = useCpfAccountsQuery()
+
+  // Fetch balance projection for the selected account
+  const { data: balanceProjection } = useCpfBalanceProjectionQuery(selectedAccountId ?? undefined)
 
   // Auto-select first account when data loads
   useEffect(() => {
     if (cpfAccounts && cpfAccounts.length > 0 && !selectedAccountId) {
       const firstAccount = cpfAccounts[0]
       setSelectedAccountId(firstAccount.id)
-      setSimulatedAge(computeAgeFromDob(firstAccount.dateOfBirth))
+      const age = computeAgeFromDob(firstAccount.dateOfBirth)
+      setSimulatedAge(age)
+      setBaseAge(age)
     }
   }, [cpfAccounts, selectedAccountId])
 
@@ -160,18 +198,40 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
     setSelectedAccountId(accountId)
     const account = cpfAccounts?.find((a) => a.id === accountId)
     if (account) {
-      setSimulatedAge(computeAgeFromDob(account.dateOfBirth))
+      const age = computeAgeFromDob(account.dateOfBirth)
+      setSimulatedAge(age)
+      setBaseAge(age)
     }
   }
 
   // Derive CPFProfile from selected account or fall back to mock
+  // Use projected balances when simulated age differs from base age
   const selectedAccount = cpfAccounts?.find((a) => a.id === selectedAccountId)
   const profile = useMemo(() => {
     if (selectedAccount) {
-      return cpfAccountToProfile(selectedAccount, simulatedAge)
+      const baseProfile = cpfAccountToProfile(selectedAccount, simulatedAge)
+
+      // If we have projection data and the simulated age differs from base age,
+      // use the projected balances for that age
+      if (balanceProjection?.snapshots && simulatedAge !== baseAge) {
+        const snapshot = balanceProjection.snapshots.find((s) => s.age === simulatedAge)
+        if (snapshot) {
+          return {
+            ...baseProfile,
+            balances: {
+              oa: parseFloat(snapshot.oa) || 0,
+              sa: parseFloat(snapshot.sa) || 0,
+              ma: parseFloat(snapshot.ma) || 0,
+              ra: parseFloat(snapshot.ra) || 0,
+            },
+          }
+        }
+      }
+
+      return baseProfile
     }
     return { ...mockCPFProfile, age: simulatedAge }
-  }, [selectedAccount, simulatedAge])
+  }, [selectedAccount, simulatedAge, baseAge, balanceProjection])
 
   // Check if we're using mock data
   const usingMockData = !selectedAccount
@@ -220,29 +280,68 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
             <span className="text-sm font-medium text-amber-300">Demo Mode</span>
           )}
 
-          {/* Age Input + Slider */}
+          {/* Age/Year Toggle + Input + Slider */}
           <div className="flex items-center gap-2">
+            {/* Age/Year Toggle */}
+            <div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setDisplayMode('age')}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
+                  displayMode === 'age'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                Age
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayMode('year')}
+                className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
+                  displayMode === 'year'
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                Year
+              </button>
+            </div>
             <input
               type="number"
-              min={18}
-              max={100}
-              value={simulatedAge}
+              min={minValue}
+              max={maxValue}
+              value={displayValue}
               onChange={(e) => {
                 const val = parseInt(e.target.value)
-                if (!isNaN(val) && val >= 18 && val <= 100) {
-                  setSimulatedAge(val)
+                if (!isNaN(val)) {
+                  // Clamp to valid range
+                  const clampedVal = Math.max(minValue, Math.min(maxValue, val))
+                  const newAge = displayMode === 'age' ? clampedVal : yearToAge(clampedVal)
+                  setSimulatedAge(newAge)
                 }
               }}
-              className="w-12 bg-transparent text-sm font-medium text-white text-center focus:outline-none border-b border-white/20 focus:border-blue-400"
+              onBlur={(e) => {
+                // Ensure valid value on blur
+                const val = parseInt(e.target.value)
+                if (isNaN(val)) {
+                  setSimulatedAge(baseAge)
+                }
+              }}
+              className="w-14 bg-transparent text-sm font-medium text-white text-center focus:outline-none border-b border-white/20 focus:border-blue-400"
             />
-            <span className="text-sm text-slate-400">y/o</span>
+            <span className="text-sm text-slate-400">{displayMode === 'age' ? 'y/o' : ''}</span>
             <input
               type="range"
-              min={18}
-              max={100}
+              min={minValue}
+              max={maxValue}
               step={1}
-              value={simulatedAge}
-              onChange={(e) => setSimulatedAge(parseInt(e.target.value))}
+              value={displayValue}
+              onChange={(e) => {
+                const val = parseInt(e.target.value)
+                const newAge = displayMode === 'age' ? val : yearToAge(val)
+                setSimulatedAge(newAge)
+              }}
               className="h-1 w-24 cursor-pointer appearance-none rounded-full bg-slate-700/60 accent-blue-500 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-400 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
             />
           </div>
@@ -262,7 +361,7 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
           {TABS.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`flex flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
                 activeTab === tab.id
                   ? 'bg-white/[0.08] text-white'
@@ -277,7 +376,7 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
           <div className="flex-1" />
           {/* Learn tab on right */}
           <button
-            onClick={() => setActiveTab(LEARN_TAB.id)}
+            onClick={() => handleTabChange(LEARN_TAB.id)}
             className={`flex flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
               activeTab === LEARN_TAB.id
                 ? 'bg-white/[0.08] text-white'
@@ -406,8 +505,6 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
 
         {activeTab === 'property' && <PropertyCPFUsage />}
 
-        {activeTab === 'retirement' && <Age55ConversionSimulator />}
-
         {activeTab === 'learn' && (
           <div className="space-y-4">
             {/* Calculator Selector */}
@@ -432,6 +529,7 @@ export function CPFSimulationView({ onClose }: CPFSimulationViewProps) {
             {activeCalculator === 'journey' && <CPFJourneyCalculator />}
             {activeCalculator === 'contribution' && <CPFContributionCalculator />}
             {activeCalculator === 'housing' && <CPFHousingCalculator />}
+            {activeCalculator === 'retirement' && <Age55ConversionSimulator />}
           </div>
         )}
       </div>

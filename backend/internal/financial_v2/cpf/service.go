@@ -126,18 +126,24 @@ type CPFLifeEstimateResult struct {
 
 // PlanEstimate contains estimate details for a standard or basic plan.
 type PlanEstimate struct {
-	MonthlyPayout *decimal.Decimal
-	AnnualPayout  *decimal.Decimal
-	PayoutRate    *decimal.Decimal
+	MonthlyPayout  *decimal.Decimal
+	AnnualPayout   *decimal.Decimal
+	PayoutRate     *decimal.Decimal
+	BequestAtAge75 *decimal.Decimal // Bequest if death at age 75
+	BequestAtAge85 *decimal.Decimal // Bequest if death at age 85
+	BequestAtAge95 *decimal.Decimal // Bequest if death at age 95
 }
 
 // EscalatingPlanEstimate contains estimate details for the escalating plan.
 type EscalatingPlanEstimate struct {
-	MonthlyPayout *decimal.Decimal
-	AnnualPayout  *decimal.Decimal
-	PayoutRate    *decimal.Decimal
-	PayoutAt75    *decimal.Decimal
-	PayoutAt85    *decimal.Decimal
+	MonthlyPayout  *decimal.Decimal
+	AnnualPayout   *decimal.Decimal
+	PayoutRate     *decimal.Decimal
+	PayoutAt75     *decimal.Decimal
+	PayoutAt85     *decimal.Decimal
+	BequestAtAge75 *decimal.Decimal // Bequest if death at age 75
+	BequestAtAge85 *decimal.Decimal // Bequest if death at age 85
+	BequestAtAge95 *decimal.Decimal // Bequest if death at age 95
 }
 
 // CPFProjectionResult contains the CPF projection with LIFE estimates.
@@ -225,21 +231,30 @@ func (s *Service) CalculateCPFLifeEstimates(ctx context.Context, userID string, 
 		BirthYear:      birthYear,
 		Gender:         string(gender),
 		Standard: PlanEstimate{
-			MonthlyPayout: estimates.Standard.MonthlyPayout,
-			AnnualPayout:  estimates.Standard.AnnualPayout,
-			PayoutRate:    estimates.Standard.PayoutRate,
+			MonthlyPayout:  estimates.Standard.MonthlyPayout,
+			AnnualPayout:   estimates.Standard.AnnualPayout,
+			PayoutRate:     estimates.Standard.PayoutRate,
+			BequestAtAge75: estimates.Standard.BequestAtAge75,
+			BequestAtAge85: estimates.Standard.BequestAtAge85,
+			BequestAtAge95: estimates.Standard.BequestAtAge95,
 		},
 		Basic: PlanEstimate{
-			MonthlyPayout: estimates.Basic.MonthlyPayout,
-			AnnualPayout:  estimates.Basic.AnnualPayout,
-			PayoutRate:    estimates.Basic.PayoutRate,
+			MonthlyPayout:  estimates.Basic.MonthlyPayout,
+			AnnualPayout:   estimates.Basic.AnnualPayout,
+			PayoutRate:     estimates.Basic.PayoutRate,
+			BequestAtAge75: estimates.Basic.BequestAtAge75,
+			BequestAtAge85: estimates.Basic.BequestAtAge85,
+			BequestAtAge95: estimates.Basic.BequestAtAge95,
 		},
 		Escalating: EscalatingPlanEstimate{
-			MonthlyPayout: estimates.Escalating.MonthlyPayout,
-			AnnualPayout:  estimates.Escalating.AnnualPayout,
-			PayoutRate:    estimates.Escalating.PayoutRate,
-			PayoutAt75:    estimates.Escalating.PayoutAt75,
-			PayoutAt85:    estimates.Escalating.PayoutAt85,
+			MonthlyPayout:  estimates.Escalating.MonthlyPayout,
+			AnnualPayout:   estimates.Escalating.AnnualPayout,
+			PayoutRate:     estimates.Escalating.PayoutRate,
+			PayoutAt75:     estimates.Escalating.PayoutAt75,
+			PayoutAt85:     estimates.Escalating.PayoutAt85,
+			BequestAtAge75: estimates.Escalating.BequestAtAge75,
+			BequestAtAge85: estimates.Escalating.BequestAtAge85,
+			BequestAtAge95: estimates.Escalating.BequestAtAge95,
 		},
 		Disclaimer: estimates.Disclaimer,
 	}, nil
@@ -327,21 +342,30 @@ func (s *Service) ProjectCPFWithLifeEstimates(ctx context.Context, userID, cpfAc
 		BirthYear:      birthYear,
 		Gender:         string(gender),
 		Standard: PlanEstimate{
-			MonthlyPayout: estimates.Standard.MonthlyPayout,
-			AnnualPayout:  estimates.Standard.AnnualPayout,
-			PayoutRate:    estimates.Standard.PayoutRate,
+			MonthlyPayout:  estimates.Standard.MonthlyPayout,
+			AnnualPayout:   estimates.Standard.AnnualPayout,
+			PayoutRate:     estimates.Standard.PayoutRate,
+			BequestAtAge75: estimates.Standard.BequestAtAge75,
+			BequestAtAge85: estimates.Standard.BequestAtAge85,
+			BequestAtAge95: estimates.Standard.BequestAtAge95,
 		},
 		Basic: PlanEstimate{
-			MonthlyPayout: estimates.Basic.MonthlyPayout,
-			AnnualPayout:  estimates.Basic.AnnualPayout,
-			PayoutRate:    estimates.Basic.PayoutRate,
+			MonthlyPayout:  estimates.Basic.MonthlyPayout,
+			AnnualPayout:   estimates.Basic.AnnualPayout,
+			PayoutRate:     estimates.Basic.PayoutRate,
+			BequestAtAge75: estimates.Basic.BequestAtAge75,
+			BequestAtAge85: estimates.Basic.BequestAtAge85,
+			BequestAtAge95: estimates.Basic.BequestAtAge95,
 		},
 		Escalating: EscalatingPlanEstimate{
-			MonthlyPayout: estimates.Escalating.MonthlyPayout,
-			AnnualPayout:  estimates.Escalating.AnnualPayout,
-			PayoutRate:    estimates.Escalating.PayoutRate,
-			PayoutAt75:    estimates.Escalating.PayoutAt75,
-			PayoutAt85:    estimates.Escalating.PayoutAt85,
+			MonthlyPayout:  estimates.Escalating.MonthlyPayout,
+			AnnualPayout:   estimates.Escalating.AnnualPayout,
+			PayoutRate:     estimates.Escalating.PayoutRate,
+			PayoutAt75:     estimates.Escalating.PayoutAt75,
+			PayoutAt85:     estimates.Escalating.PayoutAt85,
+			BequestAtAge75: estimates.Escalating.BequestAtAge75,
+			BequestAtAge85: estimates.Escalating.BequestAtAge85,
+			BequestAtAge95: estimates.Escalating.BequestAtAge95,
 		},
 		Disclaimer: estimates.Disclaimer,
 	}

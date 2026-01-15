@@ -209,7 +209,7 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	}).Methods("POST")
 
 	// CPF account v2 endpoints (versioned update/delete/stop)
-	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore, deps.CPFAssumptionsRepo)
+	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore, deps.CPFAssumptionsRepo, deps.TimelineService)
 	router.HandleFunc("/cpf/accounts", cpfHandler.HandleList).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleGet).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleCreate).Methods("POST")
@@ -246,11 +246,25 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	// CPF LIFE estimate calculator endpoint
 	router.HandleFunc("/cpf/calculators/cpflife-estimate", cpfHandler.HandleCPFLifeEstimate).Methods("POST")
 
-	// CPF projection with LIFE estimates endpoint
+	// Age 55 RA conversion calculator endpoint
+	router.HandleFunc("/cpf/calculators/age55-conversion", cpfHandler.HandleAge55Conversion).Methods("POST")
+
+	// CPF projection with LIFE estimates endpoint.
+	// Returns current CPF balances and calculates CPF LIFE payout estimates for all three plans
+	// (Standard, Basic, Escalating) based on the person's current RA balance.
+	// Note: For chart projections that include scenario impacts, use /timeline-projection instead.
 	router.HandleFunc("/cpf/account/{id}/projection", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]
 		cpfHandler.HandleCPFProjection(w, r, id)
+	}).Methods("POST")
+
+	// CPF timeline projection endpoint (for charting) - uses Timeline service for consistency
+	// This is the recommended endpoint as it includes scenario impacts and income growth
+	router.HandleFunc("/cpf/account/{id}/timeline-projection", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		cpfHandler.HandleCPFTimelineProjection(w, r, id)
 	}).Methods("POST")
 
 	// Person v2 endpoints (for multi-person household support)

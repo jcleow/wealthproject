@@ -36,6 +36,11 @@ type PayoutResult struct {
 	MonthlyPayout *decimal.Decimal // Monthly payout amount
 	AnnualPayout  *decimal.Decimal // Annual payout amount (monthly * 12)
 	PayoutRate    *decimal.Decimal // Payout rate (monthly payout / RA balance * 12)
+
+	// Bequest estimates (money left to beneficiaries upon death)
+	BequestAtAge75 *decimal.Decimal // Estimated bequest if death at age 75
+	BequestAtAge85 *decimal.Decimal // Estimated bequest if death at age 85
+	BequestAtAge95 *decimal.Decimal // Estimated bequest if death at age 95
 }
 
 // EscalatingPayoutResult extends PayoutResult with escalating plan projections.

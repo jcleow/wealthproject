@@ -1,12 +1,21 @@
 /**
- * CPF 2025 Policy Constants
+ * CPF Policy Year - the year for which the retirement sums are defined.
+ * This value is dynamically set to the current year.
+ * When CPF Board publishes new values, they typically apply to the current year.
+ * Source: https://www.cpf.gov.sg/service/article/what-are-the-retirement-sums-basic-retirement-sum-brs-full-retirement-sum-frs-and-enhanced-retirement-sum-ers
+ */
+export const CPF_POLICY_YEAR = new Date().getFullYear()
+
+/**
+ * CPF Policy Constants
  * Fixed policy values set by CPF Board (not user-adjustable)
+ * Source: https://www.cpf.gov.sg/service/article/what-are-the-retirement-sums-basic-retirement-sum-brs-full-retirement-sum-frs-and-enhanced-retirement-sum-ers
  */
 export const CPF_CONSTANTS = {
-  BRS: 106500, // Basic Retirement Sum
-  FRS: 213000, // Full Retirement Sum
-  ERS: 426000, // Enhanced Retirement Sum (2x FRS)
-  BHS: 75500, // Basic Healthcare Sum
+  BRS: 110200, // Basic Retirement Sum
+  FRS: 220400, // Full Retirement Sum (2x BRS)
+  ERS: 440800, // Enhanced Retirement Sum (4x BRS from 2025 onwards)
+  BHS: 79000, // Basic Healthcare Sum
   MRS: 60000, // Minimum for CPF LIFE eligibility
 } as const
 
