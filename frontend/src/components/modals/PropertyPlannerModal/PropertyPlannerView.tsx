@@ -679,6 +679,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
               key="scenario-detail"
               activeResultsTab={activeResultsTab}
               editingScenario={editingScenario ?? null}
+              scenarioFull={editingApiScenario ?? null}
               editingScenarioSaleIcon={editingScenarioSaleIcon}
               editingScenarioSaleIconColor={editingScenarioSaleIconColor}
               editingScenarioSaleIconSearch={editingScenarioSaleIconSearch}

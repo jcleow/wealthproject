@@ -23,13 +23,17 @@ import {
   PropertyAppreciationPanel,
 } from '@/app/property-planner/components'
 
+import { CPFTabContent } from './CPFTabContent'
+import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
+import type { CPFAccount } from '@/types/cpf'
+
 import {
   formatCurrency,
   formatMonthYear,
   calculateMortgage,
 } from '@/app/property-planner/hooks'
 
-export type ResultsTab = 'purchase' | 'sale' | 'appreciation'
+export type ResultsTab = 'purchase' | 'sale' | 'appreciation' | 'cpf'
 type PurchaseDetailTab = 'breakdown' | 'chart'
 
 interface TabbedResultsPanelProps {
@@ -57,6 +61,10 @@ interface TabbedResultsPanelProps {
    * This prop is reserved for future use when we want to display API-computed values.
    */
   computedValues?: ComputedValues | null
+  /** Full scenario data for CPF tab */
+  scenarioFull?: PropertyScenarioFull | null
+  /** Full CPF accounts for CPF tab display */
+  cpfAccountsFull?: CPFAccount[]
 }
 
 export function TabbedResultsPanel({
@@ -75,6 +83,8 @@ export function TabbedResultsPanel({
   cashAccounts,
   // Reserved for future use when backend returns full nested ComputedValuesFull structure
   computedValues: _computedValues = null,
+  scenarioFull = null,
+  cpfAccountsFull = [],
 }: TabbedResultsPanelProps) {
   const [purchaseDetailTab, setPurchaseDetailTab] = useState<PurchaseDetailTab>('breakdown')
 
@@ -513,6 +523,27 @@ export function TabbedResultsPanel({
               appreciationPeriods={appreciationPeriods}
               onPeriodsChange={onPeriodsChange}
             />
+          </motion.div>
+        ) : activeTab === 'cpf' ? (
+          <motion.div
+            key="cpf"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.2 }}
+          >
+            {scenarioFull ? (
+              <CPFTabContent
+                scenario={scenarioFull}
+                cpfAccounts={cpfAccountsFull}
+              />
+            ) : (
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6">
+                <p className="text-sm text-slate-500 text-center py-8">
+                  Save the scenario to view CPF details.
+                </p>
+              </div>
+            )}
           </motion.div>
         ) : null}
       </AnimatePresence>
