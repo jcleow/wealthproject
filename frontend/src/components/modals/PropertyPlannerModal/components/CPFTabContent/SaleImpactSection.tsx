@@ -107,14 +107,14 @@ export function SaleImpactSection({
         <div className="pt-4 border-t border-gray-700">
           <p className="text-sm font-medium text-gray-400 uppercase tracking-wide mb-3">CPF Refund Destinations</p>
 
-          <div className="rounded-lg bg-blue-500/10 border border-blue-500/20 p-3 space-y-2">
+          <div className="rounded-lg bg-gray-800 border border-gray-700 p-3 space-y-2">
             {borrowerRefunds.map((refund, index) => (
               <div key={index} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <span className="text-gray-300">{refund.name}&apos;s OA</span>
                   <ArrowRight className="h-4 w-4 text-gray-500" />
                 </div>
-                <span className="text-blue-400 font-medium font-mono tabular-nums">
+                <span className="text-emerald-400 font-medium font-mono tabular-nums">
                   {formatCurrency(refund.total)}
                 </span>
               </div>

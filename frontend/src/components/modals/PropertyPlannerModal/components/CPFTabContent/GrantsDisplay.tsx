@@ -69,8 +69,8 @@ export function GrantsDisplay({ grants, isPrivateProperty = false }: GrantsDispl
       )}
 
       {/* Info Note */}
-      <div className="flex items-start gap-2 p-3 mt-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-        <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
+      <div className="flex items-start gap-2 p-3 mt-4 rounded-lg bg-gray-800 border border-gray-700">
+        <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
         <p className="text-sm text-gray-300 leading-relaxed">
           Grants reduce your loan amount but are <strong className="text-white">NOT refunded</strong> to CPF upon sale
           (unlike your CPF contributions which must be refunded with interest).
