@@ -10,6 +10,7 @@ export default function CPFRetirementPage() {
     router.push('/dashboard')
   }
 
+  // Retirement is now under the Learn tab
   return (
     <div className="relative h-screen w-full overflow-hidden bg-[#050505] font-sans text-slate-200">
       {/* Ambient background orbs */}
@@ -19,7 +20,7 @@ export default function CPFRetirementPage() {
       {/* Main content */}
       <div className="relative z-10 flex h-screen w-full overflow-hidden p-6">
         <div className="flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border border-white/[0.06] bg-[#0a0a0a]/80">
-          <CPFSimulationView onClose={handleClose} initialTab="retirement" />
+          <CPFSimulationView onClose={handleClose} initialTab="learn" />
         </div>
       </div>
     </div>

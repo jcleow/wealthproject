@@ -258,8 +258,8 @@ export function CPFAssumptionsPanel({
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
+          <div className="flex gap-4">
+            <div className="w-1/4 space-y-1.5">
               <PercentSlider
                 label="Payout Start Age"
                 value={assumptions.payoutStartAge}
@@ -278,7 +278,7 @@ export function CPFAssumptionsPanel({
                 </div>
               )}
             </div>
-            <div className="space-y-1.5">
+            <div className="w-1/4 space-y-1.5">
               <PercentSlider
                 label="Basic Plan Premium"
                 value={assumptions.basicPlanPremiumPercent}

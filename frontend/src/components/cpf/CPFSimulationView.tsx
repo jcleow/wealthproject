@@ -9,7 +9,6 @@ import {
   GraduationCap,
   X,
   Layers,
-  Sunset,
   User,
 } from 'lucide-react'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
@@ -39,7 +38,7 @@ import {
   formatAccountLabel,
 } from '@/lib/cpf-utils'
 
-type TabId = 'overview' | 'projection' | 'strategies' | 'property' | 'retirement' | 'learn'
+type TabId = 'overview' | 'projection' | 'strategies' | 'property' | 'learn'
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode; description: string }[] = [
   {
@@ -59,12 +58,6 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode; description: stri
     label: 'Property',
     icon: <Home className="h-4 w-4" />,
     description: 'Housing & grants',
-  },
-  {
-    id: 'retirement',
-    label: 'Retirement',
-    icon: <Sunset className="h-4 w-4" />,
-    description: 'Age 55 & CPF LIFE',
   },
   {
     id: 'strategies',
@@ -128,12 +121,13 @@ function StrategyPlaceholder({ title, description, points }: StrategyPlaceholder
   )
 }
 
-type LearnCalculator = 'journey' | 'contribution' | 'housing'
+type LearnCalculator = 'journey' | 'contribution' | 'housing' | 'retirement'
 
 const LEARN_CALCULATORS: { id: LearnCalculator; label: string; description: string }[] = [
   { id: 'journey', label: 'CPF Journey', description: 'Complete lifecycle overview' },
   { id: 'contribution', label: 'CPF Contributions', description: 'How salary flows to OA/SA/MA' },
   { id: 'housing', label: 'Housing Limits', description: 'Valuation & Withdrawal Limits' },
+  { id: 'retirement', label: 'Retirement', description: 'Age 55 & CPF LIFE' },
 ]
 
 export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimulationViewProps) {
@@ -511,8 +505,6 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
 
         {activeTab === 'property' && <PropertyCPFUsage />}
 
-        {activeTab === 'retirement' && <Age55ConversionSimulator />}
-
         {activeTab === 'learn' && (
           <div className="space-y-4">
             {/* Calculator Selector */}
@@ -537,6 +529,7 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
             {activeCalculator === 'journey' && <CPFJourneyCalculator />}
             {activeCalculator === 'contribution' && <CPFContributionCalculator />}
             {activeCalculator === 'housing' && <CPFHousingCalculator />}
+            {activeCalculator === 'retirement' && <Age55ConversionSimulator />}
           </div>
         )}
       </div>
