@@ -711,6 +711,52 @@ Constants should be defined at:
 
 ---
 
+## Swagger Documentation
+
+**IMPORTANT**: After adding or modifying API endpoints, ALWAYS regenerate swagger documentation.
+
+### Regenerate Swagger
+
+```bash
+cd backend && /Users/jitcorn/go/bin/swag init -g cmd/server/main.go -o cmd/server/docs --parseDependency --parseInternal
+```
+
+Or use the make target:
+```bash
+make swagger
+```
+
+### When to Regenerate
+
+Regenerate swagger when you:
+- Add new API endpoints
+- Modify request/response structs
+- Change swagger annotations (`@Summary`, `@Param`, etc.)
+- Add or remove handler methods
+
+### Swagger Annotations
+
+Document endpoints in handlers using swaggo annotations:
+
+```go
+// ListAssets godoc
+// @Summary List all assets
+// @Description Get paginated list of non-cash assets for the authenticated user
+// @Tags Assets
+// @Accept json
+// @Produce json
+// @Param limit query int false "Max results" default(50)
+// @Param offset query int false "Offset for pagination" default(0)
+// @Success 200 {object} repository.PaginatedResult[repository.NonCashAsset]
+// @Failure 401 {object} ErrorResponse
+// @Router /api/v2/assets [get]
+func (h *AssetV2Handler) List(w http.ResponseWriter, r *http.Request) {
+    // ...
+}
+```
+
+---
+
 ## Quick Reference
 
 ```go
