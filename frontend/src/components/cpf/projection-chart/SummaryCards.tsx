@@ -1,6 +1,6 @@
 import { Info } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
-import { CPF_CONSTANTS } from '@/lib/cpf-constants'
+import { CPF_CONSTANTS, CPF_POLICY_YEAR } from '@/lib/cpf-constants'
 import type { CPFProjectionYear } from '@/types/cpf'
 import type { PayoutPlan } from './types'
 import { ACCOUNT_COLORS, THRESHOLD_COLORS } from './types'
@@ -113,7 +113,7 @@ export function RetirementTargetsCard() {
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
-      <p className="text-xs text-slate-400">2026 Retirement Targets</p>
+      <p className="text-xs text-slate-400">{CPF_POLICY_YEAR} Retirement Targets</p>
       <div className="mt-3 space-y-2">
         {targets.map((target) => (
           <div key={target.label} className="flex items-center justify-between text-xs">

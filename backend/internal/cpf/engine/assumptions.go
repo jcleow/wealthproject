@@ -1,15 +1,17 @@
 package engine
 
 import (
+	"time"
+
 	"financial-chat-system/backend/internal/cpf/assumptions"
 	"financial-chat-system/backend/internal/decimal"
 )
 
-// RetirementSumsBaseYear is the reference year for the BRS/FRS/ERS/BHS base values
-// defined in DefaultAssumptions(). When CPF Board publishes new values, update this
-// constant along with the corresponding base amounts.
+// defaultRetirementSumsBaseYear is the reference year for the BRS/FRS/ERS/BHS base values
+// in DefaultAssumptions(). When CPF Board publishes new values, update this
+// along with the corresponding base amounts in DefaultAssumptions().
 // Reference: https://www.cpf.gov.sg/member/retirement-income/retirement-withdrawals/cpf-retirement-sum
-const RetirementSumsBaseYear = 2026
+var defaultRetirementSumsBaseYear = time.Now().Year()
 
 // Assumptions contains all configurable parameters for CPF calculations.
 // All rates are stored as decimals (e.g., 0.025 = 2.5% p.a.).
@@ -39,6 +41,9 @@ type Assumptions struct {
 	// Lifecycle settings
 	RetirementAge  int // Age when contributions stop (default: 65)
 	PayoutStartAge int // Age to start CPF LIFE (default: 65)
+
+	// Policy year for retirement sums base values
+	RetirementSumsBaseYear int // Year the BRS/FRS/ERS/BHS base values are from (default: current year)
 }
 
 // DefaultAssumptions returns assumptions with official CPF rates.
@@ -58,6 +63,7 @@ func DefaultAssumptions() *Assumptions {
 		BHSGrowthRate:                decimal.MustFromString("0.04"),
 		RetirementAge:                assumptions.DefaultRetirementAge,
 		PayoutStartAge:               assumptions.DefaultPayoutStartAge,
+		RetirementSumsBaseYear:       defaultRetirementSumsBaseYear,
 	}
 }
 
@@ -83,6 +89,7 @@ func (a *Assumptions) Merge(overrides *Assumptions) *Assumptions {
 		BHSGrowthRate:                a.BHSGrowthRate,
 		RetirementAge:                a.RetirementAge,
 		PayoutStartAge:               a.PayoutStartAge,
+		RetirementSumsBaseYear:       a.RetirementSumsBaseYear,
 	}
 
 	if overrides.InterestRateOA != nil {
@@ -127,13 +134,16 @@ func (a *Assumptions) Merge(overrides *Assumptions) *Assumptions {
 	if overrides.PayoutStartAge > 0 {
 		result.PayoutStartAge = overrides.PayoutStartAge
 	}
+	if overrides.RetirementSumsBaseYear > 0 {
+		result.RetirementSumsBaseYear = overrides.RetirementSumsBaseYear
+	}
 
 	return result
 }
 
 // GetRetirementSum returns BRS/FRS/ERS for a given year (projected from base year).
 func (a *Assumptions) GetRetirementSum(scheme string, year int) *decimal.Decimal {
-	yearsFromBase := year - RetirementSumsBaseYear
+	yearsFromBase := year - a.RetirementSumsBaseYear
 	if yearsFromBase < 0 {
 		yearsFromBase = 0
 	}
@@ -159,7 +169,7 @@ func (a *Assumptions) GetRetirementSum(scheme string, year int) *decimal.Decimal
 
 // GetBHS returns the BHS for a given year (projected from base year).
 func (a *Assumptions) GetBHS(year int) *decimal.Decimal {
-	yearsFromBase := year - RetirementSumsBaseYear
+	yearsFromBase := year - a.RetirementSumsBaseYear
 	if yearsFromBase < 0 {
 		yearsFromBase = 0
 	}
