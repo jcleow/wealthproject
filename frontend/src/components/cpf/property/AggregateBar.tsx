@@ -122,9 +122,6 @@ export function AggregateBar({ stats }: AggregateBarProps) {
               <p className="text-lg font-semibold text-emerald-400 font-mono tabular-nums">
                 {formatCurrency(stats.totalGrants)}
               </p>
-              <p className="mt-2 text-[10px] text-slate-500">
-                Not refunded at sale
-              </p>
             </div>
           </div>
         )}
