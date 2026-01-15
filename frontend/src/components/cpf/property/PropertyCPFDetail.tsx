@@ -132,18 +132,18 @@ export function PropertyCPFDetail({
   return (
     <div className="rounded-xl border border-gray-700 bg-gray-900/60 overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-700">
-        <div className="flex items-center justify-between mb-3">
+      <div className="px-4 py-4 border-b border-gray-700">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-medium text-white">{sg.name}</h3>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <h3 className="text-lg font-medium text-white">{sg.name}</h3>
+            <p className="text-sm text-gray-400 mt-1">
               {formatCurrency(parseFloat(sg.propertyPrice))} • {holdingYears} year holding
             </p>
           </div>
           <button
             type="button"
             onClick={onEditInPropertyPlanner}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition"
           >
             <Edit3 className="h-4 w-4" />
             Edit
@@ -151,14 +151,14 @@ export function PropertyCPFDetail({
         </div>
 
         {/* Segmented Control for Section Views */}
-        <div className="inline-flex rounded-lg bg-gray-800 p-0.5 border border-gray-700">
+        <div className="inline-flex rounded-lg bg-gray-800 p-1 border border-gray-700">
           {DETAIL_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
+                "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150",
                 activeTab === tab.id
                   ? "bg-gray-700 text-white shadow-sm"
                   : "text-gray-400 hover:text-gray-200"
