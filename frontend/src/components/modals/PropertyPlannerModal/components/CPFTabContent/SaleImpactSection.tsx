@@ -79,7 +79,7 @@ export function SaleImpactSection({
             <span className="text-gray-400">Less: CPF Refund</span>
             <span className="text-gray-300 font-mono tabular-nums">({formatCurrency(totalCpfRefund)})</span>
           </div>
-          <div className="pl-4 space-y-1.5 text-sm">
+          <div className="pl-4 space-y-1.5 text-sm italic">
             <div className="flex justify-between">
               <span className="text-gray-500">├─ Principal</span>
               <span className="text-gray-300 font-mono tabular-nums">{formatCurrency(cpfPrincipal)}</span>
