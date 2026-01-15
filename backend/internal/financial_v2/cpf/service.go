@@ -3,6 +3,7 @@ package cpf
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"financial-chat-system/backend/internal/cpf/payout"
@@ -369,4 +370,345 @@ func (s *Service) ProjectCPFWithLifeEstimates(ctx context.Context, userID, cpfAc
 	}
 
 	return result, nil
+}
+
+// =============================================================================
+// CPF Housing Usage (derived from Property Scenarios)
+// =============================================================================
+
+// HousingUsageDownPayment represents the down payment breakdown
+type HousingUsageDownPayment struct {
+	OAUsed        *decimal.Decimal
+	CashUsed      *decimal.Decimal
+	GrantReceived *decimal.Decimal
+	GrantType     *string
+}
+
+// HousingUsageMonthlyPayment represents a single monthly payment record
+type HousingUsageMonthlyPayment struct {
+	Month            string
+	OAUsed           *decimal.Decimal
+	CashUsed         *decimal.Decimal
+	PrincipalPortion *decimal.Decimal
+	InterestPortion  *decimal.Decimal
+}
+
+// HousingUsageTotals represents aggregated totals
+type HousingUsageTotals struct {
+	TotalOAUsed          *decimal.Decimal
+	TotalCashUsed        *decimal.Decimal
+	OAForDownPayment     *decimal.Decimal
+	OAForMonthlyPayments *decimal.Decimal
+}
+
+// YearlyAccruedInterest represents accrued interest for one year
+type YearlyAccruedInterest struct {
+	Year               int
+	StartingPrincipal  *decimal.Decimal
+	InterestForYear    *decimal.Decimal
+	CumulativeInterest *decimal.Decimal
+}
+
+// AccruedInterestSchedule represents the full accrued interest breakdown
+type AccruedInterestSchedule struct {
+	AsOfDate        time.Time
+	TotalAccrued    *decimal.Decimal
+	YearlyBreakdown []YearlyAccruedInterest
+}
+
+// HousingUsageResult is the computed CPF housing usage from a property scenario
+type HousingUsageResult struct {
+	PropertyScenarioID string
+	DownPayment        HousingUsageDownPayment
+	MonthlyPayments    []HousingUsageMonthlyPayment
+	Totals             HousingUsageTotals
+	AccruedInterest    AccruedInterestSchedule
+}
+
+// CPFRefundRequired represents the CPF refund details for property sale
+type CPFRefundRequired struct {
+	PrincipalUsed   *decimal.Decimal
+	AccruedInterest *decimal.Decimal
+	TotalRefund     *decimal.Decimal
+}
+
+// RefundDestination represents where the CPF refund goes
+type RefundDestination struct {
+	ToOA   *decimal.Decimal
+	ToRA   *decimal.Decimal
+	Reason string
+}
+
+// PropertySaleAnalysis represents the sale analysis for a property
+type PropertySaleAnalysis struct {
+	SaleDate          string
+	GrossProceeds     *decimal.Decimal
+	OutstandingLoan   *decimal.Decimal
+	SellingCosts      *decimal.Decimal
+	CpfRefundRequired CPFRefundRequired
+	RefundDestination RefundDestination
+	NetCashProceeds   *decimal.Decimal
+	Warnings          []string
+}
+
+// HousingUsageFullResult includes both usage and sale analysis
+type HousingUsageFullResult struct {
+	Usage        *HousingUsageResult
+	SaleAnalysis *PropertySaleAnalysis
+}
+
+// ComputeHousingUsage computes CPF housing usage from a property scenario.
+// This is the main entry point for the housing usage calculation.
+func (s *Service) ComputeHousingUsage(ctx context.Context, userID, scenarioID string) (*HousingUsageFullResult, error) {
+	// Get the property scenario (includes PropertySG and Grants)
+	scenarioFull, err := s.store.GetPropertyScenario(ctx, userID, scenarioID)
+	if err != nil {
+		return nil, fmt.Errorf("get property scenario: %w", err)
+	}
+	if scenarioFull == nil {
+		return nil, repo.ErrNotFound
+	}
+
+	// PropertySG is required for CPF housing usage
+	if scenarioFull.PropertySG == nil {
+		return nil, repo.ErrNotFound
+	}
+
+	// Calculate CPF housing usage
+	usage := s.computeUsageFromScenario(scenarioFull)
+
+	// Calculate sale analysis if sale date is set
+	var saleAnalysis *PropertySaleAnalysis
+	if scenarioFull.PropertySG.SaleExpectedDate != nil && *scenarioFull.PropertySG.SaleExpectedDate != "" {
+		saleAnalysis = s.computeSaleAnalysis(scenarioFull.PropertySG, usage)
+	}
+
+	return &HousingUsageFullResult{
+		Usage:        usage,
+		SaleAnalysis: saleAnalysis,
+	}, nil
+}
+
+// computeUsageFromScenario derives CPF housing usage from property scenario data
+func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFull) *HousingUsageResult {
+	propertySG := scenarioFull.PropertySG
+	grants := scenarioFull.Grants
+
+	// Down payment CPF OA (both borrowers)
+	b1DownpaymentOA := propertySG.Borrower1DownpaymentCpfOa
+	b2DownpaymentOA := propertySG.Borrower2DownpaymentCpfOa
+	oaForDownPayment := b1DownpaymentOA.Add(&b2DownpaymentOA)
+
+	// Down payment cash (both borrowers)
+	b1DownpaymentCash := propertySG.Borrower1DownpaymentCashAmount
+	b2DownpaymentCash := propertySG.Borrower2DownpaymentCashAmount
+	downpaymentCash := b1DownpaymentCash.Add(&b2DownpaymentCash)
+	// Fall back to legacy field if per-borrower not set
+	if downpaymentCash.IsZero() && !propertySG.DownpaymentCash.IsZero() {
+		downpaymentCash = &propertySG.DownpaymentCash
+	}
+
+	// Total grants
+	totalGrants := decimal.Zero()
+	var primaryGrantType *string
+	for i, grant := range grants {
+		totalGrants = totalGrants.Add(&grant.Amount)
+		if i == 0 {
+			// Determine grant type from name
+			grantType := determineGrantType(grant.Name)
+			if grantType != "" {
+				primaryGrantType = &grantType
+			}
+		}
+	}
+
+	// Monthly CPF OA (both borrowers)
+	b1MonthlyCpfOa := propertySG.Borrower1MonthlyCpfOa
+	b2MonthlyCpfOa := propertySG.Borrower2MonthlyCpfOa
+	monthlyOAUsed := b1MonthlyCpfOa.Add(&b2MonthlyCpfOa)
+
+	// Monthly cash (both borrowers)
+	b1MonthlyCash := propertySG.Borrower1MonthlyCashAmount
+	b2MonthlyCash := propertySG.Borrower2MonthlyCashAmount
+	monthlyCashUsed := b1MonthlyCash.Add(&b2MonthlyCash)
+
+	// Determine start date (BTO key collection or created date)
+	startDate := propertySG.CreatedAt
+	if propertySG.BtoKeyCollectionDate != nil && *propertySG.BtoKeyCollectionDate != "" {
+		// Parse BtoKeyCollectionDate string (YYYY-MM format)
+		if parsedDate, err := time.Parse("2006-01", *propertySG.BtoKeyCollectionDate); err == nil {
+			startDate = parsedDate
+		}
+	}
+	asOfDate := time.Now()
+
+	// Calculate months since start
+	monthsSinceStart := (asOfDate.Year()-startDate.Year())*12 + int(asOfDate.Month()) - int(startDate.Month())
+	if monthsSinceStart < 0 {
+		monthsSinceStart = 0
+	}
+
+	// Generate monthly payments (up to current date, max 360 months)
+	const maxMonths = 360
+	if monthsSinceStart > maxMonths {
+		monthsSinceStart = maxMonths
+	}
+
+	monthlyPayments := make([]HousingUsageMonthlyPayment, 0, monthsSinceStart)
+	for i := 0; i < monthsSinceStart; i++ {
+		paymentDate := startDate.AddDate(0, i, 0)
+		month := paymentDate.Format("2006-01")
+
+		// Simple approximation for principal/interest split
+		// In production, this would come from amortization schedule
+		totalMonthly := monthlyOAUsed.Add(monthlyCashUsed)
+		interestPortion := totalMonthly.Mul(decimal.MustFromString("0.3"))
+		principalPortion := totalMonthly.Sub(interestPortion)
+
+		monthlyPayments = append(monthlyPayments, HousingUsageMonthlyPayment{
+			Month:            month,
+			OAUsed:           monthlyOAUsed,
+			CashUsed:         monthlyCashUsed,
+			PrincipalPortion: principalPortion,
+			InterestPortion:  interestPortion,
+		})
+	}
+
+	// Calculate totals
+	monthsDecimal := decimal.MustFromString(fmt.Sprintf("%d", monthsSinceStart))
+	oaForMonthlyPayments := monthlyOAUsed.Mul(monthsDecimal)
+	cashForMonthlyPayments := monthlyCashUsed.Mul(monthsDecimal)
+	totalOAUsed := oaForDownPayment.Add(oaForMonthlyPayments)
+	totalCashUsed := downpaymentCash.Add(cashForMonthlyPayments)
+
+	// Calculate accrued interest (2.5% p.a. compounded yearly)
+	accruedInterest := calculateAccruedInterestSchedule(totalOAUsed, startDate, asOfDate)
+
+	return &HousingUsageResult{
+		PropertyScenarioID: scenarioFull.Scenario.ID,
+		DownPayment: HousingUsageDownPayment{
+			OAUsed:        oaForDownPayment,
+			CashUsed:      downpaymentCash,
+			GrantReceived: totalGrants,
+			GrantType:     primaryGrantType,
+		},
+		MonthlyPayments: monthlyPayments,
+		Totals: HousingUsageTotals{
+			TotalOAUsed:          totalOAUsed,
+			TotalCashUsed:        totalCashUsed,
+			OAForDownPayment:     oaForDownPayment,
+			OAForMonthlyPayments: oaForMonthlyPayments,
+		},
+		AccruedInterest: *accruedInterest,
+	}
+}
+
+// calculateAccruedInterestSchedule computes yearly accrued interest at 2.5% p.a.
+func calculateAccruedInterestSchedule(
+	totalOAUsed *decimal.Decimal,
+	startDate time.Time,
+	asOfDate time.Time,
+) *AccruedInterestSchedule {
+	rate := decimal.MustFromString("0.025") // 2.5% p.a.
+	startYear := startDate.Year()
+	endYear := asOfDate.Year()
+
+	yearlyBreakdown := make([]YearlyAccruedInterest, 0, endYear-startYear+1)
+	cumulativePrincipal := totalOAUsed
+	cumulativeInterest := decimal.Zero()
+
+	for year := startYear; year <= endYear; year++ {
+		startingPrincipal := cumulativePrincipal
+		interestForYear := startingPrincipal.Mul(rate)
+		cumulativeInterest = cumulativeInterest.Add(interestForYear)
+
+		yearlyBreakdown = append(yearlyBreakdown, YearlyAccruedInterest{
+			Year:               year,
+			StartingPrincipal:  startingPrincipal,
+			InterestForYear:    interestForYear,
+			CumulativeInterest: cumulativeInterest,
+		})
+
+		// Compound: add interest to principal for next year
+		cumulativePrincipal = startingPrincipal.Add(interestForYear)
+	}
+
+	return &AccruedInterestSchedule{
+		AsOfDate:        asOfDate,
+		TotalAccrued:    cumulativeInterest,
+		YearlyBreakdown: yearlyBreakdown,
+	}
+}
+
+// computeSaleAnalysis computes sale analysis for a property
+func (s *Service) computeSaleAnalysis(
+	propertySG *repo.PropertySG,
+	usage *HousingUsageResult,
+) *PropertySaleAnalysis {
+	if propertySG.SaleExpectedDate == nil || *propertySG.SaleExpectedDate == "" {
+		return nil
+	}
+
+	salePrice := propertySG.SaleExpectedPrice
+	if salePrice == nil || salePrice.IsZero() {
+		return nil
+	}
+
+	// Get totals from usage
+	totalOAUsed := usage.Totals.TotalOAUsed
+	totalAccrued := usage.AccruedInterest.TotalAccrued
+
+	// Estimate outstanding loan (rough: 70% of original loan)
+	// In production, this would use actual amortization
+	outstandingLoan := propertySG.PropertyPrice.Mul(decimal.MustFromString("0.56")) // ~80% LTV * 70% remaining
+
+	// Selling costs ~2%
+	sellingCosts := salePrice.Mul(decimal.MustFromString("0.02"))
+
+	// CPF refund
+	totalRefund := totalOAUsed.Add(totalAccrued)
+
+	// Net proceeds
+	netProceeds := salePrice.Sub(outstandingLoan).Sub(sellingCosts).Sub(totalRefund)
+
+	warnings := []string{}
+	if netProceeds.IsNegative() {
+		warnings = append(warnings, "Sale proceeds may be insufficient to cover CPF refund")
+	}
+
+	return &PropertySaleAnalysis{
+		SaleDate:        *propertySG.SaleExpectedDate,
+		GrossProceeds:   salePrice,
+		OutstandingLoan: outstandingLoan,
+		SellingCosts:    sellingCosts,
+		CpfRefundRequired: CPFRefundRequired{
+			PrincipalUsed:   totalOAUsed,
+			AccruedInterest: totalAccrued,
+			TotalRefund:     totalRefund,
+		},
+		RefundDestination: RefundDestination{
+			ToOA:   totalRefund,
+			ToRA:   decimal.Zero(),
+			Reason: "Refund destination depends on member age at sale",
+		},
+		NetCashProceeds: netProceeds,
+		Warnings:        warnings,
+	}
+}
+
+// determineGrantType returns the grant type from a grant name
+func determineGrantType(name string) string {
+	upperName := strings.ToUpper(name)
+	switch {
+	case strings.Contains(upperName, "EHG") || strings.Contains(upperName, "ENHANCED"):
+		return "EHG"
+	case strings.Contains(upperName, "FHG") || strings.Contains(upperName, "FAMILY"):
+		return "FHG"
+	case strings.Contains(upperName, "PHG") || strings.Contains(upperName, "PROXIMITY"):
+		return "PHG"
+	case strings.Contains(upperName, "STEP"):
+		return "STEP_UP"
+	default:
+		return ""
+	}
 }

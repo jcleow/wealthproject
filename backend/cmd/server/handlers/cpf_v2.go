@@ -3,10 +3,10 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"financial-chat-system/backend/internal/common"
@@ -1180,271 +1180,103 @@ func (h *CPFV2Handler) HandleCPFHousingUsage(w http.ResponseWriter, r *http.Requ
 
 	ctx := r.Context()
 
-	// Get the property scenario (includes PropertySG and Grants)
-	scenarioFull, err := h.store.GetPropertyScenario(ctx, userID, scenarioID)
+	// Delegate to service for computation
+	result, err := h.service.ComputeHousingUsage(ctx, userID, scenarioID)
 	if err != nil {
-		log.Printf("cpf.housing-usage GetPropertyScenario error: %v", err)
+		if errors.Is(err, repo.ErrNotFound) {
+			notFound(w)
+			return
+		}
+		log.Printf("cpf.housing-usage ComputeHousingUsage error: %v", err)
 		internalError(w, err)
 		return
 	}
-	if scenarioFull == nil {
-		notFound(w)
-		return
-	}
 
-	// PropertySG is required for CPF housing usage
-	if scenarioFull.PropertySG == nil {
-		notFound(w)
-		return
-	}
-
-	// Calculate CPF housing usage
-	usage := h.computeCPFHousingUsage(ctx, scenarioFull)
-
-	// Calculate sale analysis if sale date is set
-	var saleAnalysis *cpfPropertySaleAnalysis
-	if scenarioFull.PropertySG.SaleExpectedDate != nil && *scenarioFull.PropertySG.SaleExpectedDate != "" {
-		saleAnalysis = h.computeSaleAnalysis(scenarioFull.PropertySG, usage)
-	}
-
-	response := cpfHousingUsageFullResponse{
-		Usage:        usage,
-		SaleAnalysis: saleAnalysis,
-	}
-
+	// Convert service types to response types
+	response := h.convertHousingUsageResult(result)
 	writeJSON(w, response)
 }
 
-// computeCPFHousingUsage derives CPF housing usage from property scenario data
-func (h *CPFV2Handler) computeCPFHousingUsage(
-	ctx context.Context,
-	scenarioFull *repo.PropertyScenarioFull,
-) *cpfHousingUsageResponse {
-	propertySG := scenarioFull.PropertySG
-	grants := scenarioFull.Grants
-
-	// Down payment CPF OA (both borrowers)
-	b1DownpaymentOA := propertySG.Borrower1DownpaymentCpfOa
-	b2DownpaymentOA := propertySG.Borrower2DownpaymentCpfOa
-	oaForDownPayment := b1DownpaymentOA.Add(&b2DownpaymentOA)
-
-	// Down payment cash (both borrowers)
-	b1DownpaymentCash := propertySG.Borrower1DownpaymentCashAmount
-	b2DownpaymentCash := propertySG.Borrower2DownpaymentCashAmount
-	downpaymentCash := b1DownpaymentCash.Add(&b2DownpaymentCash)
-	// Fall back to legacy field if per-borrower not set
-	if downpaymentCash.IsZero() && !propertySG.DownpaymentCash.IsZero() {
-		downpaymentCash = &propertySG.DownpaymentCash
-	}
-
-	// Total grants
-	totalGrants := decimal.Zero()
-	var primaryGrantType *string
-	for i, grant := range grants {
-		totalGrants = totalGrants.Add(&grant.Amount)
-		if i == 0 {
-			// Determine grant type from name
-			grantType := determineGrantType(grant.Name)
-			if grantType != "" {
-				primaryGrantType = &grantType
+// convertHousingUsageResult converts service types to handler response types
+func (h *CPFV2Handler) convertHousingUsageResult(result *cpf.HousingUsageFullResult) cpfHousingUsageFullResponse {
+	var usage *cpfHousingUsageResponse
+	if result.Usage != nil {
+		monthlyPayments := make([]cpfHousingMonthlyPayment, len(result.Usage.MonthlyPayments))
+		for i, mp := range result.Usage.MonthlyPayments {
+			monthlyPayments[i] = cpfHousingMonthlyPayment{
+				Month:            mp.Month,
+				OAUsed:           common.SafeDecimalString(mp.OAUsed),
+				CashUsed:         common.SafeDecimalString(mp.CashUsed),
+				PrincipalPortion: common.SafeDecimalString(mp.PrincipalPortion),
+				InterestPortion:  common.SafeDecimalString(mp.InterestPortion),
 			}
 		}
-	}
 
-	// Monthly CPF OA (both borrowers)
-	b1MonthlyCpfOa := propertySG.Borrower1MonthlyCpfOa
-	b2MonthlyCpfOa := propertySG.Borrower2MonthlyCpfOa
-	monthlyOAUsed := b1MonthlyCpfOa.Add(&b2MonthlyCpfOa)
+		yearlyBreakdown := make([]cpfYearlyAccrued, len(result.Usage.AccruedInterest.YearlyBreakdown))
+		for i, yb := range result.Usage.AccruedInterest.YearlyBreakdown {
+			yearlyBreakdown[i] = cpfYearlyAccrued{
+				Year:               yb.Year,
+				StartingPrincipal:  common.SafeDecimalString(yb.StartingPrincipal),
+				InterestForYear:    common.SafeDecimalString(yb.InterestForYear),
+				CumulativeInterest: common.SafeDecimalString(yb.CumulativeInterest),
+			}
+		}
 
-	// Monthly cash (both borrowers)
-	b1MonthlyCash := propertySG.Borrower1MonthlyCashAmount
-	b2MonthlyCash := propertySG.Borrower2MonthlyCashAmount
-	monthlyCashUsed := b1MonthlyCash.Add(&b2MonthlyCash)
-
-	// Determine start date (BTO key collection or created date)
-	startDate := propertySG.CreatedAt
-	if propertySG.BtoKeyCollectionDate != nil && *propertySG.BtoKeyCollectionDate != "" {
-		// Parse BtoKeyCollectionDate string (YYYY-MM format)
-		if parsedDate, err := time.Parse("2006-01", *propertySG.BtoKeyCollectionDate); err == nil {
-			startDate = parsedDate
+		usage = &cpfHousingUsageResponse{
+			PropertyScenarioID: result.Usage.PropertyScenarioID,
+			DownPayment: cpfHousingUsageDownPayment{
+				OAUsed:        common.SafeDecimalString(result.Usage.DownPayment.OAUsed),
+				CashUsed:      common.SafeDecimalString(result.Usage.DownPayment.CashUsed),
+				GrantReceived: common.SafeDecimalString(result.Usage.DownPayment.GrantReceived),
+				GrantType:     result.Usage.DownPayment.GrantType,
+			},
+			MonthlyPayments: monthlyPayments,
+			Totals: cpfHousingUsageTotals{
+				TotalOAUsed:          common.SafeDecimalString(result.Usage.Totals.TotalOAUsed),
+				TotalCashUsed:        common.SafeDecimalString(result.Usage.Totals.TotalCashUsed),
+				OAForDownPayment:     common.SafeDecimalString(result.Usage.Totals.OAForDownPayment),
+				OAForMonthlyPayments: common.SafeDecimalString(result.Usage.Totals.OAForMonthlyPayments),
+			},
+			AccruedInterest: cpfAccruedInterestSchedule{
+				AsOfDate:        result.Usage.AccruedInterest.AsOfDate.Format(time.RFC3339),
+				TotalAccrued:    common.SafeDecimalString(result.Usage.AccruedInterest.TotalAccrued),
+				YearlyBreakdown: yearlyBreakdown,
+			},
 		}
 	}
-	asOfDate := time.Now()
 
-	// Calculate months since start
-	monthsSinceStart := int((asOfDate.Year()-startDate.Year())*12 + int(asOfDate.Month()) - int(startDate.Month()))
-	if monthsSinceStart < 0 {
-		monthsSinceStart = 0
+	var saleAnalysis *cpfPropertySaleAnalysis
+	if result.SaleAnalysis != nil {
+		saleAnalysis = &cpfPropertySaleAnalysis{
+			SaleDate:        result.SaleAnalysis.SaleDate,
+			GrossProceeds:   common.SafeDecimalString(result.SaleAnalysis.GrossProceeds),
+			OutstandingLoan: common.SafeDecimalString(result.SaleAnalysis.OutstandingLoan),
+			SellingCosts:    common.SafeDecimalString(result.SaleAnalysis.SellingCosts),
+			CpfRefundRequired: struct {
+				PrincipalUsed   string `json:"principalUsed"`
+				AccruedInterest string `json:"accruedInterest"`
+				TotalRefund     string `json:"totalRefund"`
+			}{
+				PrincipalUsed:   common.SafeDecimalString(result.SaleAnalysis.CpfRefundRequired.PrincipalUsed),
+				AccruedInterest: common.SafeDecimalString(result.SaleAnalysis.CpfRefundRequired.AccruedInterest),
+				TotalRefund:     common.SafeDecimalString(result.SaleAnalysis.CpfRefundRequired.TotalRefund),
+			},
+			RefundDestination: struct {
+				ToOA   string `json:"toOA"`
+				ToRA   string `json:"toRA"`
+				Reason string `json:"reason"`
+			}{
+				ToOA:   common.SafeDecimalString(result.SaleAnalysis.RefundDestination.ToOA),
+				ToRA:   common.SafeDecimalString(result.SaleAnalysis.RefundDestination.ToRA),
+				Reason: result.SaleAnalysis.RefundDestination.Reason,
+			},
+			NetCashProceeds: common.SafeDecimalString(result.SaleAnalysis.NetCashProceeds),
+			Warnings:        result.SaleAnalysis.Warnings,
+		}
 	}
 
-	// Generate monthly payments (up to current date, max 360 months)
-	maxMonths := 360
-	if monthsSinceStart > maxMonths {
-		monthsSinceStart = maxMonths
-	}
-
-	monthlyPayments := make([]cpfHousingMonthlyPayment, 0, monthsSinceStart)
-	for i := 0; i < monthsSinceStart; i++ {
-		paymentDate := startDate.AddDate(0, i, 0)
-		month := paymentDate.Format("2006-01")
-
-		// Simple approximation for principal/interest split
-		// In production, this would come from amortization schedule
-		totalMonthly := monthlyOAUsed.Add(monthlyCashUsed)
-		interestPortion := totalMonthly.Mul(decimal.MustFromString("0.3"))
-		principalPortion := totalMonthly.Sub(interestPortion)
-
-		monthlyPayments = append(monthlyPayments, cpfHousingMonthlyPayment{
-			Month:            month,
-			OAUsed:           common.SafeDecimalString(monthlyOAUsed),
-			CashUsed:         common.SafeDecimalString(monthlyCashUsed),
-			PrincipalPortion: common.SafeDecimalString(principalPortion),
-			InterestPortion:  common.SafeDecimalString(interestPortion),
-		})
-	}
-
-	// Calculate totals
-	oaForMonthlyPayments := monthlyOAUsed.Mul(decimal.MustFromString(fmt.Sprintf("%d", monthsSinceStart)))
-	cashForMonthlyPayments := monthlyCashUsed.Mul(decimal.MustFromString(fmt.Sprintf("%d", monthsSinceStart)))
-	totalOAUsed := oaForDownPayment.Add(oaForMonthlyPayments)
-	totalCashUsed := downpaymentCash.Add(cashForMonthlyPayments)
-
-	// Calculate accrued interest (2.5% p.a. compounded yearly)
-	accruedInterest := h.calculateAccruedInterestSchedule(totalOAUsed, startDate, asOfDate)
-
-	return &cpfHousingUsageResponse{
-		PropertyScenarioID: scenarioFull.Scenario.ID,
-		DownPayment: cpfHousingUsageDownPayment{
-			OAUsed:        common.SafeDecimalString(oaForDownPayment),
-			CashUsed:      common.SafeDecimalString(downpaymentCash),
-			GrantReceived: common.SafeDecimalString(totalGrants),
-			GrantType:     primaryGrantType,
-		},
-		MonthlyPayments: monthlyPayments,
-		Totals: cpfHousingUsageTotals{
-			TotalOAUsed:          common.SafeDecimalString(totalOAUsed),
-			TotalCashUsed:        common.SafeDecimalString(totalCashUsed),
-			OAForDownPayment:     common.SafeDecimalString(oaForDownPayment),
-			OAForMonthlyPayments: common.SafeDecimalString(oaForMonthlyPayments),
-		},
-		AccruedInterest: *accruedInterest,
-	}
-}
-
-// calculateAccruedInterestSchedule computes yearly accrued interest at 2.5% p.a.
-func (h *CPFV2Handler) calculateAccruedInterestSchedule(
-	totalOAUsed *decimal.Decimal,
-	startDate time.Time,
-	asOfDate time.Time,
-) *cpfAccruedInterestSchedule {
-	rate := decimal.MustFromString("0.025") // 2.5% p.a.
-	startYear := startDate.Year()
-	endYear := asOfDate.Year()
-
-	yearlyBreakdown := make([]cpfYearlyAccrued, 0, endYear-startYear+1)
-	cumulativePrincipal := totalOAUsed
-	cumulativeInterest := decimal.Zero()
-
-	for year := startYear; year <= endYear; year++ {
-		startingPrincipal := cumulativePrincipal
-		interestForYear := startingPrincipal.Mul(rate)
-		cumulativeInterest = cumulativeInterest.Add(interestForYear)
-
-		yearlyBreakdown = append(yearlyBreakdown, cpfYearlyAccrued{
-			Year:               year,
-			StartingPrincipal:  common.SafeDecimalString(startingPrincipal),
-			InterestForYear:    common.SafeDecimalString(interestForYear),
-			CumulativeInterest: common.SafeDecimalString(cumulativeInterest),
-		})
-
-		// Compound: add interest to principal for next year
-		cumulativePrincipal = startingPrincipal.Add(interestForYear)
-	}
-
-	return &cpfAccruedInterestSchedule{
-		AsOfDate:        asOfDate.Format(time.RFC3339),
-		TotalAccrued:    common.SafeDecimalString(cumulativeInterest),
-		YearlyBreakdown: yearlyBreakdown,
-	}
-}
-
-// computeSaleAnalysis computes sale analysis for a property
-func (h *CPFV2Handler) computeSaleAnalysis(
-	propertySG *repo.PropertySG,
-	usage *cpfHousingUsageResponse,
-) *cpfPropertySaleAnalysis {
-	if propertySG.SaleExpectedDate == nil || *propertySG.SaleExpectedDate == "" {
-		return nil
-	}
-
-	salePrice := propertySG.SaleExpectedPrice
-	if salePrice == nil || salePrice.IsZero() {
-		return nil
-	}
-
-	// Parse totals from usage
-	totalOAUsed, _ := decimal.NewFromString(usage.Totals.TotalOAUsed)
-	totalAccrued, _ := decimal.NewFromString(usage.AccruedInterest.TotalAccrued)
-
-	// Estimate outstanding loan (rough: 70% of original loan)
-	// In production, this would use actual amortization
-	outstandingLoan := propertySG.PropertyPrice.Mul(decimal.MustFromString("0.56")) // ~80% LTV * 70% remaining
-
-	// Selling costs ~2%
-	sellingCosts := salePrice.Mul(decimal.MustFromString("0.02"))
-
-	// CPF refund
-	totalRefund := totalOAUsed.Add(totalAccrued)
-
-	// Net proceeds
-	netProceeds := salePrice.Sub(outstandingLoan).Sub(sellingCosts).Sub(totalRefund)
-
-	warnings := []string{}
-	if netProceeds.IsNegative() {
-		warnings = append(warnings, "Sale proceeds may be insufficient to cover CPF refund")
-	}
-
-	return &cpfPropertySaleAnalysis{
-		SaleDate:        *propertySG.SaleExpectedDate, // Already a string in YYYY-MM format
-		GrossProceeds:   common.SafeDecimalString(salePrice),
-		OutstandingLoan: common.SafeDecimalString(outstandingLoan),
-		SellingCosts:    common.SafeDecimalString(sellingCosts),
-		CpfRefundRequired: struct {
-			PrincipalUsed   string `json:"principalUsed"`
-			AccruedInterest string `json:"accruedInterest"`
-			TotalRefund     string `json:"totalRefund"`
-		}{
-			PrincipalUsed:   usage.Totals.TotalOAUsed,
-			AccruedInterest: usage.AccruedInterest.TotalAccrued,
-			TotalRefund:     common.SafeDecimalString(totalRefund),
-		},
-		RefundDestination: struct {
-			ToOA   string `json:"toOA"`
-			ToRA   string `json:"toRA"`
-			Reason string `json:"reason"`
-		}{
-			ToOA:   common.SafeDecimalString(totalRefund),
-			ToRA:   "0",
-			Reason: "Refund destination depends on member age at sale",
-		},
-		NetCashProceeds: common.SafeDecimalString(netProceeds),
-		Warnings:        warnings,
-	}
-}
-
-// determineGrantType returns the grant type from a grant name
-func determineGrantType(name string) string {
-	upperName := strings.ToUpper(name)
-	switch {
-	case strings.Contains(upperName, "EHG") || strings.Contains(upperName, "ENHANCED"):
-		return "EHG"
-	case strings.Contains(upperName, "FHG") || strings.Contains(upperName, "FAMILY"):
-		return "FHG"
-	case strings.Contains(upperName, "PHG") || strings.Contains(upperName, "PROXIMITY"):
-		return "PHG"
-	case strings.Contains(upperName, "STEP"):
-		return "STEP_UP"
-	default:
-		return ""
+	return cpfHousingUsageFullResponse{
+		Usage:        usage,
+		SaleAnalysis: saleAnalysis,
 	}
 }

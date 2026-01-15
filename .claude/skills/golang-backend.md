@@ -285,6 +285,39 @@ type PaginatedResult[T any] struct {
 
 ## Service Layer Pattern
 
+**CRITICAL RULE: Handlers must NEVER contain calculations or business logic.**
+
+Handlers are thin wrappers that:
+1. Extract user context
+2. Parse/validate request input
+3. Call service methods
+4. Return response
+
+All calculations, transformations, and business logic MUST live in the service layer (`internal/financial_v2/{domain}/service.go`).
+
+❌ **BAD** - Calculation in handler:
+```go
+func (h *Handler) GetUsage(w http.ResponseWriter, r *http.Request) {
+    scenario, _ := h.store.GetScenario(ctx, id)
+    // DON'T DO THIS - calculation belongs in service
+    totalUsed := scenario.Borrower1CPF + scenario.Borrower2CPF
+    interest := totalUsed * 0.025
+    // ...
+}
+```
+
+✅ **GOOD** - Handler delegates to service:
+```go
+func (h *Handler) GetUsage(w http.ResponseWriter, r *http.Request) {
+    usage, err := h.service.ComputeUsage(ctx, userID, scenarioID)
+    if err != nil {
+        internalError(w, err)
+        return
+    }
+    jsonResponse(w, http.StatusOK, usage)
+}
+```
+
 Use services for complex business logic beyond simple CRUD:
 
 ```go
