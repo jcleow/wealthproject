@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react'
 import {
-  AreaChart,
   Area,
   ComposedChart,
   Bar,
@@ -13,8 +12,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  ReferenceDot,
 } from 'recharts'
+import { Shield, ShieldCheck, Star, Heart } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 import type { CPFProfile, CPFAssumptions, CPFProjectionYear, RetirementProjection } from '@/types/cpf'
@@ -251,82 +250,6 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     { age: 65, label: 'CPF LIFE Start', color: '#10b981' },
   ]
 
-  // Find when each retirement sum threshold is reached
-  const thresholdMarkers = useMemo(() => {
-    if (!projection || !retirement) return []
-
-    const markers: Array<{
-      label: string
-      color: string
-      age: number
-      yValue: number // The y-coordinate for the marker (total for BRS/FRS/ERS, MA for BHS)
-      target: number
-      reached: boolean
-    }> = []
-
-    // BRS/FRS/ERS track total balance
-    const totalThresholds = [
-      { target: retirement.brsTarget, label: 'BRS', color: '#facc15' }, // yellow
-      { target: retirement.frsTarget, label: 'FRS', color: '#38bdf8' }, // sky blue
-      { target: retirement.ersTarget, label: 'ERS', color: '#a78bfa' }, // violet
-    ]
-
-    for (const threshold of totalThresholds) {
-      if (threshold.target <= 0) continue
-
-      // Find first data point where total >= threshold
-      const crossingPoint = projection.find((p) => p.total >= threshold.target)
-
-      if (crossingPoint) {
-        markers.push({
-          label: threshold.label,
-          color: threshold.color,
-          age: crossingPoint.age,
-          yValue: crossingPoint.total,
-          target: threshold.target,
-          reached: true,
-        })
-      } else if (projection.length > 0) {
-        // Threshold not reached - don't show marker
-        markers.push({
-          label: threshold.label,
-          color: threshold.color,
-          age: projection[projection.length - 1].age,
-          yValue: projection[projection.length - 1].total,
-          target: threshold.target,
-          reached: false,
-        })
-      }
-    }
-
-    // BHS tracks MediSave (MA) balance specifically
-    if (retirement.bhsTarget > 0) {
-      const bhsCrossingPoint = projection.find((p) => p.ma >= retirement.bhsTarget)
-
-      if (bhsCrossingPoint) {
-        markers.push({
-          label: 'BHS',
-          color: '#f472b6', // pink
-          age: bhsCrossingPoint.age,
-          yValue: bhsCrossingPoint.total, // Use total for y-position on stacked chart
-          target: retirement.bhsTarget,
-          reached: true,
-        })
-      } else if (projection.length > 0) {
-        markers.push({
-          label: 'BHS',
-          color: '#f472b6',
-          age: projection[projection.length - 1].age,
-          yValue: projection[projection.length - 1].total,
-          target: retirement.bhsTarget,
-          reached: false,
-        })
-      }
-    }
-
-    return markers
-  }, [projection, retirement])
-
   // Show loading or no-data state
   if (isLoading) {
     return (
@@ -400,7 +323,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
             </div>
             <p className="text-xs text-slate-500">
               {chartView === 'balance' ? (
-                projection.length > 0
+                projection && projection.length > 0
                   ? `Age ${projection[0].age} to ${projection[projection.length - 1].age}`
                   : `Age ${profile.age} to 100`
               ) : (
@@ -447,16 +370,18 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                 {/* Retirement sum thresholds legend */}
                 <div className="flex items-center gap-3 pl-3 border-l border-white/[0.08]">
                   {[
-                    { label: 'BRS', color: '#facc15' },
-                    { label: 'FRS', color: '#38bdf8' },
-                    { label: 'ERS', color: '#a78bfa' },
-                    { label: 'BHS', color: '#f472b6' },
+                    { label: 'BRS', color: '#facc15', Icon: Shield },
+                    { label: 'FRS', color: '#38bdf8', Icon: ShieldCheck },
+                    { label: 'ERS', color: '#a78bfa', Icon: Star },
+                    { label: 'BHS', color: '#f472b6', Icon: Heart },
                   ].map((item) => (
-                    <div key={item.label} className="flex items-center gap-1.5">
+                    <div key={item.label} className="flex items-center gap-1">
                       <div
-                        className="h-2.5 w-2.5 rounded-full border-2"
-                        style={{ backgroundColor: item.color, borderColor: '#0a0a0a' }}
-                      />
+                        className="flex items-center justify-center w-4 h-4 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                      >
+                        <item.Icon className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
+                      </div>
                       <span className="text-xs text-slate-500">{item.label}</span>
                     </div>
                   ))}
@@ -505,7 +430,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             {chartView === 'balance' ? (
-              <AreaChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+              <ComposedChart data={chartData} margin={{ top: 40, right: 30, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="oaChartGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -531,7 +456,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                   tickLine={false}
                   axisLine={false}
                   interval="preserveStartEnd"
-                  ticks={projection.length > 0
+                  ticks={projection && projection.length > 0
                     ? Array.from(
                         { length: Math.ceil((projection[projection.length - 1].age - projection[0].age) / 5) + 1 },
                         (_, i) => Math.ceil(projection[0].age / 5) * 5 + i * 5
@@ -540,6 +465,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                   }
                 />
                 <YAxis
+                  domain={['dataMin', 'dataMax']}
                   tick={{ fill: '#94a3b8', fontSize: 11 }}
                   tickLine={false}
                   axisLine={false}
@@ -553,11 +479,6 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                   content={({ active, payload }) => {
                     if (!active || !payload?.[0]) return null
                     const data = payload[0].payload
-
-                    // Find thresholds achieved at this age
-                    const achievedAtThisAge = thresholdMarkers.filter(
-                      (m) => m.reached && m.age === data.age
-                    )
 
                     return (
                       <div className="min-w-[200px] px-3 py-2 rounded-lg border border-white/10 bg-[#0f1728]/95 shadow-xl backdrop-blur">
@@ -577,32 +498,6 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                           <p>Contributions: {formatCurrency(data.contributions)}</p>
                           <p>Interest: {formatCurrency(data.interest)}</p>
                         </div>
-
-                        {/* Show achieved thresholds */}
-                        {achievedAtThisAge.length > 0 && (
-                          <div className="mt-2 border-t border-white/10 pt-2">
-                            <p className="text-xs font-medium text-slate-300 mb-1.5">Milestones Reached</p>
-                            <div className="space-y-1">
-                              {achievedAtThisAge.map((threshold) => (
-                                <div
-                                  key={threshold.label}
-                                  className="flex items-center justify-between text-xs"
-                                >
-                                  <span className="flex items-center gap-1.5" style={{ color: threshold.color }}>
-                                    <span
-                                      className="h-2 w-2 rounded-full"
-                                      style={{ backgroundColor: threshold.color }}
-                                    />
-                                    {threshold.label}
-                                  </span>
-                                  <span className="font-mono tabular-nums text-slate-300">
-                                    {formatCurrency(threshold.target)}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )
                   }}
@@ -625,28 +520,63 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                   />
                 ))}
 
-                {/* Milestone markers for retirement sum thresholds */}
-                {thresholdMarkers
-                  .filter((m) => m.reached)
-                  .map((marker) => (
-                    <ReferenceDot
-                      key={marker.label}
-                      x={marker.age}
-                      y={marker.yValue}
-                      r={6}
-                      fill={marker.color}
-                      stroke="#0a0a0a"
-                      strokeWidth={2}
+                {/* Horizontal reference lines for retirement sum thresholds */}
+                {retirement && (
+                  <>
+                    <ReferenceLine
+                      y={retirement.brsTarget}
+                      stroke="#facc15"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.7}
                       label={{
-                        value: marker.label,
-                        fill: marker.color,
+                        value: 'BRS',
+                        fill: '#facc15',
                         fontSize: 10,
                         fontWeight: 600,
-                        position: 'top',
-                        offset: 10,
+                        position: 'right',
                       }}
                     />
-                  ))}
+                    <ReferenceLine
+                      y={retirement.frsTarget}
+                      stroke="#38bdf8"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.7}
+                      label={{
+                        value: 'FRS',
+                        fill: '#38bdf8',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        position: 'right',
+                      }}
+                    />
+                    <ReferenceLine
+                      y={retirement.ersTarget}
+                      stroke="#a78bfa"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.7}
+                      label={{
+                        value: 'ERS',
+                        fill: '#a78bfa',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        position: 'right',
+                      }}
+                    />
+                    <ReferenceLine
+                      y={retirement.bhsTarget}
+                      stroke="#f472b6"
+                      strokeDasharray="4 4"
+                      strokeOpacity={0.7}
+                      label={{
+                        value: 'BHS',
+                        fill: '#f472b6',
+                        fontSize: 10,
+                        fontWeight: 600,
+                        position: 'right',
+                      }}
+                    />
+                  </>
+                )}
 
                 {visibleAccounts.oa && (
                   <Area
@@ -666,7 +596,6 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                     stroke="#10b981"
                     fill="url(#saChartGradient)"
                     strokeWidth={2}
-                    connectNulls={false}
                   />
                 )}
                 {visibleAccounts.ma && (
@@ -687,11 +616,10 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                     stroke="#8b5cf6"
                     fill="url(#raChartGradient)"
                     strokeWidth={2}
-                    connectNulls={false}
                   />
                 )}
 
-              </AreaChart>
+              </ComposedChart>
             ) : (
               <ComposedChart data={payoutProjection} margin={{ top: 20, right: 60, left: 0, bottom: 0 }}>
                 <defs>
