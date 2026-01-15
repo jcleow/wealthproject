@@ -96,6 +96,7 @@ interface PayoutProjectionYear {
   remainingPremium: number       // CPF LIFE premium balance
   remainingRA: number            // For Basic plan: non-premium RA balance (0 for other plans)
   bequestValue: number           // Total bequest if passed at this age
+  totalRemainingBalance: number  // Combined remaining balance for chart display
 }
 
 /**
@@ -131,7 +132,26 @@ function generatePayoutProjection(
     const year = birthYear + age
     const annualPayout = currentPayout * 12
 
-    // Calculate remaining balances after this year's payouts
+    // Calculate total remaining balance at START of this year (before payouts)
+    const totalRemainingBalance = remainingPremium + remainingRA
+
+    // Calculate bequest value (what beneficiaries get if member passes at this age)
+    // This is the balance BEFORE this year's payouts
+    const bequestValue = totalRemainingBalance
+
+    projection.push({
+      age,
+      year,
+      monthlyPayout: currentPayout,
+      annualPayout,
+      cumulativePayouts,
+      remainingPremium,
+      remainingRA,
+      bequestValue,
+      totalRemainingBalance,
+    })
+
+    // Now subtract this year's payouts for the next iteration
     if (plan === 'basic') {
       // Basic plan: draw from remaining RA first until depleted or age 90
       if (remainingRA > 0 && age < 90) {
@@ -147,22 +167,6 @@ function generatePayoutProjection(
     }
 
     cumulativePayouts += annualPayout
-
-    // Calculate bequest value (what beneficiaries get if member passes at this age)
-    const bequestValue = plan === 'basic'
-      ? remainingRA + remainingPremium
-      : remainingPremium
-
-    projection.push({
-      age,
-      year,
-      monthlyPayout: currentPayout,
-      annualPayout,
-      cumulativePayouts,
-      remainingPremium,
-      remainingRA,
-      bequestValue,
-    })
 
     // Escalating plan increases by 2% annually
     if (plan === 'escalating') {
@@ -194,7 +198,6 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     ra: true,
     oaSa: true,
   })
-  const [selectedViewAge, setSelectedViewAge] = useState<number>(55)
 
   const toggleAccount = (account: AccountKey) => {
     setVisibleAccounts((prev) => ({
@@ -398,11 +401,8 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
       {/* Retirement Summary Cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <BalanceAtAgeCard
-          selectedAge={selectedViewAge}
-          onAgeChange={setSelectedViewAge}
+          displayAge={profile.age}
           projection={projection}
-          minAge={projection[0]?.age ?? profile.age}
-          maxAge={projection[projection.length - 1]?.age ?? 100}
         />
         <CPFLifePayoutCard
           estimates={retirement.cpfLifeEstimates}
@@ -771,7 +771,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                               Remaining Balance
                             </span>
                             <span className="font-mono font-semibold text-violet-300">
-                              {formatCurrency(data.remainingPremium + (selectedPayoutPlan === 'basic' ? data.remainingRA : 0))}
+                              {formatCurrency(data.totalRemainingBalance)}
                             </span>
                           </div>
                           <div className="flex items-center justify-between gap-4 text-xs">
@@ -801,7 +801,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
                         {selectedPayoutPlan === 'escalating' && (
                           <p className="mt-2 text-xs text-slate-500">
-                            +2% annual increase
+                            Payouts increase +2% annually
                           </p>
                         )}
                       </div>
@@ -827,7 +827,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                 {/* Bars showing remaining balance (premium + RA for basic plan) */}
                 <Bar
                   yAxisId="right"
-                  dataKey="remainingPremium"
+                  dataKey="totalRemainingBalance"
                   fill="url(#balanceGradient)"
                   stroke="#8b5cf6"
                   strokeWidth={1}
@@ -857,74 +857,47 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 }
 
 function BalanceAtAgeCard({
-  selectedAge,
-  onAgeChange,
+  displayAge,
   projection,
-  minAge,
-  maxAge,
 }: {
-  selectedAge: number
-  onAgeChange: (age: number) => void
+  displayAge: number
   projection: CPFProjectionYear[]
-  minAge: number
-  maxAge: number
 }) {
-  // Find balances for the selected age
-  const selectedData = projection.find((p) => p.age === selectedAge)
+  // Find balances for the display age from projection data
+  const selectedData = projection.find((p) => p.age === displayAge)
   const balances = selectedData
     ? { oa: selectedData.oa, sa: selectedData.sa, ma: selectedData.ma, ra: selectedData.ra }
     : { oa: 0, sa: 0, ma: 0, ra: 0 }
   const total = balances.oa + balances.sa + balances.ma + balances.ra
-  const year = selectedData?.year ?? new Date().getFullYear() + (selectedAge - minAge)
+  const year = selectedData?.year ?? new Date().getFullYear()
 
   // SA only exists before age 55, RA from 55 onwards
   const accounts = [
     { label: 'OA', value: balances.oa, color: '#3b82f6', show: true },
-    { label: 'SA', value: balances.sa, color: '#10b981', show: selectedAge <= 55 },
+    { label: 'SA', value: balances.sa, color: '#10b981', show: displayAge <= 55 },
     { label: 'MA', value: balances.ma, color: '#f59e0b', show: true },
-    { label: 'RA', value: balances.ra, color: '#8b5cf6', show: selectedAge >= 55 },
+    { label: 'RA', value: balances.ra, color: '#8b5cf6', show: displayAge >= 55 },
   ].filter((acc) => acc.show)
 
   return (
     <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
-      {/* Age Slider */}
-      <div className="mb-3">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs text-slate-400">View Balance at Age</p>
-          <p className="text-xs text-slate-500">{year}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <input
-            type="range"
-            min={minAge}
-            max={maxAge}
-            value={selectedAge}
-            onChange={(e) => onAgeChange(Number(e.target.value))}
-            className="w-full h-1.5 bg-white/[0.06] rounded-lg appearance-none cursor-pointer accent-blue-500"
-          />
-          <span className="min-w-[32px] text-right font-mono text-sm font-medium text-white">
-            {selectedAge}
-          </span>
-        </div>
+      <div className="flex items-center justify-between mb-1">
+        <p className="text-xs text-slate-400">Total CPF Balance at Age {displayAge}</p>
+        <p className="text-xs text-slate-500">{year}</p>
       </div>
+      <p className="text-xl font-semibold text-white">{formatCurrency(total)}</p>
 
-      {/* Balance Section */}
-      <div>
-        <p className="text-xs text-slate-400">Total CPF Balance at Age {selectedAge}</p>
-        <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(total)}</p>
-
-        {/* Account breakdown */}
-        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1">
-          {accounts.map((acc) => (
-            <div key={acc.label} className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: acc.color }} />
-                <span className="text-slate-500">{acc.label}</span>
-              </span>
-              <span className="font-mono tabular-nums text-slate-400">{formatCurrency(acc.value)}</span>
-            </div>
-          ))}
-        </div>
+      {/* Account breakdown */}
+      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1">
+        {accounts.map((acc) => (
+          <div key={acc.label} className="flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: acc.color }} />
+              <span className="text-slate-500">{acc.label}</span>
+            </span>
+            <span className="font-mono tabular-nums text-slate-400">{formatCurrency(acc.value)}</span>
+          </div>
+        ))}
       </div>
     </div>
   )
