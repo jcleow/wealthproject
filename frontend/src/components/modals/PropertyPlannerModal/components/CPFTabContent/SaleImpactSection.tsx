@@ -51,8 +51,8 @@ export function SaleImpactSection({
       </div>
 
       {/* Sale Price */}
-      <div className="mb-4">
-        <p className="text-sm font-medium text-gray-400 mb-1">Expected Sale Price</p>
+      <div className="flex justify-between items-baseline mb-4">
+        <p className="text-sm font-medium text-gray-400">Expected Sale Price</p>
         <p className="text-xl font-semibold text-white font-mono tabular-nums">
           {formatCurrency(expectedSalePrice)}
         </p>
