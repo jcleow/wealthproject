@@ -129,8 +129,7 @@ export function generateSingleEarlyCareerProfile(): ProfileData {
         saBalance: 8000,
         maBalance: 5000,
         raBalance: 0,
-        oaUsedForHousing: 0,
-      },
+              },
     ],
     cashAccounts: [
       {
@@ -316,8 +315,7 @@ export function generateDinkProfile(): ProfileData {
         saBalance: 35000,
         maBalance: 25000,
         raBalance: 0,
-        oaUsedForHousing: 0,
-      },
+              },
       {
         personIndex: 1,
         personId: '',
@@ -325,8 +323,7 @@ export function generateDinkProfile(): ProfileData {
         saBalance: 28000,
         maBalance: 20000,
         raBalance: 0,
-        oaUsedForHousing: 0,
-      },
+              },
     ],
     cashAccounts: [
       {
@@ -648,8 +645,7 @@ export function generateDinkKidsPlannedProfile(): ProfileData {
         saBalance: 45000,
         maBalance: 32000,
         raBalance: 0,
-        oaUsedForHousing: 0,
-      },
+              },
       {
         personIndex: 1,
         personId: '',
@@ -657,8 +653,7 @@ export function generateDinkKidsPlannedProfile(): ProfileData {
         saBalance: 35000,
         maBalance: 25000,
         raBalance: 0,
-        oaUsedForHousing: 0,
-      },
+              },
     ],
     cashAccounts: [
       {
@@ -1160,7 +1155,6 @@ export function generateSingleIncomeFamilyProfile(): ProfileData {
         saBalance: 55000,
         maBalance: 40000,
         raBalance: 0,
-        oaUsedForHousing: 30000, // Already used some for existing HDB
       },
       {
         personIndex: 1,
@@ -1169,7 +1163,6 @@ export function generateSingleIncomeFamilyProfile(): ProfileData {
         saBalance: 25000,
         maBalance: 18000,
         raBalance: 0,
-        oaUsedForHousing: 20000,
       },
     ],
     cashAccounts: [
@@ -1425,8 +1418,7 @@ export function generateFireFocusedProfile(): ProfileData {
         saBalance: 80000,
         maBalance: 50000,
         raBalance: 0,
-        oaUsedForHousing: 0,
-      },
+              },
     ],
     cashAccounts: [
       {

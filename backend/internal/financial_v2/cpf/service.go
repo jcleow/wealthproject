@@ -19,17 +19,16 @@ const (
 // UpdateInput contains the parameters for updating a CPF account.
 // Uses decimal.Decimal for financial values to avoid precision loss.
 // Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 type UpdateInput struct {
-	ID               string
-	PersonID         string // Required FK to persons table
-	OABalance        decimal.Decimal
-	SABalance        decimal.Decimal
-	MABalance        decimal.Decimal
-	RABalance        decimal.Decimal
-	OAUsedForHousing decimal.Decimal
-	HousingStartDate *time.Time
-	StartDate        *time.Time // Only for versioned updates
-	UpdateMode       string
+	ID         string
+	PersonID   string // Required FK to persons table
+	OABalance  decimal.Decimal
+	SABalance  decimal.Decimal
+	MABalance  decimal.Decimal
+	RABalance  decimal.Decimal
+	StartDate  *time.Time // Only for versioned updates
+	UpdateMode string
 }
 
 // Service handles CPF account business logic
@@ -57,16 +56,15 @@ func (s *Service) Stop(ctx context.Context, userID, cpfAccountID string, endDate
 
 // inputToAccount converts UpdateInput to a CPFAccount struct
 // Note: Person-related fields are no longer set here - they are read from persons table via JOIN
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount()
 func inputToAccount(id string, input UpdateInput) repo.CPFAccount {
 	return repo.CPFAccount{
-		ID:               id,
-		PersonID:         input.PersonID,
-		OABalance:        input.OABalance,
-		SABalance:        input.SABalance,
-		MABalance:        input.MABalance,
-		RABalance:        input.RABalance,
-		OAUsedForHousing: input.OAUsedForHousing,
-		HousingStartDate: input.HousingStartDate,
+		ID:        id,
+		PersonID:  input.PersonID,
+		OABalance: input.OABalance,
+		SABalance: input.SABalance,
+		MABalance: input.MABalance,
+		RABalance: input.RABalance,
 	}
 }
 

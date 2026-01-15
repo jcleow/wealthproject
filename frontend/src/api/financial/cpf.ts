@@ -37,14 +37,13 @@ export async function listCPFAccounts(): Promise<CPFAccount[]> {
 
 export async function createCPFAccount(payload: CPFAccountCreatePayload): Promise<CPFAccount> {
   // Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity
+  // CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount()
   const body: CpfV2CreateInput = {
     personId: payload.personId,
     oaBalance: (payload.oaBalance ?? 0).toString(),
     saBalance: (payload.saBalance ?? 0).toString(),
     maBalance: (payload.maBalance ?? 0).toString(),
     raBalance: (payload.raBalance ?? 0).toString(),
-    oaUsedForHousing: (payload.oaUsedForHousing ?? 0).toString(),
-    housingStartDate: payload.housingStartDate ?? undefined,
   }
   const data = await apiClient.post<ApiCPFAccount>('/cpf/account', body, { baseUrl: '/api/v2' })
   return toCPFAccount(data)
@@ -56,14 +55,13 @@ export async function updateCPFAccount(
 ): Promise<CPFAccount> {
   // Use string for decimal values to preserve precision
   // Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity
+  // CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount()
   const body: CpfV2Input = {
     personId: payload.personId ?? undefined,
     oaBalance: payload.oaBalance?.toString() ?? '0',
     saBalance: payload.saBalance?.toString() ?? '0',
     maBalance: payload.maBalance?.toString() ?? '0',
     raBalance: payload.raBalance?.toString() ?? '0',
-    oaUsedForHousing: payload.oaUsedForHousing?.toString() ?? '0',
-    housingStartDate: payload.housingStartDate ?? undefined,
     updateMode: payload.updateMode,
     startDate: payload.startDate ?? undefined,
   }

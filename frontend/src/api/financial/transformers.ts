@@ -198,6 +198,7 @@ export const toCPFAccount = (data: unknown): CPFAccount => {
   const id = get<string>(item, 'id') ?? ''
   const createdAt = getOr<string>(item, new Date().toISOString(), 'createdAt', 'created_at')
 
+  // Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount()
   return {
     id,
     userId: getOr<string>(item, '', 'userId', 'user_id'),
@@ -210,11 +211,10 @@ export const toCPFAccount = (data: unknown): CPFAccount => {
     saBalance: parseBalance(get(item, 'saBalance', 'sa_balance', 'SABalance')),
     maBalance: parseBalance(get(item, 'maBalance', 'ma_balance', 'MABalance')),
     raBalance: parseBalance(get(item, 'raBalance', 'ra_balance', 'RABalance')),
-    oaUsedForHousing: parseBalance(get(item, 'oaUsedForHousing', 'oa_used_for_housing', 'OAUsedForHousing')),
-    housingStartDate: get<string>(item, 'housingStartDate', 'housing_start_date'),
     dateOfBirth: getOr<string>(item, '', 'dateOfBirth', 'date_of_birth'),
     residencyStatus: getOr<ResidencyStatus>(item, 'citizen', 'residencyStatus', 'residency_status'),
     prGrantDate: get<string>(item, 'prGrantDate', 'pr_grant_date'),
+    gender: get<string>(item, 'gender'),
     createdAt,
     updatedAt: getOr<string>(item, new Date().toISOString(), 'updatedAt', 'updated_at'),
   }

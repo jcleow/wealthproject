@@ -1447,10 +1447,10 @@ func (s *Store) GetCPFOAUsageByAccount(
 	// We need to consider both borrower1 and borrower2 CPF accounts
 	query := `
 		WITH property_cpf_usage AS (
-			-- Get borrower1 CPF usage
+			-- Get borrower1 CPF usage (per-borrower tracking)
 			SELECT
 				sg.borrower1_cpf_account_id as cpf_account_id,
-				sg.downpayment_cpf_oa as usage
+				sg.borrower1_downpayment_cpf_oa as usage
 			FROM property_scenarios ps
 			JOIN property_sg sg ON ps.property_sg_id = sg.id
 			WHERE ps.user_id = $1
@@ -1460,19 +1460,16 @@ func (s *Store) GetCPFOAUsageByAccount(
 
 			UNION ALL
 
-			-- Get borrower2 CPF usage (for joint purchases)
-			-- Note: For joint, we assume each borrower contributes half unless specified
-			-- For now, we track borrower2's linked account but the downpayment_cpf_oa is the total
-			-- This could be enhanced to track per-borrower contributions
+			-- Get borrower2 CPF usage (per-borrower tracking for joint purchases)
 			SELECT
 				sg.borrower2_cpf_account_id as cpf_account_id,
-				0::numeric(15,4) as usage  -- Borrower2 CPF usage would need separate tracking
+				sg.borrower2_downpayment_cpf_oa as usage
 			FROM property_scenarios ps
 			JOIN property_sg sg ON ps.property_sg_id = sg.id
 			WHERE ps.user_id = $1
 			  AND sg.is_included = true
 			  AND sg.borrower2_cpf_account_id IS NOT NULL
-			  AND sg.borrower2_cpf_account_id != sg.borrower1_cpf_account_id  -- Avoid double-counting
+			  AND sg.borrower2_cpf_account_id != sg.borrower1_cpf_account_id  -- Avoid double-counting if same account
 			  AND ($2::uuid IS NULL OR sg.id != $2)
 		)
 		SELECT

@@ -919,26 +919,26 @@ func cloneDecimalOrZero(d *decimal.Decimal) *decimal.Decimal {
 }
 
 // mapToCPFAccount converts repository CPFAccount to cpf/account.CPFAccount
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount()
 func mapToCPFAccount(r *repo.CPFAccount) *account.CPFAccount {
 	if r == nil {
 		return nil
 	}
 	return &account.CPFAccount{
-		ID:               r.ID,
-		UserID:           r.UserID,
-		PersonID:         r.PersonID,
-		PersonName:       r.PersonName,
-		OABalance:        r.OABalance,
-		SABalance:        r.SABalance,
-		MABalance:        r.MABalance,
-		RABalance:        r.RABalance,
-		OAUsedForHousing: r.OAUsedForHousing,
-		HousingStartDate: r.HousingStartDate,
-		DateOfBirth:      r.DateOfBirth,
-		ResidencyStatus:  account.ResidencyStatus(r.ResidencyStatus),
-		PRGrantDate:      r.PRGrantDate,
-		CreatedAt:        r.CreatedAt,
-		UpdatedAt:        r.UpdatedAt,
+		ID:              r.ID,
+		UserID:          r.UserID,
+		PersonID:        r.PersonID,
+		PersonName:      r.PersonName,
+		OABalance:       r.OABalance,
+		SABalance:       r.SABalance,
+		MABalance:       r.MABalance,
+		RABalance:       r.RABalance,
+		DateOfBirth:     r.DateOfBirth,
+		ResidencyStatus: account.ResidencyStatus(r.ResidencyStatus),
+		PRGrantDate:     r.PRGrantDate,
+		Gender:          r.Gender,
+		CreatedAt:       r.CreatedAt,
+		UpdatedAt:       r.UpdatedAt,
 	}
 }
 

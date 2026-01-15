@@ -11,13 +11,6 @@ import {
   type CpfAccountFormData,
 } from '@/lib/validations/cpfAccount'
 
-function formatDateForInput(isoDate: string | undefined): string {
-  if (!isoDate) return ''
-  const date = new Date(isoDate)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toISOString().split('T')[0]
-}
-
 function toDisplayString(value: number | string | undefined): string {
   if (value === undefined || value === null) return ''
   const num = typeof value === 'string' ? Number.parseFloat(value) : value
@@ -33,6 +26,7 @@ function parseDisplayValue(displayValue: string): number {
 
 // Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now
 // managed through the Person entity, not through CPF accounts.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 function mapCpfAccountToFormData(cpfAccount: CPFAccount): CpfAccountFormData {
   return {
     personId: cpfAccount.personId ?? '',
@@ -40,8 +34,6 @@ function mapCpfAccountToFormData(cpfAccount: CPFAccount): CpfAccountFormData {
     saBalance: toDisplayString(cpfAccount.saBalance),
     maBalance: toDisplayString(cpfAccount.maBalance),
     raBalance: toDisplayString(cpfAccount.raBalance),
-    oaUsedForHousing: toDisplayString(cpfAccount.oaUsedForHousing),
-    housingStartDate: formatDateForInput(cpfAccount.housingStartDate),
   }
 }
 
@@ -52,8 +44,6 @@ function mapFormDataToCreatePayload(data: CpfAccountFormData): CPFAccountCreateP
     saBalance: parseDisplayValue(data.saBalance),
     maBalance: parseDisplayValue(data.maBalance),
     raBalance: parseDisplayValue(data.raBalance),
-    oaUsedForHousing: parseDisplayValue(data.oaUsedForHousing),
-    housingStartDate: data.housingStartDate || undefined,
   }
 }
 
@@ -64,8 +54,6 @@ function mapFormDataToUpdatePayload(data: CpfAccountFormData): CPFAccountUpdateP
     saBalance: parseDisplayValue(data.saBalance),
     maBalance: parseDisplayValue(data.maBalance),
     raBalance: parseDisplayValue(data.raBalance),
-    oaUsedForHousing: parseDisplayValue(data.oaUsedForHousing),
-    housingStartDate: data.housingStartDate || undefined,
   }
 }
 

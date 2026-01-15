@@ -81,14 +81,13 @@ func (h *CPFV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 
 // cpfV2CreateInput is the JSON input struct for CPF v2 create.
 // Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 type cpfV2CreateInput struct {
-	PersonID         string  `json:"personId"` // Required FK to persons table
-	OABalance        string  `json:"oaBalance"`
-	SABalance        string  `json:"saBalance"`
-	MABalance        string  `json:"maBalance"`
-	RABalance        string  `json:"raBalance"`
-	OAUsedForHousing string  `json:"oaUsedForHousing"`
-	HousingStartDate *string `json:"housingStartDate"`
+	PersonID  string `json:"personId"` // Required FK to persons table
+	OABalance string `json:"oaBalance"`
+	SABalance string `json:"saBalance"`
+	MABalance string `json:"maBalance"`
+	RABalance string `json:"raBalance"`
 }
 
 // POST /api/v2/cpf/account
@@ -140,31 +139,13 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	if raBalance == nil {
 		raBalance = decimal.Zero()
 	}
-	oaUsedForHousing, _ := decimal.NewFromString(input.OAUsedForHousing)
-	if oaUsedForHousing == nil {
-		oaUsedForHousing = decimal.Zero()
-	}
-
-	// Parse optional housing start date
-	var housingStartDate *time.Time
-	if input.HousingStartDate != nil && *input.HousingStartDate != "" {
-		t, err := time.Parse(time.RFC3339, *input.HousingStartDate)
-		if err != nil {
-			t, err = time.Parse("2006-01-02", *input.HousingStartDate)
-		}
-		if err == nil {
-			housingStartDate = &t
-		}
-	}
 
 	cpfAccount := repo.CPFAccount{
-		PersonID:         input.PersonID,
-		OABalance:        *oaBalance,
-		SABalance:        *saBalance,
-		MABalance:        *maBalance,
-		RABalance:        *raBalance,
-		OAUsedForHousing: *oaUsedForHousing,
-		HousingStartDate: housingStartDate,
+		PersonID:  input.PersonID,
+		OABalance: *oaBalance,
+		SABalance: *saBalance,
+		MABalance: *maBalance,
+		RABalance: *raBalance,
 	}
 
 	created, err := h.store.CreateCPFAccount(r.Context(), userID, cpfAccount)
@@ -181,16 +162,15 @@ func (h *CPFV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 // cpfV2Input is the JSON input struct for CPF v2 update.
 // Uses string for decimal values to avoid float64 precision loss.
 // Note: Person-related fields (dateOfBirth, residencyStatus, prGrantDate) are now on the Person entity.
+// Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().
 type cpfV2Input struct {
-	PersonID         string  `json:"personId"` // Required FK to persons table
-	OABalance        string  `json:"oaBalance"`
-	SABalance        string  `json:"saBalance"`
-	MABalance        string  `json:"maBalance"`
-	RABalance        string  `json:"raBalance"`
-	OAUsedForHousing string  `json:"oaUsedForHousing"`
-	HousingStartDate *string `json:"housingStartDate"`
-	StartDate        *string `json:"startDate"`
-	UpdateMode       string  `json:"updateMode,omitempty"`
+	PersonID   string  `json:"personId"` // Required FK to persons table
+	OABalance  string  `json:"oaBalance"`
+	SABalance  string  `json:"saBalance"`
+	MABalance  string  `json:"maBalance"`
+	RABalance  string  `json:"raBalance"`
+	StartDate  *string `json:"startDate"`
+	UpdateMode string  `json:"updateMode,omitempty"`
 }
 
 // CPFV2Handler serves CPF v2 endpoints.
@@ -275,23 +255,6 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 		badRequest(w, err)
 		return
 	}
-	oaUsedForHousing, err := decimal.NewFromString(input.OAUsedForHousing)
-	if err != nil {
-		badRequest(w, err)
-		return
-	}
-
-	// Parse optional housing start date
-	var housingStartDate *time.Time
-	if input.HousingStartDate != nil && *input.HousingStartDate != "" {
-		t, err := time.Parse(time.RFC3339, *input.HousingStartDate)
-		if err != nil {
-			t, err = time.Parse("2006-01-02", *input.HousingStartDate)
-		}
-		if err == nil {
-			housingStartDate = &t
-		}
-	}
 
 	var startDate *time.Time
 	if input.StartDate != nil {
@@ -305,16 +268,14 @@ func (h *CPFV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, id s
 
 	// Build service input
 	serviceInput := cpf.UpdateInput{
-		ID:               id,
-		PersonID:         input.PersonID,
-		OABalance:        *oaBalance,
-		SABalance:        *saBalance,
-		MABalance:        *maBalance,
-		RABalance:        *raBalance,
-		OAUsedForHousing: *oaUsedForHousing,
-		HousingStartDate: housingStartDate,
-		StartDate:        startDate,
-		UpdateMode:       input.UpdateMode,
+		ID:         id,
+		PersonID:   input.PersonID,
+		OABalance:  *oaBalance,
+		SABalance:  *saBalance,
+		MABalance:  *maBalance,
+		RABalance:  *raBalance,
+		StartDate:  startDate,
+		UpdateMode: input.UpdateMode,
 	}
 
 	// Delegate to service layer
