@@ -17,10 +17,10 @@ type DetailTab = 'all' | 'cpf-usage' | 'interest' | 'grants' | 'sale'
 
 const DETAIL_TABS: { id: DetailTab; label: string; icon: React.ReactNode }[] = [
   { id: 'all', label: 'All', icon: null },
-  { id: 'cpf-usage', label: 'CPF Usage', icon: <Users className="h-3 w-3" /> },
-  { id: 'interest', label: 'Interest', icon: <TrendingUp className="h-3 w-3" /> },
-  { id: 'grants', label: 'Grants', icon: <Gift className="h-3 w-3" /> },
-  { id: 'sale', label: 'Sale', icon: <Banknote className="h-3 w-3" /> },
+  { id: 'cpf-usage', label: 'CPF Usage', icon: <Users className="h-3.5 w-3.5" /> },
+  { id: 'interest', label: 'Interest', icon: <TrendingUp className="h-3.5 w-3.5" /> },
+  { id: 'grants', label: 'Grants', icon: <Gift className="h-3.5 w-3.5" /> },
+  { id: 'sale', label: 'Sale', icon: <Banknote className="h-3.5 w-3.5" /> },
 ]
 
 interface PropertyCPFDetailProps {
@@ -38,8 +38,8 @@ export function PropertyCPFDetail({
   const sg = scenario.propertySG
   if (!sg) {
     return (
-      <div className="flex items-center justify-center h-full rounded-xl border border-white/[0.06] bg-white/[0.02]">
-        <p className="text-sm text-slate-500">No property details available.</p>
+      <div className="flex items-center justify-center h-full rounded-xl border border-gray-700 bg-gray-900/60">
+        <p className="text-sm text-gray-400">No property details available.</p>
       </div>
     )
   }
@@ -130,38 +130,38 @@ export function PropertyCPFDetail({
   const isPrivateProperty = sg.propertyType === 'private'
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+    <div className="rounded-xl border border-gray-700 bg-gray-900/60 overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/[0.06]">
+      <div className="px-4 py-3 border-b border-gray-700">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="text-sm font-medium text-white">{sg.name}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h3 className="text-base font-medium text-white">{sg.name}</h3>
+            <p className="text-sm text-gray-400 mt-0.5">
               {formatCurrency(parseFloat(sg.propertyPrice))} • {holdingYears} year holding
             </p>
           </div>
           <button
             type="button"
             onClick={onEditInPropertyPlanner}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/[0.06] transition"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition"
           >
-            <Edit3 className="h-3.5 w-3.5" />
+            <Edit3 className="h-4 w-4" />
             Edit
           </button>
         </div>
 
         {/* Segmented Control for Section Views */}
-        <div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+        <div className="inline-flex rounded-lg bg-gray-800 p-0.5 border border-gray-700">
           {DETAIL_TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150",
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
                 activeTab === tab.id
-                  ? "bg-white/[0.1] text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-300"
+                  ? "bg-gray-700 text-white shadow-sm"
+                  : "text-gray-400 hover:text-gray-200"
               )}
             >
               {tab.icon}
@@ -176,7 +176,7 @@ export function PropertyCPFDetail({
         {/* Per-Person CPF Usage */}
         {(activeTab === 'all' || activeTab === 'cpf-usage') && (
           <div>
-            <h4 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">CPF Usage by Person</h4>
+            <h4 className="text-sm font-medium text-gray-300 uppercase tracking-wide mb-3">CPF Usage by Person</h4>
             <div className={`grid gap-3 ${borrower2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
               {borrower1 && (
                 <PersonCPFUsageCard
@@ -202,9 +202,9 @@ export function PropertyCPFDetail({
 
             {/* Combined Total (for joint) */}
             {borrower2 && (
-              <div className="mt-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-slate-400">Combined Total</span>
+              <div className="mt-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-300">Combined Total</span>
                   <span className="text-white font-medium font-mono tabular-nums">
                     {formatCurrency(totalCpfUsed)} CPF + {formatCurrency(totalAccruedInterest)} interest = {formatCurrency(totalCpfUsed + totalAccruedInterest)}
                   </span>
@@ -248,9 +248,9 @@ export function PropertyCPFDetail({
         {/* Empty state for Sale tab when no sale date */}
         {activeTab === 'sale' && !sg.saleExpectedDate && (
           <div className="flex flex-col items-center justify-center py-8 text-center">
-            <Banknote className="h-8 w-8 text-slate-600 mb-3" />
-            <p className="text-sm text-slate-400">No expected sale date set</p>
-            <p className="text-xs text-slate-500 mt-1">
+            <Banknote className="h-8 w-8 text-gray-500 mb-3" />
+            <p className="text-sm text-gray-300">No expected sale date set</p>
+            <p className="text-sm text-gray-400 mt-1">
               Edit the property to add a sale date and see sale impact projections.
             </p>
           </div>

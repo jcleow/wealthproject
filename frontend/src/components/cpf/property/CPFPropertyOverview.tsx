@@ -155,10 +155,10 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
       <div className="flex h-full gap-4">
         <div className="w-[35%] space-y-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl bg-white/[0.02] border border-white/[0.06]" />
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-900/60 border border-gray-700" />
           ))}
         </div>
-        <div className="flex-1 h-96 animate-pulse rounded-xl bg-white/[0.02] border border-white/[0.06]" />
+        <div className="flex-1 h-96 animate-pulse rounded-xl bg-gray-900/60 border border-gray-700" />
       </div>
     )
   }
@@ -167,11 +167,11 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
   if (scenarios.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800/50 mb-4">
-          <Home className="h-8 w-8 text-slate-500" />
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-800 mb-4">
+          <Home className="h-8 w-8 text-gray-400" />
         </div>
         <h3 className="text-lg font-medium text-white mb-2">No Property Scenarios Yet</h3>
-        <p className="text-sm text-slate-400 max-w-md mb-6">
+        <p className="text-sm text-gray-300 max-w-md mb-6">
           Create a property scenario in the Property Planner to see how it affects your CPF usage and retirement planning.
         </p>
         <button
@@ -190,18 +190,18 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
     <div className="flex flex-col h-full">
       {/* Header with View Mode Toggle */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-medium text-slate-300">CPF Property Overview</h2>
+        <h2 className="text-base font-medium text-gray-200">CPF Property Overview</h2>
 
         {/* View Mode Toggle */}
-        <div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+        <div className="inline-flex rounded-lg bg-gray-800 p-0.5 border border-gray-700">
           <button
             type="button"
             onClick={() => setViewMode('overview')}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150",
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
               viewMode === 'overview'
-                ? "bg-white/[0.1] text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-300"
+                ? "bg-gray-700 text-white shadow-sm"
+                : "text-gray-400 hover:text-gray-200"
             )}
           >
             <LayoutGrid className="h-3.5 w-3.5" />
@@ -211,10 +211,10 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
             type="button"
             onClick={() => setViewMode('list')}
             className={cn(
-              "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150",
+              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
               viewMode === 'list'
-                ? "bg-white/[0.1] text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-300"
+                ? "bg-gray-700 text-white shadow-sm"
+                : "text-gray-400 hover:text-gray-200"
             )}
           >
             <List className="h-3.5 w-3.5" />
@@ -250,8 +250,8 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
                   onEditInPropertyPlanner={() => onOpenPropertyPlanner?.(selectedScenario.scenario.id)}
                 />
               ) : (
-                <div className="flex items-center justify-center h-full rounded-xl border border-white/[0.06] bg-white/[0.02]">
-                  <p className="text-sm text-slate-500">Select a property to view CPF details</p>
+                <div className="flex items-center justify-center h-full rounded-xl border border-gray-700 bg-gray-900/60">
+                  <p className="text-sm text-gray-400">Select a property to view CPF details</p>
                 </div>
               )}
             </div>
@@ -265,7 +265,7 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
             <button
               type="button"
               onClick={() => onOpenPropertyPlanner?.()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
             >
               <Plus className="h-3.5 w-3.5" />
               Add Property
@@ -275,7 +275,7 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
           {/* Active Properties */}
           {activeScenarios.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+              <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wide">
                 Active Properties ({activeScenarios.length})
               </h3>
               {activeScenarios.map(scenario => (
@@ -292,7 +292,7 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
           {/* Draft Properties */}
           {draftScenarios.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+              <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wide">
                 Draft Properties ({draftScenarios.length})
               </h3>
               {draftScenarios.map(scenario => (
@@ -310,7 +310,7 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
           {/* Empty state */}
           {scenarios.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-sm text-slate-500">No properties yet. Add one to get started.</p>
+              <p className="text-sm text-gray-400">No properties yet. Add one to get started.</p>
             </div>
           )}
         </div>

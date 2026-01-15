@@ -59,18 +59,18 @@ function PropertyScenarioCard({
           ? "border-emerald-500/40 bg-emerald-500/10"
           : isDraft
             ? "border-amber-500/20 bg-amber-500/5 hover:border-amber-500/30"
-            : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]"
+            : "border-gray-700 bg-gray-900/60 hover:border-gray-600 hover:bg-gray-800/60"
       )}
     >
       <div className="flex items-start gap-3">
         {/* Icon */}
         <div className={cn(
           "flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0",
-          isSelected ? "bg-emerald-500/20" : isDraft ? "bg-amber-500/20" : "bg-white/[0.06]"
+          isSelected ? "bg-emerald-500/20" : isDraft ? "bg-amber-500/20" : "bg-gray-800"
         )}>
           <PropertyIcon className={cn(
             "h-5 w-5",
-            isSelected ? "text-emerald-400" : isDraft ? "text-amber-400" : "text-slate-400"
+            isSelected ? "text-emerald-400" : isDraft ? "text-amber-400" : "text-gray-400"
           )} />
         </div>
 
@@ -79,7 +79,7 @@ function PropertyScenarioCard({
           {/* Name + Badge */}
           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm font-medium text-white truncate">{sg.name}</span>
-            <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium", propertyTypeColor)}>
+            <span className={cn("px-1.5 py-0.5 rounded text-xs font-medium", propertyTypeColor)}>
               {propertyTypeLabel}
             </span>
           </div>
@@ -87,7 +87,7 @@ function PropertyScenarioCard({
           {/* Status */}
           <div className="flex items-center gap-2 mb-2">
             <span className={cn(
-              "px-1.5 py-0.5 rounded text-[10px] font-medium",
+              "px-1.5 py-0.5 rounded text-xs font-medium",
               isDraft
                 ? "bg-amber-500/15 text-amber-400"
                 : "bg-emerald-500/15 text-emerald-400"
@@ -98,8 +98,8 @@ function PropertyScenarioCard({
 
           {/* CPF Used */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500">CPF Used</span>
-            <span className="text-xs font-medium text-white font-mono tabular-nums">
+            <span className="text-sm text-gray-400">CPF Used</span>
+            <span className="text-sm font-medium text-white font-mono tabular-nums">
               {formatCurrency(totalCpfUsed)}
             </span>
           </div>
@@ -127,14 +127,14 @@ export function PropertyScenarioList({
     <div className="space-y-4">
       {/* Active Properties Header */}
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-slate-300">
+        <h3 className="text-sm font-medium text-gray-300">
           Active Properties
-          <span className="ml-2 text-slate-500">({activeScenarios.length})</span>
+          <span className="ml-2 text-gray-500">({activeScenarios.length})</span>
         </h3>
         <button
           type="button"
           onClick={onOpenPropertyPlanner}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
         >
           <Plus className="h-3.5 w-3.5" />
           Add
@@ -143,8 +143,8 @@ export function PropertyScenarioList({
 
       {/* Active Property Cards */}
       {activeScenarios.length === 0 ? (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-center">
-          <p className="text-xs text-slate-500">No active properties</p>
+        <div className="rounded-xl border border-gray-700 bg-gray-900/60 p-4 text-center">
+          <p className="text-sm text-gray-400">No active properties</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -165,11 +165,11 @@ export function PropertyScenarioList({
           <button
             type="button"
             onClick={() => setExpandDrafts(!expandDrafts)}
-            className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-300 transition mb-2"
+            className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-300 transition mb-2"
           >
-            <span className={cn("transition-transform text-[10px]", expandDrafts && "rotate-90")}>▶</span>
+            <span className={cn("transition-transform text-xs", expandDrafts && "rotate-90")}>▶</span>
             Draft Properties
-            <span className="text-slate-500">({draftScenarios.length})</span>
+            <span className="text-gray-500">({draftScenarios.length})</span>
           </button>
 
           {expandDrafts && (

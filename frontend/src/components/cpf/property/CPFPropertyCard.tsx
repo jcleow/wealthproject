@@ -91,25 +91,25 @@ export function CPFPropertyCard({ scenario, cpfAccounts, isDraft = false, onView
         rounded-xl border p-4 transition-all duration-200
         ${isDraft
           ? 'border-amber-500/20 bg-amber-500/[0.02] hover:bg-amber-500/[0.04]'
-          : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] hover:border-white/[0.12]'
+          : 'border-gray-700 bg-gray-900/60 hover:bg-gray-800/60 hover:border-gray-600'
         }
       `}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isDraft ? 'bg-amber-500/15' : 'bg-slate-700/50'}`}>
-            <PropertyIcon className={`h-5 w-5 ${isDraft ? 'text-amber-400' : 'text-slate-400'}`} />
+          <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${isDraft ? 'bg-amber-500/15' : 'bg-gray-800'}`}>
+            <PropertyIcon className={`h-5 w-5 ${isDraft ? 'text-amber-400' : 'text-gray-400'}`} />
           </div>
           <div>
-            <h4 className="text-sm font-medium text-white">{sg.name}</h4>
+            <h4 className="text-base font-medium text-white">{sg.name}</h4>
             <div className="flex items-center gap-2 mt-1">
-              <span className={`px-2 py-0.5 rounded text-[10px] font-medium uppercase ${typeStyle.bg} ${typeStyle.text}`}>
+              <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${typeStyle.bg} ${typeStyle.text}`}>
                 {sg.propertyType}
               </span>
-              <span className="text-xs text-slate-500">{subtypeLabel}</span>
+              <span className="text-sm text-gray-400">{subtypeLabel}</span>
               {isDraft && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-400">
+                <span className="px-2 py-0.5 rounded text-xs font-medium bg-amber-500/15 text-amber-400">
                   Draft
                 </span>
               )}
@@ -119,10 +119,10 @@ export function CPFPropertyCard({ scenario, cpfAccounts, isDraft = false, onView
         <button
           type="button"
           onClick={onViewDetails}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-white/[0.05] transition"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-300 hover:text-white hover:bg-gray-700 transition"
         >
           View Details
-          <ChevronRight className="h-3.5 w-3.5" />
+          <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
@@ -130,23 +130,23 @@ export function CPFPropertyCard({ scenario, cpfAccounts, isDraft = false, onView
       <div className="grid grid-cols-3 gap-4">
         {/* CPF Used */}
         <div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">CPF Used</p>
-          <p className="text-base font-semibold text-white font-mono tabular-nums">
+          <p className="text-sm font-medium text-gray-400 mb-1">CPF Used</p>
+          <p className="text-xl font-semibold text-white font-mono tabular-nums">
             {formatCurrency(totalCpfUsed)}
           </p>
-          <div className="mt-1 space-y-0.5">
+          <div className="mt-2 space-y-1">
             {borrower1 && (
-              <div className="flex items-center gap-1 text-[10px]">
-                <span className="text-slate-600">▪</span>
-                <span className="text-slate-500">{borrower1.name}:</span>
-                <span className="text-slate-400 font-mono tabular-nums">{formatCurrency(borrower1.cpfUsed)}</span>
+              <div className="flex items-center gap-1.5 text-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                <span className="text-gray-500">{borrower1.name}:</span>
+                <span className="text-gray-200 font-mono tabular-nums">{formatCurrency(borrower1.cpfUsed)}</span>
               </div>
             )}
             {borrower2 && (
-              <div className="flex items-center gap-1 text-[10px]">
-                <span className="text-slate-600">▪</span>
-                <span className="text-slate-500">{borrower2.name}:</span>
-                <span className="text-slate-400 font-mono tabular-nums">{formatCurrency(borrower2.cpfUsed)}</span>
+              <div className="flex items-center gap-1.5 text-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
+                <span className="text-gray-500">{borrower2.name}:</span>
+                <span className="text-gray-200 font-mono tabular-nums">{formatCurrency(borrower2.cpfUsed)}</span>
               </div>
             )}
           </div>
@@ -154,32 +154,32 @@ export function CPFPropertyCard({ scenario, cpfAccounts, isDraft = false, onView
 
         {/* Accrued Interest */}
         <div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Accrued Interest</p>
-          <p className="text-base font-semibold text-amber-400 font-mono tabular-nums">
+          <p className="text-sm font-medium text-gray-400 mb-1">Accrued Interest</p>
+          <p className="text-xl font-semibold text-amber-400 font-mono tabular-nums">
             {formatCurrency(accruedInterest)}
           </p>
-          <p className="mt-1 text-[10px] text-slate-500">(2.5% p.a.)</p>
+          <p className="mt-2 text-sm text-gray-500">(2.5% p.a.)</p>
         </div>
 
         {/* Grants */}
         <div>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wide mb-1">Grants</p>
-          <p className="text-base font-semibold text-emerald-400 font-mono tabular-nums">
+          <p className="text-sm font-medium text-gray-400 mb-1">Grants</p>
+          <p className="text-xl font-semibold text-emerald-400 font-mono tabular-nums">
             {totalGrants > 0 ? formatCurrency(totalGrants) : '-'}
           </p>
           {totalGrants > 0 && (
-            <p className="mt-1 text-[10px] text-slate-500 truncate">{grantNames}</p>
+            <p className="mt-2 text-sm text-gray-400 truncate">{grantNames}</p>
           )}
           {totalGrants === 0 && sg.propertyType === 'private' && (
-            <p className="mt-1 text-[10px] text-slate-600">(Private - no HDB grants)</p>
+            <p className="mt-2 text-sm text-gray-500">(Private - no HDB grants)</p>
           )}
         </div>
       </div>
 
       {/* Footer - Must Refund */}
-      <div className="mt-4 pt-3 border-t border-white/[0.04] flex items-center justify-between">
-        <span className="text-xs text-slate-500">Must refund at sale:</span>
-        <span className="text-sm font-medium text-white font-mono tabular-nums">
+      <div className="mt-4 pt-3 border-t border-gray-700 flex items-center justify-between">
+        <span className="text-sm text-gray-400">Must refund at sale:</span>
+        <span className="text-base font-medium text-white font-mono tabular-nums">
           {formatCurrency(mustRefund)}
         </span>
       </div>
