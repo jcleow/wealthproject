@@ -267,6 +267,14 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		cpfHandler.HandleCPFTimelineProjection(w, r, id)
 	}).Methods("POST")
 
+	// CPF housing usage endpoint - derives CPF usage from property scenarios
+	// Returns downpayment, monthly payments, totals, and accrued interest
+	router.HandleFunc("/cpf/housing-usage/{scenarioId}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		scenarioID := vars["scenarioId"]
+		cpfHandler.HandleCPFHousingUsage(w, r, scenarioID)
+	}).Methods("GET")
+
 	// Person v2 endpoints (for multi-person household support)
 	personHandler := handlers.NewPersonV2Handler(deps.FinStore)
 	router.HandleFunc("/persons", personHandler.HandleList).Methods("GET")

@@ -342,6 +342,125 @@ export async function getCPFBalanceProjection(
   )
 }
 
+// ============================================================================
+// CPF Housing Usage API
+// ============================================================================
+
+/**
+ * CPF housing usage downpayment breakdown.
+ */
+export interface CPFHousingUsageDownPayment {
+  oaUsed: string
+  cashUsed: string
+  grantReceived: string
+  grantType: string | null
+}
+
+/**
+ * A single monthly payment record.
+ */
+export interface CPFHousingMonthlyPayment {
+  month: string
+  oaUsed: string
+  cashUsed: string
+  principalPortion: string
+  interestPortion: string
+}
+
+/**
+ * CPF housing usage totals.
+ */
+export interface CPFHousingUsageTotals {
+  totalOAUsed: string
+  totalCashUsed: string
+  oaForDownPayment: string
+  oaForMonthlyPayments: string
+}
+
+/**
+ * Yearly accrued interest breakdown.
+ */
+export interface CPFYearlyAccrued {
+  year: number
+  startingPrincipal: string
+  interestForYear: string
+  cumulativeInterest: string
+}
+
+/**
+ * CPF accrued interest schedule.
+ */
+export interface CPFAccruedInterestSchedule {
+  asOfDate: string
+  totalAccrued: string
+  yearlyBreakdown: CPFYearlyAccrued[]
+}
+
+/**
+ * CPF housing usage response from backend.
+ */
+export interface CPFHousingUsageApiResponse {
+  propertyScenarioId: string
+  downPayment: CPFHousingUsageDownPayment
+  monthlyPayments: CPFHousingMonthlyPayment[]
+  totals: CPFHousingUsageTotals
+  accruedInterest: CPFAccruedInterestSchedule
+}
+
+/**
+ * CPF refund details for property sale.
+ */
+export interface CPFRefundRequired {
+  principalUsed: string
+  accruedInterest: string
+  totalRefund: string
+}
+
+/**
+ * Destination of CPF refund upon property sale.
+ */
+export interface CPFRefundDestination {
+  toOA: string
+  toRA: string
+  reason: string
+}
+
+/**
+ * Property sale analysis with CPF refund calculation.
+ */
+export interface CPFPropertySaleAnalysis {
+  saleDate: string
+  grossProceeds: string
+  outstandingLoan: string
+  sellingCosts: string
+  cpfRefundRequired: CPFRefundRequired
+  refundDestination: CPFRefundDestination
+  netCashProceeds: string
+  warnings: string[]
+}
+
+/**
+ * Full CPF housing usage response including sale analysis.
+ */
+export interface CPFHousingUsageFullResponse {
+  usage: CPFHousingUsageApiResponse | null
+  saleAnalysis?: CPFPropertySaleAnalysis
+}
+
+/**
+ * Get CPF housing usage derived from a property scenario.
+ * Computes downpayment, monthly payments, totals, and accrued interest.
+ */
+export async function getCPFHousingUsage(
+  scenarioId: string
+): Promise<CPFHousingUsageFullResponse> {
+  return apiClient.get<CPFHousingUsageFullResponse>(
+    `/cpf/housing-usage/${scenarioId}`,
+    undefined,
+    { baseUrl: '/api/v2' }
+  )
+}
+
 export const cpfApi = {
   getCPFAccount,
   listCPFAccounts,
@@ -362,4 +481,6 @@ export const cpfApi = {
   // CPF Projection API
   getCPFProjection,
   getCPFBalanceProjection,
+  // CPF Housing Usage API
+  getCPFHousingUsage,
 }

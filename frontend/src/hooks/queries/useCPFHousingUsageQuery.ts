@@ -1,22 +1,30 @@
 /**
- * React Query hook for deriving CPF housing usage from property scenarios.
+ * React Query hook for fetching CPF housing usage from backend.
  *
- * CPF housing usage is now derived from property scenarios rather than stored
- * directly on CPF accounts. This hook transforms PropertyScenarioFull data
- * into the CPFHousingUsage format for display in the PropertyCPFUsage component.
+ * CPF housing usage is derived from property scenarios on the backend.
+ * This hook fetches the pre-computed data for display in the PropertyCPFUsage component.
  */
 
-import { useMemo } from 'react'
-import { usePropertyPlannerV2ScenarioQuery } from './usePropertyPlannerV2Query'
-import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
+import { useQuery } from '@tanstack/react-query'
+import {
+  getCPFHousingUsage,
+  type CPFHousingUsageApiResponse,
+  type CPFPropertySaleAnalysis as ApiSaleAnalysis,
+} from '@/api/financial/cpf'
 import type {
   CPFHousingUsage,
   MonthlyPayment,
   YearlyAccrued,
   PropertySaleAnalysis,
 } from '@/types/cpf'
+import { QUERY_KEYS } from '@/lib/queryKeys'
 
-const CPF_ACCRUED_INTEREST_RATE = 0.025 // 2.5% p.a.
+// Query key factory for CPF housing usage
+export const cpfHousingUsageKeys = {
+  all: [...QUERY_KEYS.financial.cpf, 'housing-usage'] as const,
+  details: () => [...cpfHousingUsageKeys.all, 'detail'] as const,
+  detail: (scenarioId: string) => [...cpfHousingUsageKeys.details(), scenarioId] as const,
+}
 
 /**
  * Parse a string amount to number, returning 0 for invalid values
@@ -28,288 +36,98 @@ function parseAmount(value: string | null | undefined): number {
 }
 
 /**
- * Calculate accrued interest on CPF used for housing.
- * Interest accrues at 2.5% p.a. compounded yearly on the principal used.
+ * Transform API response to frontend CPFHousingUsage type
  */
-function calculateAccruedInterest(
-  totalOAUsed: number,
-  startDate: Date,
-  asOfDate: Date
-): { totalAccrued: number; yearlyBreakdown: YearlyAccrued[] } {
-  const yearlyBreakdown: YearlyAccrued[] = []
-  const startYear = startDate.getFullYear()
-  const endYear = asOfDate.getFullYear()
+function transformApiResponse(apiResponse: CPFHousingUsageApiResponse): CPFHousingUsage {
+  const monthlyPayments: MonthlyPayment[] = (apiResponse.monthlyPayments || []).map((payment) => ({
+    month: payment.month,
+    oaUsed: parseAmount(payment.oaUsed),
+    cashUsed: parseAmount(payment.cashUsed),
+    principalPortion: parseAmount(payment.principalPortion),
+    interestPortion: parseAmount(payment.interestPortion),
+  }))
 
-  let cumulativePrincipal = totalOAUsed
-  let cumulativeInterest = 0
-
-  // Calculate year by year
-  for (let year = startYear; year <= endYear; year++) {
-    const startingPrincipal = cumulativePrincipal
-    const interestForYear = Math.round(startingPrincipal * CPF_ACCRUED_INTEREST_RATE)
-    cumulativeInterest += interestForYear
-
-    yearlyBreakdown.push({
-      year,
-      startingPrincipal,
-      interestForYear,
-      cumulativeInterest,
-    })
-
-    // Interest compounds (added to principal for next year's calculation)
-    cumulativePrincipal = startingPrincipal + interestForYear
-  }
+  const yearlyBreakdown: YearlyAccrued[] = (
+    apiResponse.accruedInterest?.yearlyBreakdown || []
+  ).map((yearly) => ({
+    year: yearly.year,
+    startingPrincipal: parseAmount(yearly.startingPrincipal),
+    interestForYear: parseAmount(yearly.interestForYear),
+    cumulativeInterest: parseAmount(yearly.cumulativeInterest),
+  }))
 
   return {
-    totalAccrued: cumulativeInterest,
-    yearlyBreakdown,
-  }
-}
-
-/**
- * Generate monthly payment records from scenario data.
- * This is a simplified approximation - for exact monthly breakdown,
- * backend would need to provide amortization schedule.
- */
-function generateMonthlyPayments(
-  scenario: PropertyScenarioFull,
-  startDate: Date,
-  monthlyOAUsed: number,
-  monthlyCashUsed: number
-): MonthlyPayment[] {
-  const payments: MonthlyPayment[] = []
-  const ratePeriods = scenario.ratePeriods || []
-
-  // Use rate periods to determine duration and interest portions
-  let totalMonths = 0
-  for (const period of ratePeriods) {
-    totalMonths += period.termYears * 12
-  }
-
-  // Limit to reasonable range (up to current date or 360 months max)
-  const now = new Date()
-  const monthsSinceStart = Math.max(0,
-    (now.getFullYear() - startDate.getFullYear()) * 12 +
-    (now.getMonth() - startDate.getMonth())
-  )
-  const monthsToGenerate = Math.min(monthsSinceStart, totalMonths, 360)
-
-  // Calculate approximate principal/interest split based on loan amount
-  const loanAmount = parseAmount(scenario.computed?.loanAmount)
-  const monthlyPayment = parseAmount(scenario.computed?.monthlyPayment)
-
-  for (let i = 0; i < monthsToGenerate; i++) {
-    const paymentDate = new Date(startDate)
-    paymentDate.setMonth(paymentDate.getMonth() + i)
-    const month = paymentDate.toISOString().slice(0, 7)
-
-    // Simple approximation: early payments have more interest
-    const remainingMonths = totalMonths - i
-    const interestPortion = loanAmount > 0
-      ? Math.round((monthlyPayment * remainingMonths) / totalMonths * 0.4)
-      : Math.round(monthlyPayment * 0.3)
-    const principalPortion = monthlyPayment - interestPortion
-
-    payments.push({
-      month,
-      oaUsed: monthlyOAUsed,
-      cashUsed: monthlyCashUsed,
-      principalPortion,
-      interestPortion,
-    })
-  }
-
-  return payments
-}
-
-/**
- * Transform PropertyScenarioFull into CPFHousingUsage format
- */
-function transformToCPFHousingUsage(
-  scenario: PropertyScenarioFull
-): CPFHousingUsage | null {
-  const propertySG = scenario.propertySG
-  if (!propertySG) return null
-
-  // Downpayment CPF OA (both borrowers)
-  const borrower1DownpaymentOA = parseAmount(propertySG.borrower1DownpaymentCpfOa)
-  const borrower2DownpaymentOA = parseAmount(propertySG.borrower2DownpaymentCpfOa)
-  const oaForDownPayment = borrower1DownpaymentOA + borrower2DownpaymentOA
-
-  // Downpayment cash (both borrowers)
-  const borrower1DownpaymentCash = parseAmount(propertySG.borrower1DownpaymentCashAmount)
-  const borrower2DownpaymentCash = parseAmount(propertySG.borrower2DownpaymentCashAmount)
-  // Fall back to legacy field if per-borrower not set
-  const downpaymentCash = borrower1DownpaymentCash + borrower2DownpaymentCash ||
-    parseAmount(propertySG.downpaymentCash)
-
-  // Grants
-  const totalGrants = (scenario.grants || []).reduce(
-    (sum, grant) => sum + parseAmount(grant.amount),
-    0
-  )
-  // Determine primary grant type
-  const primaryGrant = scenario.grants?.[0]
-  const grantType = primaryGrant?.name?.toUpperCase().includes('EHG')
-    ? 'EHG'
-    : primaryGrant?.name?.toUpperCase().includes('FHG')
-      ? 'FHG'
-      : primaryGrant?.name?.toUpperCase().includes('PHG')
-        ? 'PHG'
-        : primaryGrant?.name?.toUpperCase().includes('STEP')
-          ? 'STEP_UP'
-          : null
-
-  // Monthly CPF OA (both borrowers)
-  const borrower1MonthlyCpfOa = parseAmount(propertySG.borrower1MonthlyCpfOa)
-  const borrower2MonthlyCpfOa = parseAmount(propertySG.borrower2MonthlyCpfOa)
-  const monthlyOAUsed = borrower1MonthlyCpfOa + borrower2MonthlyCpfOa
-
-  // Monthly cash (both borrowers)
-  const borrower1MonthlyCash = parseAmount(propertySG.borrower1MonthlyCashAmount)
-  const borrower2MonthlyCash = parseAmount(propertySG.borrower2MonthlyCashAmount)
-  // Fall back to legacy field if per-borrower not set
-  const monthlyCashUsed = borrower1MonthlyCash + borrower2MonthlyCash ||
-    parseAmount(propertySG.monthlyCashAmount)
-
-  // Determine start date (BTO key collection or created date)
-  const startDateStr = propertySG.btoKeyCollectionDate || propertySG.createdAt
-  const startDate = startDateStr ? new Date(startDateStr) : new Date()
-  const asOfDate = new Date()
-
-  // Generate monthly payments
-  const monthlyPayments = generateMonthlyPayments(
-    scenario,
-    startDate,
-    monthlyOAUsed,
-    monthlyCashUsed
-  )
-
-  // Calculate totals
-  const oaForMonthlyPayments = monthlyPayments.reduce((sum, p) => sum + p.oaUsed, 0)
-  const cashForMonthlyPayments = monthlyPayments.reduce((sum, p) => sum + p.cashUsed, 0)
-  const totalOAUsed = oaForDownPayment + oaForMonthlyPayments
-  const totalCashUsed = downpaymentCash + cashForMonthlyPayments
-
-  // Calculate accrued interest
-  const { totalAccrued, yearlyBreakdown } = calculateAccruedInterest(
-    totalOAUsed,
-    startDate,
-    asOfDate
-  )
-
-  return {
-    propertyScenarioId: scenario.scenario.id,
+    propertyScenarioId: apiResponse.propertyScenarioId,
     downPayment: {
-      oaUsed: oaForDownPayment,
-      cashUsed: downpaymentCash,
-      grantReceived: totalGrants,
-      grantType,
+      oaUsed: parseAmount(apiResponse.downPayment.oaUsed),
+      cashUsed: parseAmount(apiResponse.downPayment.cashUsed),
+      grantReceived: parseAmount(apiResponse.downPayment.grantReceived),
+      grantType: apiResponse.downPayment.grantType as 'EHG' | 'FHG' | 'PHG' | 'STEP_UP' | null,
     },
     monthlyPayments,
     totals: {
-      totalOAUsed,
-      totalCashUsed,
-      oaForDownPayment,
-      oaForMonthlyPayments,
+      totalOAUsed: parseAmount(apiResponse.totals.totalOAUsed),
+      totalCashUsed: parseAmount(apiResponse.totals.totalCashUsed),
+      oaForDownPayment: parseAmount(apiResponse.totals.oaForDownPayment),
+      oaForMonthlyPayments: parseAmount(apiResponse.totals.oaForMonthlyPayments),
     },
     accruedInterest: {
-      asOfDate: asOfDate.toISOString(),
-      totalAccrued,
+      asOfDate: apiResponse.accruedInterest?.asOfDate || new Date().toISOString(),
+      totalAccrued: parseAmount(apiResponse.accruedInterest?.totalAccrued),
       yearlyBreakdown,
     },
   }
 }
 
 /**
- * Transform PropertyScenarioFull into PropertySaleAnalysis format
+ * Transform API sale analysis to frontend PropertySaleAnalysis type
  */
-function transformToSaleAnalysis(
-  scenario: PropertyScenarioFull,
-  housingUsage: CPFHousingUsage | null
-): PropertySaleAnalysis | null {
-  const propertySG = scenario.propertySG
-  if (!propertySG || !housingUsage) return null
-
-  // Only generate sale analysis if sale date is set
-  if (!propertySG.saleExpectedDate) return null
-
-  const salePrice = parseAmount(propertySG.saleExpectedPrice)
-  const outstandingLoan = parseAmount(scenario.computed?.loanAmount) * 0.7 // Rough estimate
-  const sellingCosts = Math.round(salePrice * 0.02) // ~2% selling costs
-
-  const principalUsed = housingUsage.totals.totalOAUsed
-  const accruedInterest = housingUsage.accruedInterest.totalAccrued
-  const totalRefund = principalUsed + accruedInterest
-
-  const netCashProceeds = salePrice - outstandingLoan - sellingCosts - totalRefund
-
+function transformSaleAnalysis(apiAnalysis: ApiSaleAnalysis): PropertySaleAnalysis {
   return {
-    saleDate: propertySG.saleExpectedDate,
-    grossProceeds: salePrice,
-    outstandingLoan,
-    sellingCosts,
+    saleDate: apiAnalysis.saleDate,
+    grossProceeds: parseAmount(apiAnalysis.grossProceeds),
+    outstandingLoan: parseAmount(apiAnalysis.outstandingLoan),
+    sellingCosts: parseAmount(apiAnalysis.sellingCosts),
     cpfRefundRequired: {
-      principalUsed,
-      accruedInterest,
-      totalRefund,
+      principalUsed: parseAmount(apiAnalysis.cpfRefundRequired.principalUsed),
+      accruedInterest: parseAmount(apiAnalysis.cpfRefundRequired.accruedInterest),
+      totalRefund: parseAmount(apiAnalysis.cpfRefundRequired.totalRefund),
     },
     refundDestination: {
-      toOA: totalRefund, // Simplified - actual destination depends on age
-      toRA: 0,
-      reason: 'Refund destination depends on member age at sale',
+      toOA: parseAmount(apiAnalysis.refundDestination.toOA),
+      toRA: parseAmount(apiAnalysis.refundDestination.toRA),
+      reason: apiAnalysis.refundDestination.reason,
     },
-    netCashProceeds,
-    warnings: netCashProceeds < 0
-      ? ['Sale proceeds may be insufficient to cover CPF refund']
-      : [],
+    netCashProceeds: parseAmount(apiAnalysis.netCashProceeds),
+    warnings: apiAnalysis.warnings || [],
   }
 }
 
 /**
  * Hook to get CPF housing usage derived from a property scenario.
  *
- * @param scenarioId - The property scenario ID to derive usage from
+ * @param scenarioId - The property scenario ID to get usage for
  * @returns Query result with CPFHousingUsage and PropertySaleAnalysis
  */
 export function useCPFHousingUsageQuery(scenarioId: string | undefined) {
-  const scenarioQuery = usePropertyPlannerV2ScenarioQuery(scenarioId)
+  const query = useQuery({
+    queryKey: cpfHousingUsageKeys.detail(scenarioId ?? ''),
+    queryFn: () => getCPFHousingUsage(scenarioId!),
+    enabled: !!scenarioId,
+    staleTime: 30_000, // 30 seconds
+  })
 
-  const housingUsage = useMemo(() => {
-    if (!scenarioQuery.data) return null
-    return transformToCPFHousingUsage(scenarioQuery.data)
-  }, [scenarioQuery.data])
-
-  const saleAnalysis = useMemo(() => {
-    if (!scenarioQuery.data || !housingUsage) return null
-    return transformToSaleAnalysis(scenarioQuery.data, housingUsage)
-  }, [scenarioQuery.data, housingUsage])
+  // Transform API response to frontend types
+  const housingUsage = query.data?.usage ? transformApiResponse(query.data.usage) : null
+  const saleAnalysis = query.data?.saleAnalysis
+    ? transformSaleAnalysis(query.data.saleAnalysis)
+    : null
 
   return {
     data: housingUsage,
     saleAnalysis,
-    isLoading: scenarioQuery.isLoading,
-    isError: scenarioQuery.isError,
-    error: scenarioQuery.error,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
   }
-}
-
-/**
- * Hook to get CPF housing usage from a list of property scenarios.
- * Useful when displaying aggregated CPF usage across multiple properties.
- *
- * @param scenarios - Array of property scenarios
- * @returns Aggregated CPF housing usage data
- */
-export function useCPFHousingUsageFromScenarios(scenarios: PropertyScenarioFull[] | undefined) {
-  return useMemo(() => {
-    if (!scenarios || scenarios.length === 0) return []
-    return scenarios
-      .filter((s) => s.propertySG?.isIncluded)
-      .map((s) => ({
-        scenario: s,
-        usage: transformToCPFHousingUsage(s),
-      }))
-      .filter((item) => item.usage !== null)
-  }, [scenarios])
 }
