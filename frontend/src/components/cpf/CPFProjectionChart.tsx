@@ -245,7 +245,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
   // Generate payout projection for the selected CPF LIFE plan
   const payoutProjection = useMemo(() => {
-    if (!retirement) return []
+    if (!retirement || !projection) return []
 
     const monthlyPayout = retirement.cpfLifeEstimates[assumptions.cpfLifePlan]
     if (!monthlyPayout || monthlyPayout <= 0) return []
@@ -254,8 +254,10 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     const currentYear = new Date().getFullYear()
     const birthYear = currentYear - profile.age
 
-    // Get initial RA balance at payout start age (use age 65 balance as proxy)
-    const initialRA = retirement.age65Balances.ra
+    // Get initial RA balance at the actual payout start age from projection data
+    // This accounts for interest growth between age 65 and the payout start age
+    const payoutStartSnapshot = projection.find(p => p.age === assumptions.payoutStartAge)
+    const initialRA = payoutStartSnapshot?.ra ?? retirement.age65Balances.ra
 
     return generatePayoutProjection(
       monthlyPayout,
@@ -266,11 +268,11 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
       assumptions.basicPlanPremiumPercent,
       assumptions.escalatingPlanGrowth
     )
-  }, [retirement, assumptions.cpfLifePlan, profile.age, assumptions.payoutStartAge, assumptions.basicPlanPremiumPercent, assumptions.escalatingPlanGrowth])
+  }, [projection, retirement, assumptions.cpfLifePlan, profile.age, assumptions.payoutStartAge, assumptions.basicPlanPremiumPercent, assumptions.escalatingPlanGrowth])
 
   const milestones = [
     { age: 55, label: 'RA Formation', color: '#f59e0b' },
-    { age: 65, label: 'CPF LIFE Start', color: '#10b981' },
+    { age: assumptions.payoutStartAge, label: 'CPF LIFE Start', color: '#10b981' },
   ]
 
   // Calculate ages when retirement thresholds are reached (using OA+SA before age 55)

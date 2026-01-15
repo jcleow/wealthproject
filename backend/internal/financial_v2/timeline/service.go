@@ -702,11 +702,12 @@ func filterCPFAccountsByExcludedPersons(accounts []repo.CPFAccount, excludedPers
 
 // CPFContext holds CPF processor and balances for timeline calculations
 type CPFContext struct {
-	Processor    *cpfProcessor.Processor
-	Balances     *cpfProcessor.CPFBalances
-	EngineState  *engine.CPFState   // Engine state for interest, RA formation, and payouts
-	Assumptions  *engine.Assumptions // Assumptions for interest rates and payout settings
-	PreviousYear int                 // Previous year for YTD reset detection
+	Processor      *cpfProcessor.Processor
+	Balances       *cpfProcessor.CPFBalances
+	EngineState    *engine.CPFState    // Engine state for interest, RA formation, and payouts
+	Assumptions    *engine.Assumptions // Assumptions for interest rates and payout settings
+	PreviousYear   int                 // Previous year for YTD reset detection
+	PayoutStartAge int                 // CPF LIFE payout start age (65-70), defaults to 65
 }
 
 // NewCPFContext creates a CPF context from an account, returns nil if no account
@@ -735,11 +736,12 @@ func NewCPFContext(cpfAccount *account.CPFAccount) *CPFContext {
 	)
 
 	return &CPFContext{
-		Processor:    proc,
-		Balances:     balances,
-		EngineState:  engineState,
-		Assumptions:  engine.DefaultAssumptions(),
-		PreviousYear: 0, // Will be set on first ApplyEngineProcessing call
+		Processor:      proc,
+		Balances:       balances,
+		EngineState:    engineState,
+		Assumptions:    engine.DefaultAssumptions(),
+		PreviousYear:   0,  // Will be set on first ApplyEngineProcessing call
+		PayoutStartAge: 65, // Default CPF LIFE payout start age
 	}
 }
 
@@ -751,7 +753,8 @@ func mapAccountResidencyToConfig(status account.ResidencyStatus) config.Residenc
 }
 
 // NewCPFContexts creates a map of personID -> CPFContext from a list of CPF accounts
-func NewCPFContexts(cpfAccounts []*account.CPFAccount) map[string]*CPFContext {
+// payoutStartAge is the CPF LIFE payout start age (65-70), 0 defaults to 65
+func NewCPFContexts(cpfAccounts []*account.CPFAccount, payoutStartAge int) map[string]*CPFContext {
 	contexts := make(map[string]*CPFContext)
 	for _, acc := range cpfAccounts {
 		if acc == nil {
@@ -759,6 +762,10 @@ func NewCPFContexts(cpfAccounts []*account.CPFAccount) map[string]*CPFContext {
 		}
 		ctx := NewCPFContext(acc)
 		if ctx != nil {
+			// Set payout start age from options (default to 65 if not specified)
+			if payoutStartAge > 0 {
+				ctx.PayoutStartAge = payoutStartAge
+			}
 			personID := acc.PersonID
 			if personID == "" {
 				personID = "default"
@@ -848,10 +855,14 @@ func (c *CPFContext) ApplyEngineProcessing(date time.Time, applyToBalances bool)
 
 	// Use full ProcessMonth for CPF lifecycle events (RA formation, payouts)
 	// Contributions are NOT passed here because they're already applied by ProcessIncomes
+	payoutStartAge := c.PayoutStartAge
+	if payoutStartAge == 0 {
+		payoutStartAge = 65 // Default to 65 if not set
+	}
 	opts := engine.ProcessMonthOptions{
 		ApplyContributions: false, // Contributions handled separately by ProcessIncomes
 		TargetScheme:       retirement.TargetFRS,
-		PayoutStartAge:     65,
+		PayoutStartAge:     payoutStartAge,
 		PayoutPlan:         payout.PlanStandard,
 		Assumptions:        c.Assumptions,
 		PreviousYear:       c.PreviousYear,
@@ -2347,7 +2358,7 @@ func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts Timel
 		Data:                      sgData.Rows,
 		ItemStates:                initializeItemStates(sgData.Rows, anchorStart.Year()),
 		Registry:                  growth.NewRegistry(),
-		CPFContexts:               NewCPFContexts(sgData.CPFAccounts),
+		CPFContexts:               NewCPFContexts(sgData.CPFAccounts, opts.PayoutStartAge),
 		BaseYear:                  anchorStart.Year(),
 		CashAccumulator:           decimal.Zero(),
 		LinkedExpensesByLiability: linkedExpenses,
@@ -2649,6 +2660,7 @@ func (s *Service) ExtractCPFProjection(
 		StartDate:        startDate,
 		EndDate:          endDate,
 		IncludeScenarios: true,
+		PayoutStartAge:   payoutStartAge,
 	}
 
 	// Compute full timeline snapshot
