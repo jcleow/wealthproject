@@ -391,6 +391,7 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
       </div>
 
       {/* Content */}
+      {/* TODO(human): Add max-width constraint to prevent content from stretching too wide on large screens */}
       <div className="flex-1 overflow-y-auto p-5">
         {activeTab === 'overview' && (
           <div className="grid gap-6 lg:grid-cols-2">
