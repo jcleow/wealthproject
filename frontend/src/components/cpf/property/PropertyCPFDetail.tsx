@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Edit3, Users, TrendingUp, Gift, Banknote } from 'lucide-react'
+import { Edit3, Banknote } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
@@ -15,12 +15,12 @@ import { SaleImpactSection } from '@/components/modals/PropertyPlannerModal/comp
 
 type DetailTab = 'all' | 'cpf-usage' | 'interest' | 'grants' | 'sale'
 
-const DETAIL_TABS: { id: DetailTab; label: string; icon: React.ReactNode }[] = [
-  { id: 'all', label: 'All', icon: null },
-  { id: 'cpf-usage', label: 'CPF Usage', icon: <Users className="h-3.5 w-3.5" /> },
-  { id: 'interest', label: 'Interest', icon: <TrendingUp className="h-3.5 w-3.5" /> },
-  { id: 'grants', label: 'Grants', icon: <Gift className="h-3.5 w-3.5" /> },
-  { id: 'sale', label: 'Sale', icon: <Banknote className="h-3.5 w-3.5" /> },
+const DETAIL_TABS: { id: DetailTab; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'cpf-usage', label: 'CPF' },
+  { id: 'interest', label: 'Interest' },
+  { id: 'grants', label: 'Grants' },
+  { id: 'sale', label: 'Sale' },
 ]
 
 interface PropertyCPFDetailProps {
@@ -158,13 +158,12 @@ export function PropertyCPFDetail({
               type="button"
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
+                "px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-150",
                 activeTab === tab.id
                   ? "bg-gray-700 text-white shadow-sm"
                   : "text-gray-400 hover:text-gray-200"
               )}
             >
-              {tab.icon}
               {tab.label}
             </button>
           ))}
