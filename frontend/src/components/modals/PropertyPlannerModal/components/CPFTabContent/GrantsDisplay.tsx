@@ -21,19 +21,19 @@ export function GrantsDisplay({ grants, isPrivateProperty = false }: GrantsDispl
   const totalGrants = grants.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0)
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-gray-700 bg-gray-900/60 p-4">
       {/* Header */}
-      <h4 className="text-sm font-medium text-slate-300 mb-4">Housing Grants</h4>
+      <h4 className="text-base font-medium text-gray-200 mb-4">Housing Grants</h4>
 
       {/* Grants List */}
       {grants.length === 0 ? (
         <div className="py-4 text-center">
           {isPrivateProperty ? (
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-gray-400">
               Housing grants are not available for private properties.
             </p>
           ) : (
-            <p className="text-xs text-slate-500">
+            <p className="text-sm text-gray-400">
               No grants configured. Edit the property to add housing grants.
             </p>
           )}
@@ -45,13 +45,13 @@ export function GrantsDisplay({ grants, isPrivateProperty = false }: GrantsDispl
             return (
               <div
                 key={grant.id}
-                className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0"
+                className="flex items-center justify-between py-2 border-b border-gray-700 last:border-0"
               >
                 <div>
-                  <p className="text-xs font-medium text-white">{fullName}</p>
-                  <p className="text-[10px] text-slate-500">{grant.name}</p>
+                  <p className="text-sm font-medium text-white">{fullName}</p>
+                  <p className="text-sm text-gray-500">{grant.name}</p>
                 </div>
-                <span className="text-sm font-medium text-emerald-400 font-mono tabular-nums">
+                <span className="text-base font-medium text-emerald-400 font-mono tabular-nums">
                   {formatCurrency(parseFloat(grant.amount || '0'))}
                 </span>
               </div>
@@ -59,9 +59,9 @@ export function GrantsDisplay({ grants, isPrivateProperty = false }: GrantsDispl
           })}
 
           {/* Total */}
-          <div className="flex items-center justify-between pt-2 mt-2 border-t border-white/[0.06]">
-            <span className="text-xs font-medium text-slate-300">Total Grants</span>
-            <span className="text-base font-semibold text-emerald-400 font-mono tabular-nums">
+          <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-700">
+            <span className="text-sm font-medium text-gray-300">Total Grants</span>
+            <span className="text-xl font-semibold text-emerald-400 font-mono tabular-nums">
               {formatCurrency(totalGrants)}
             </span>
           </div>
@@ -69,10 +69,10 @@ export function GrantsDisplay({ grants, isPrivateProperty = false }: GrantsDispl
       )}
 
       {/* Info Note */}
-      <div className="flex items-start gap-2 p-3 mt-4 rounded-lg bg-blue-500/5 border border-blue-500/10">
-        <Info className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-blue-400" />
-        <p className="text-[10px] text-slate-400 leading-relaxed">
-          Grants reduce your loan amount but are <strong className="text-slate-300">NOT refunded</strong> to CPF upon sale
+      <div className="flex items-start gap-2 p-3 mt-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+        <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
+        <p className="text-sm text-gray-300 leading-relaxed">
+          Grants reduce your loan amount but are <strong className="text-white">NOT refunded</strong> to CPF upon sale
           (unlike your CPF contributions which must be refunded with interest).
         </p>
       </div>
