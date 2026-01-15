@@ -16,6 +16,7 @@ import {
 import { Shield, ShieldCheck, Star, Heart } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
+import { CPF_CONSTANTS } from '@/lib/cpf-constants'
 import type { CPFProfile, CPFAssumptions, CPFProjectionYear, RetirementProjection } from '@/types/cpf'
 import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 import { CPFAssumptionsPanel } from './CPFAssumptionsPanel'
@@ -172,13 +173,14 @@ function generatePayoutProjection(
   return projection
 }
 
-type AccountKey = 'oa' | 'sa' | 'ma' | 'ra'
+type AccountKey = 'oa' | 'sa' | 'ma' | 'ra' | 'oaSa'
 
 interface VisibleAccounts {
   oa: boolean
   sa: boolean
   ma: boolean
   ra: boolean
+  oaSa: boolean
 }
 
 export function CPFProjectionChart({ profile, className }: CPFProjectionChartProps) {
@@ -190,6 +192,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     sa: true,
     ma: true,
     ra: true,
+    oaSa: true,
   })
 
   const toggleAccount = (account: AccountKey) => {
@@ -217,12 +220,18 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     return transformProjectionData(apiResponse)
   }, [apiResponse])
 
-  // Use projection directly - 0 values will show as dropping to baseline with separate stackIds
-  // Add computed retirementSavings (OA+SA) for pre-55 visualization of BRS/FRS/ERS progress
+  // Transform projection for chart display:
+  // - SA ends at age 55 (becomes part of RA)
+  // - RA begins at age 55
+  // - OA+SA line shows retirement savings progress until 55
   const chartData = useMemo(() => {
     if (!projection) return undefined
     return projection.map((p) => ({
       ...p,
+      // SA only exists before age 55
+      sa: p.age <= 55 ? p.sa : null,
+      // RA only exists from age 55 onwards
+      ra: p.age >= 55 ? p.ra : null,
       // OA+SA line stops at age 55 when RA is formed
       retirementSavings: p.age <= 55 ? p.oa + p.sa : null,
     }))
@@ -397,12 +406,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
           selectedPlan={selectedPayoutPlan}
           onPlanChange={setSelectedPayoutPlan}
         />
-        <RetirementTargetsCard
-          brs={retirement.brsTarget}
-          frs={retirement.frsTarget}
-          ers={retirement.ersTarget}
-          bhs={retirement.bhsTarget}
-        />
+        <RetirementTargetsCard />
       </div>
 
       {/* Main Chart */}
@@ -439,10 +443,11 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                 {/* Account legend - clickable to toggle visibility */}
                 <div className="flex items-center gap-3">
                   {[
-                    { key: 'oa' as AccountKey, label: 'OA', color: '#3b82f6' },
-                    { key: 'sa' as AccountKey, label: 'SA', color: '#10b981' },
-                    { key: 'ma' as AccountKey, label: 'MA', color: '#f59e0b' },
-                    { key: 'ra' as AccountKey, label: 'RA', color: '#8b5cf6' },
+                    { key: 'oa' as AccountKey, label: 'OA', color: '#3b82f6', dashed: false },
+                    { key: 'sa' as AccountKey, label: 'SA', color: '#10b981', dashed: false },
+                    { key: 'ma' as AccountKey, label: 'MA', color: '#f59e0b', dashed: false },
+                    { key: 'ra' as AccountKey, label: 'RA', color: '#8b5cf6', dashed: false },
+                    { key: 'oaSa' as AccountKey, label: 'OA + SA', color: '#94a3b8', dashed: true },
                   ].map((item) => {
                     const isVisible = visibleAccounts[item.key]
                     return (
@@ -455,11 +460,17 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                         }`}
                         title={isVisible ? `Hide ${item.label}` : `Show ${item.label}`}
                       >
-                        <div
-                          className={`h-2 w-2 rounded-full transition-opacity ${isVisible ? '' : 'opacity-50'}`}
-                          style={{ backgroundColor: item.color }}
-                        />
-                        <span className={`text-xs ${isVisible ? 'text-slate-400' : 'text-slate-600 line-through'}`}>
+                        {item.dashed ? (
+                          <svg width="10" height="2" className="flex-shrink-0">
+                            <line x1="0" y1="1" x2="10" y2="1" stroke={item.color} strokeWidth="2" strokeDasharray="2 1" />
+                          </svg>
+                        ) : (
+                          <div
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: item.color }}
+                          />
+                        )}
+                        <span className={`text-xs ${isVisible ? 'text-slate-400' : 'text-slate-600'}`}>
                           {item.label}
                         </span>
                       </button>
@@ -663,16 +674,18 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                 )}
 
                 {/* OA+SA line until age 55 - shows retirement savings progress with BRS/FRS/ERS markers */}
-                <Line
-                  type="monotone"
-                  dataKey="retirementSavings"
-                  stroke="#94a3b8"
-                  strokeWidth={2}
-                  strokeDasharray="4 4"
-                  dot={renderRetirementSavingsDot}
-                  activeDot={false}
-                  connectNulls={false}
-                />
+                {visibleAccounts.oaSa && (
+                  <Line
+                    type="monotone"
+                    dataKey="retirementSavings"
+                    stroke="#94a3b8"
+                    strokeWidth={2}
+                    strokeDasharray="4 4"
+                    dot={renderRetirementSavingsDot}
+                    activeDot={false}
+                    connectNulls={false}
+                  />
+                )}
 
               </ComposedChart>
             ) : (
@@ -963,22 +976,12 @@ function CPFLifePayoutCard({
   )
 }
 
-function RetirementTargetsCard({
-  brs,
-  frs,
-  ers,
-  bhs,
-}: {
-  brs: number
-  frs: number
-  ers: number
-  bhs: number
-}) {
+function RetirementTargetsCard() {
   const targets = [
-    { label: 'BRS', value: brs, color: '#facc15' },
-    { label: 'FRS', value: frs, color: '#38bdf8' },
-    { label: 'ERS', value: ers, color: '#a78bfa' },
-    { label: 'BHS', value: bhs, color: '#f472b6' },
+    { label: 'BRS', value: CPF_CONSTANTS.BRS, color: '#facc15' },
+    { label: 'FRS', value: CPF_CONSTANTS.FRS, color: '#38bdf8' },
+    { label: 'ERS', value: CPF_CONSTANTS.ERS, color: '#a78bfa' },
+    { label: 'BHS', value: CPF_CONSTANTS.BHS, color: '#f472b6' },
   ]
 
   return (
