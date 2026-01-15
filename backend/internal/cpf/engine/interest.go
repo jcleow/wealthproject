@@ -5,9 +5,12 @@ import (
 	"financial-chat-system/backend/internal/financial_v2/growth"
 )
 
-// Interest limits
+// Extra interest limits for CPF accounts.
+// Reference: https://www.cpf.gov.sg/member/growing-your-savings/earning-interest/interest-rates
 var (
+	// ExtraInterestLimit60K is the balance threshold for the first 1% extra interest
 	ExtraInterestLimit60K = decimal.NewFromInt64(60000, 0)
+	// ExtraInterestLimit30K is the additional balance threshold for members 55+ (extra 1%)
 	ExtraInterestLimit30K = decimal.NewFromInt64(30000, 0)
 )
 

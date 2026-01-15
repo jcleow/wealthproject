@@ -3,6 +3,8 @@ package common
 import (
 	"database/sql"
 	"time"
+
+	"financial-chat-system/backend/internal/decimal"
 )
 
 // MonthsBetween calculates the number of months between two dates (inclusive)
@@ -31,4 +33,13 @@ func NullTimePtr(nt sql.NullTime) *time.Time {
 // FirstOfMonth returns the first day of the month in UTC for a given date.
 func FirstOfMonth(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
+}
+
+// SafeDecimalString converts a decimal pointer to string, returning "0" if nil.
+// Useful for serializing optional decimal values in API responses.
+func SafeDecimalString(d *decimal.Decimal) string {
+	if d == nil {
+		return "0"
+	}
+	return d.String()
 }

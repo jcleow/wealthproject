@@ -5,6 +5,12 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 )
 
+// RetirementSumsBaseYear is the reference year for the BRS/FRS/ERS/BHS base values
+// defined in DefaultAssumptions(). When CPF Board publishes new values, update this
+// constant along with the corresponding base amounts.
+// Reference: https://www.cpf.gov.sg/member/retirement-income/retirement-withdrawals/cpf-retirement-sum
+const RetirementSumsBaseYear = 2026
+
 // Assumptions contains all configurable parameters for CPF calculations.
 // All rates are stored as decimals (e.g., 0.025 = 2.5% p.a.).
 type Assumptions struct {
@@ -125,11 +131,11 @@ func (a *Assumptions) Merge(overrides *Assumptions) *Assumptions {
 	return result
 }
 
-// GetRetirementSum returns BRS/FRS/ERS for a given year (projected from 2026 base).
+// GetRetirementSum returns BRS/FRS/ERS for a given year (projected from base year).
 func (a *Assumptions) GetRetirementSum(scheme string, year int) *decimal.Decimal {
-	yearsFrom2026 := year - 2026
-	if yearsFrom2026 < 0 {
-		yearsFrom2026 = 0
+	yearsFromBase := year - RetirementSumsBaseYear
+	if yearsFromBase < 0 {
+		yearsFromBase = 0
 	}
 
 	var base *decimal.Decimal
@@ -146,20 +152,20 @@ func (a *Assumptions) GetRetirementSum(scheme string, year int) *decimal.Decimal
 
 	// Calculate growth factor: (1 + rate)^years
 	growthRate := decimal.MustFromString("1").Add(a.FRSGrowthRate)
-	growthFactor, _ := growthRate.Pow(decimal.NewFromInt64(int64(yearsFrom2026), 0))
+	growthFactor, _ := growthRate.Pow(decimal.NewFromInt64(int64(yearsFromBase), 0))
 
 	return base.Mul(growthFactor)
 }
 
-// GetBHS returns the BHS for a given year (projected from 2026 base).
+// GetBHS returns the BHS for a given year (projected from base year).
 func (a *Assumptions) GetBHS(year int) *decimal.Decimal {
-	yearsFrom2026 := year - 2026
-	if yearsFrom2026 < 0 {
-		yearsFrom2026 = 0
+	yearsFromBase := year - RetirementSumsBaseYear
+	if yearsFromBase < 0 {
+		yearsFromBase = 0
 	}
 
 	growthRate := decimal.MustFromString("1").Add(a.BHSGrowthRate)
-	growthFactor, _ := growthRate.Pow(decimal.NewFromInt64(int64(yearsFrom2026), 0))
+	growthFactor, _ := growthRate.Pow(decimal.NewFromInt64(int64(yearsFromBase), 0))
 
 	return a.BHSBase.Mul(growthFactor)
 }

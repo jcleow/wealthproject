@@ -7,6 +7,11 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 )
 
+// RAFormationAge is the age at which the Retirement Account (RA) is formed.
+// At age 55, CPF creates the RA by transferring funds from SA/OA.
+// Reference: https://www.cpf.gov.sg/member/retirement-income/retirement-withdrawals/cpf-retirement-sum
+const RAFormationAge = 55
+
 // RetirementFormationResult contains the outcome of RA formation at age 55.
 type RetirementFormationResult struct {
 	// Transfer amounts
@@ -23,10 +28,10 @@ type RetirementFormationResult struct {
 }
 
 // ShouldFormRA checks if RA should be formed this month.
-// Returns true if age is 55 and RA hasn't been formed yet.
+// Returns true if age is RAFormationAge (55) and RA hasn't been formed yet.
 func ShouldFormRA(state *CPFState, date time.Time) bool {
 	age := state.AgeAt(date)
-	return age == 55 && !state.RAFormed
+	return age == RAFormationAge && !state.RAFormed
 }
 
 // FormRetirementAccount performs the Age 55 RA formation.
@@ -87,7 +92,9 @@ func FormRetirementAccount(
 }
 
 // RedirectContributionToRA redirects the SA portion of a contribution to RA.
-// Called for each contribution after age 55.
+// After age 55, CPF stops allocating to SA - instead, contributions that would
+// normally go to SA are redirected to the RA (Retirement Account). This function
+// handles that redirection for each monthly contribution.
 // Modifies state in place: subtracts from SA, adds to RA.
 // Returns the redirected amount.
 func RedirectContributionToRA(
@@ -95,8 +102,8 @@ func RedirectContributionToRA(
 	saContribution *decimal.Decimal,
 	age int,
 ) *decimal.Decimal {
-	// Only redirect for age 55+
-	if age < 55 {
+	// Only redirect for age 55+ (after RA is formed)
+	if age < RAFormationAge {
 		return decimal.Zero()
 	}
 

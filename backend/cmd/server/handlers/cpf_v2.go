@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/cpf/assumptions"
 	"financial-chat-system/backend/internal/cpf/payout"
 	"financial-chat-system/backend/internal/cpf/retirement"
@@ -993,9 +994,9 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 	}
 	response := cpfBalanceProjectionProjectionResponse{
 		Snapshots:  make([]cpfBalanceProjectionSnapshotResponse, len(result.Snapshots)),
-		FRSAtAge55: safeDecimalString(result.FRSAtAge55),
-		BRSAtAge55: safeDecimalString(result.BRSAtAge55),
-		ERSAtAge55: safeDecimalString(result.ERSAtAge55),
+		FRSAtAge55: common.SafeDecimalString(result.FRSAtAge55),
+		BRSAtAge55: common.SafeDecimalString(result.BRSAtAge55),
+		ERSAtAge55: common.SafeDecimalString(result.ERSAtAge55),
 		BHS:        bhsStr,
 		BirthYear:  result.BirthYear,
 		Gender:     result.Gender,
@@ -1006,13 +1007,13 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 		snapshotResponse := cpfBalanceProjectionSnapshotResponse{
 			Year:          snap.Year,
 			Age:           snap.Age,
-			OA:            safeDecimalString(snap.OA),
-			SA:            safeDecimalString(snap.SA),
-			MA:            safeDecimalString(snap.MA),
-			RA:            safeDecimalString(snap.RA),
-			Total:         safeDecimalString(snap.Total),
-			Contributions: safeDecimalString(snap.Contributions),
-			Interest:      safeDecimalString(snap.Interest),
+			OA:            common.SafeDecimalString(snap.OA),
+			SA:            common.SafeDecimalString(snap.SA),
+			MA:            common.SafeDecimalString(snap.MA),
+			RA:            common.SafeDecimalString(snap.RA),
+			Total:         common.SafeDecimalString(snap.Total),
+			Contributions: common.SafeDecimalString(snap.Contributions),
+			Interest:      common.SafeDecimalString(snap.Interest),
 		}
 
 		// Include payout fields if available
@@ -1037,10 +1038,10 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 			MA string `json:"ma"`
 			RA string `json:"ra"`
 		}{
-			OA: safeDecimalString(result.Age55Balances.OA),
-			SA: safeDecimalString(result.Age55Balances.SA),
-			MA: safeDecimalString(result.Age55Balances.MA),
-			RA: safeDecimalString(result.Age55Balances.RA),
+			OA: common.SafeDecimalString(result.Age55Balances.OA),
+			SA: common.SafeDecimalString(result.Age55Balances.SA),
+			MA: common.SafeDecimalString(result.Age55Balances.MA),
+			RA: common.SafeDecimalString(result.Age55Balances.RA),
 		}
 	}
 
@@ -1052,10 +1053,10 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 			MA string `json:"ma"`
 			RA string `json:"ra"`
 		}{
-			OA: safeDecimalString(result.Age65Balances.OA),
-			SA: safeDecimalString(result.Age65Balances.SA),
-			MA: safeDecimalString(result.Age65Balances.MA),
-			RA: safeDecimalString(result.Age65Balances.RA),
+			OA: common.SafeDecimalString(result.Age65Balances.OA),
+			SA: common.SafeDecimalString(result.Age65Balances.SA),
+			MA: common.SafeDecimalString(result.Age65Balances.MA),
+			RA: common.SafeDecimalString(result.Age65Balances.RA),
 		}
 	}
 
@@ -1075,7 +1076,7 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 			log.Printf("cpf.CalculateAllPlans error: %v", err)
 		} else {
 			response.CpfLifeEstimates = &cpfLifeEstimateResponse{
-				RABalanceAt65:  safeDecimalString(result.Age65Balances.RA),
+				RABalanceAt65:  common.SafeDecimalString(result.Age65Balances.RA),
 				PayoutStartAge: payoutStartAge,
 				BirthYear:      result.BirthYear,
 				Gender:         result.Gender,
@@ -1102,12 +1103,4 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 	}
 
 	writeJSON(w, response)
-}
-
-// safeDecimalString converts a decimal pointer to string, returning "0" if nil
-func safeDecimalString(d *decimal.Decimal) string {
-	if d == nil {
-		return "0"
-	}
-	return d.String()
 }

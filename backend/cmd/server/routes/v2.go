@@ -249,7 +249,10 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 	// Age 55 RA conversion calculator endpoint
 	router.HandleFunc("/cpf/calculators/age55-conversion", cpfHandler.HandleAge55Conversion).Methods("POST")
 
-	// CPF projection with LIFE estimates endpoint
+	// CPF projection with LIFE estimates endpoint.
+	// Returns current CPF balances and calculates CPF LIFE payout estimates for all three plans
+	// (Standard, Basic, Escalating) based on the person's current RA balance.
+	// Note: For chart projections that include scenario impacts, use /timeline-projection instead.
 	router.HandleFunc("/cpf/account/{id}/projection", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		id := vars["id"]

@@ -230,6 +230,34 @@ export function CPFAssumptionsPanel({
             </span>
           </div>
 
+          {/* Plan Type Selector */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-slate-400">Plan Type</label>
+            <div className="w-1/2">
+              <div className="flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.06]">
+                {(['standard', 'basic', 'escalating'] as const).map((plan) => (
+                  <button
+                    key={plan}
+                    type="button"
+                    onClick={() => handleValueChange('cpfLifePlan', plan)}
+                    className={`flex-1 py-1.5 px-2 rounded-md text-xs font-medium transition-all duration-150 ${
+                      assumptions.cpfLifePlan === plan
+                        ? 'bg-purple-500/20 text-purple-300 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {plan.charAt(0).toUpperCase() + plan.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-500">
+              {assumptions.cpfLifePlan === 'standard' && 'Higher monthly payouts, lower bequest'}
+              {assumptions.cpfLifePlan === 'basic' && 'Lower payouts, higher bequest for beneficiaries'}
+              {assumptions.cpfLifePlan === 'escalating' && 'Payouts increase 2% yearly to keep up with inflation'}
+            </p>
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <PercentSlider
@@ -262,9 +290,6 @@ export function CPFAssumptionsPanel({
                 tooltip="Portion of RA set aside as CPF LIFE premium for Basic plan (10-20%)"
                 showSlider
               />
-              <div className="text-[10px] text-slate-500">
-                {(assumptions.basicPlanPremiumPercent * 100).toFixed(0)}% of RA reserved as premium
-              </div>
             </div>
           </div>
         </div>
