@@ -754,7 +754,8 @@ func mapAccountResidencyToConfig(status account.ResidencyStatus) config.Residenc
 
 // NewCPFContexts creates a map of personID -> CPFContext from a list of CPF accounts
 // payoutStartAge is the CPF LIFE payout start age (65-70), 0 defaults to 65
-func NewCPFContexts(cpfAccounts []*account.CPFAccount, payoutStartAge int) map[string]*CPFContext {
+// customAssumptions are merged with defaults (non-nil fields override)
+func NewCPFContexts(cpfAccounts []*account.CPFAccount, payoutStartAge int, customAssumptions *engine.Assumptions) map[string]*CPFContext {
 	contexts := make(map[string]*CPFContext)
 	for _, acc := range cpfAccounts {
 		if acc == nil {
@@ -765,6 +766,10 @@ func NewCPFContexts(cpfAccounts []*account.CPFAccount, payoutStartAge int) map[s
 			// Set payout start age from options (default to 65 if not specified)
 			if payoutStartAge > 0 {
 				ctx.PayoutStartAge = payoutStartAge
+			}
+			// Apply custom assumptions if provided (merge with defaults)
+			if customAssumptions != nil {
+				ctx.Assumptions = engine.DefaultAssumptions().Merge(customAssumptions)
 			}
 			personID := acc.PersonID
 			if personID == "" {
@@ -2358,7 +2363,7 @@ func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts Timel
 		Data:                      sgData.Rows,
 		ItemStates:                initializeItemStates(sgData.Rows, anchorStart.Year()),
 		Registry:                  growth.NewRegistry(),
-		CPFContexts:               NewCPFContexts(sgData.CPFAccounts, opts.PayoutStartAge),
+		CPFContexts:               NewCPFContexts(sgData.CPFAccounts, opts.PayoutStartAge, opts.Assumptions),
 		BaseYear:                  anchorStart.Year(),
 		CashAccumulator:           decimal.Zero(),
 		LinkedExpensesByLiability: linkedExpenses,
@@ -2629,6 +2634,7 @@ func (s *Service) ExtractCPFProjection(
 	gender string,
 	retirementAge int,
 	payoutStartAge int,
+	assumptions *engine.Assumptions,
 ) (*CPFTimelineProjection, error) {
 	// Default retirement age to 62 if not provided
 	if retirementAge == 0 {
@@ -2661,6 +2667,7 @@ func (s *Service) ExtractCPFProjection(
 		EndDate:          endDate,
 		IncludeScenarios: true,
 		PayoutStartAge:   payoutStartAge,
+		Assumptions:      assumptions,
 	}
 
 	// Compute full timeline snapshot

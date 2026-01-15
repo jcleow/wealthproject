@@ -169,3 +169,22 @@ func (a *Assumptions) GetBHS(year int) *decimal.Decimal {
 
 	return a.BHSBase.Mul(growthFactor)
 }
+
+// FromCPFAssumptions converts stored CPFAssumptions to engine Assumptions format.
+// This is used to apply user-customized assumptions to projections.
+func FromCPFAssumptions(a *assumptions.CPFAssumptions) *Assumptions {
+	if a == nil {
+		return nil
+	}
+	return &Assumptions{
+		InterestRateOA:               &a.InterestRateOA,
+		InterestRateSA:               &a.InterestRateSA,
+		InterestRateMA:               &a.InterestRateMA,
+		InterestRateRA:               &a.InterestRateRA,
+		ExtraInterestFirst60K:        &a.ExtraInterestFirst60K,
+		ExtraInterestFirst30KAbove55: &a.ExtraInterestFirst30KAbove55,
+		FRSGrowthRate:                &a.FRSGrowthRate,
+		RetirementAge:                a.RetirementAge,
+		PayoutStartAge:               a.PayoutStartAge,
+	}
+}

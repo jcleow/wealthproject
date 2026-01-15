@@ -10,6 +10,7 @@ import (
 
 	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/cpf/assumptions"
+	"financial-chat-system/backend/internal/cpf/engine"
 	"financial-chat-system/backend/internal/cpf/payout"
 	"financial-chat-system/backend/internal/cpf/retirement"
 	"financial-chat-system/backend/internal/decimal"
@@ -211,6 +212,7 @@ type TimelineService interface {
 		gender string,
 		retirementAge int,
 		payoutStartAge int,
+		assumptions *engine.Assumptions,
 	) (*timeline_v2.CPFTimelineProjection, error)
 }
 
@@ -970,6 +972,16 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// Fetch custom assumptions for this CPF account (or create defaults if none exist)
+	var engineAssumptions *engine.Assumptions
+	dbAssumptions, err := h.assumptionsRepo.GetOrCreateDefault(r.Context(), cpfAccountID)
+	if err != nil {
+		log.Printf("cpf.GetAssumptions error: %v (using defaults)", err)
+		// Continue with nil - will use engine defaults
+	} else {
+		engineAssumptions = engine.FromCPFAssumptions(dbAssumptions)
+	}
+
 	// Use Timeline service to extract CPF projection
 	result, err := h.timelineService.ExtractCPFProjection(
 		r.Context(),
@@ -980,6 +992,7 @@ func (h *CPFV2Handler) HandleCPFTimelineProjection(w http.ResponseWriter, r *htt
 		person.Gender,
 		retirementAge,
 		payoutStartAge,
+		engineAssumptions,
 	)
 	if err != nil {
 		log.Printf("cpf.ExtractCPFProjection error: %v", err)
