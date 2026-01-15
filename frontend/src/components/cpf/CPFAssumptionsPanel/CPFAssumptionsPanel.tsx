@@ -233,7 +233,7 @@ export function CPFAssumptionsPanel({
           {/* Plan Type Selector */}
           <div className="space-y-1.5">
             <label className="text-xs text-slate-400">Plan Type</label>
-            <div className="w-1/2">
+            <div className="w-1/4">
               <div className="flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.06]">
                 {(['standard', 'basic', 'escalating'] as const).map((plan) => (
                   <button
