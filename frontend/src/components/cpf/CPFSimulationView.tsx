@@ -32,7 +32,7 @@ import {
   mockInvestibleBalance,
 } from '@/lib/cpf-mock-data'
 import { EXTERNAL_LINKS } from '@/lib/external-links'
-import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
+import { useCpfAccountsQuery, useCpfBalanceProjectionQuery } from '@/hooks/queries/useCpfQuery'
 import {
   cpfAccountToProfile,
   computeAgeFromDob,
@@ -185,6 +185,9 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
   // Fetch real CPF accounts
   const { data: cpfAccounts, isLoading: isLoadingAccounts } = useCpfAccountsQuery()
 
+  // Fetch balance projection for the selected account
+  const { data: balanceProjection } = useCpfBalanceProjectionQuery(selectedAccountId ?? undefined)
+
   // Auto-select first account when data loads
   useEffect(() => {
     if (cpfAccounts && cpfAccounts.length > 0 && !selectedAccountId) {
@@ -208,13 +211,33 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
   }
 
   // Derive CPFProfile from selected account or fall back to mock
+  // Use projected balances when simulated age differs from base age
   const selectedAccount = cpfAccounts?.find((a) => a.id === selectedAccountId)
   const profile = useMemo(() => {
     if (selectedAccount) {
-      return cpfAccountToProfile(selectedAccount, simulatedAge)
+      const baseProfile = cpfAccountToProfile(selectedAccount, simulatedAge)
+
+      // If we have projection data and the simulated age differs from base age,
+      // use the projected balances for that age
+      if (balanceProjection?.snapshots && simulatedAge !== baseAge) {
+        const snapshot = balanceProjection.snapshots.find((s) => s.age === simulatedAge)
+        if (snapshot) {
+          return {
+            ...baseProfile,
+            balances: {
+              oa: parseFloat(snapshot.oa) || 0,
+              sa: parseFloat(snapshot.sa) || 0,
+              ma: parseFloat(snapshot.ma) || 0,
+              ra: parseFloat(snapshot.ra) || 0,
+            },
+          }
+        }
+      }
+
+      return baseProfile
     }
     return { ...mockCPFProfile, age: simulatedAge }
-  }, [selectedAccount, simulatedAge])
+  }, [selectedAccount, simulatedAge, baseAge, balanceProjection])
 
   // Check if we're using mock data
   const usingMockData = !selectedAccount
@@ -297,9 +320,18 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
               value={displayValue}
               onChange={(e) => {
                 const val = parseInt(e.target.value)
-                if (!isNaN(val) && val >= minValue && val <= maxValue) {
-                  const newAge = displayMode === 'age' ? val : yearToAge(val)
+                if (!isNaN(val)) {
+                  // Clamp to valid range
+                  const clampedVal = Math.max(minValue, Math.min(maxValue, val))
+                  const newAge = displayMode === 'age' ? clampedVal : yearToAge(clampedVal)
                   setSimulatedAge(newAge)
+                }
+              }}
+              onBlur={(e) => {
+                // Ensure valid value on blur
+                const val = parseInt(e.target.value)
+                if (isNaN(val)) {
+                  setSimulatedAge(baseAge)
                 }
               }}
               className="w-14 bg-transparent text-sm font-medium text-white text-center focus:outline-none border-b border-white/20 focus:border-blue-400"
