@@ -218,7 +218,15 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
   }, [apiResponse])
 
   // Use projection directly - 0 values will show as dropping to baseline with separate stackIds
-  const chartData = projection ?? undefined
+  // Add computed retirementSavings (OA+SA) for pre-55 visualization of BRS/FRS/ERS progress
+  const chartData = useMemo(() => {
+    if (!projection) return undefined
+    return projection.map((p) => ({
+      ...p,
+      // OA+SA line stops at age 55 when RA is formed
+      retirementSavings: p.age <= 55 ? p.oa + p.sa : null,
+    }))
+  }, [projection])
 
   // Generate payout projection for the selected CPF LIFE plan
   const payoutProjection = useMemo(() => {
@@ -249,6 +257,97 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     { age: 55, label: 'RA Formation', color: '#f59e0b' },
     { age: 65, label: 'CPF LIFE Start', color: '#10b981' },
   ]
+
+  // Calculate ages when retirement thresholds are reached (using OA+SA before age 55)
+  const thresholdAges = useMemo(() => {
+    if (!projection || !retirement) return { brs: null, frs: null, ers: null, bhs: null }
+
+    // BRS/FRS/ERS track OA+SA (retirement savings before RA formation at 55)
+    // Only look at ages <= 55 since that's when the retirementSavings line exists
+    const pre55Data = projection.filter((p) => p.age <= 55)
+    const brsAge = pre55Data.find((p) => p.oa + p.sa >= retirement.brsTarget)?.age ?? null
+    const frsAge = pre55Data.find((p) => p.oa + p.sa >= retirement.frsTarget)?.age ?? null
+    const ersAge = pre55Data.find((p) => p.oa + p.sa >= retirement.ersTarget)?.age ?? null
+    // BHS tracks MA balance
+    const bhsAge = projection.find((p) => p.ma >= retirement.bhsTarget)?.age ?? null
+
+    return { brs: brsAge, frs: frsAge, ers: ersAge, bhs: bhsAge }
+  }, [projection, retirement])
+
+  // Custom dot renderer for OA+SA line (shows BRS/FRS/ERS markers)
+  const renderRetirementSavingsDot = (props: any) => {
+    const { cx, cy, payload } = props
+    if (!cx || !cy || payload.retirementSavings === null) return null
+
+    const markers: Array<{ label: string; color: string; icon: string }> = []
+
+    // Check if this age matches any threshold
+    if (payload.age === thresholdAges.brs) {
+      markers.push({ label: 'BRS', color: '#facc15', icon: 'shield' })
+    }
+    if (payload.age === thresholdAges.frs) {
+      markers.push({ label: 'FRS', color: '#38bdf8', icon: 'shield-check' })
+    }
+    if (payload.age === thresholdAges.ers) {
+      markers.push({ label: 'ERS', color: '#a78bfa', icon: 'star' })
+    }
+
+    if (markers.length === 0) return null
+
+    const iconPaths: Record<string, string> = {
+      'shield': 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+      'shield-check': 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9 12l2 2 4-4',
+      'star': 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+    }
+
+    return (
+      <g>
+        {markers.map((m, idx) => (
+          <g key={m.label} transform={`translate(${cx}, ${cy - idx * 26})`}>
+            <circle r={11} fill={m.color} stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
+            <g transform="translate(-5.5, -5.5) scale(0.46)">
+              <path
+                d={iconPaths[m.icon]}
+                fill="none"
+                stroke="white"
+                strokeWidth={2.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </g>
+            <text x={16} y={4} fill={m.color} fontSize={10} fontWeight={600}>
+              {m.label}
+            </text>
+          </g>
+        ))}
+      </g>
+    )
+  }
+
+  // Custom dot renderer for MA line (shows BHS marker)
+  const renderMADot = (props: any) => {
+    const { cx, cy, payload } = props
+    if (!cx || !cy || payload.age !== thresholdAges.bhs) return null
+
+    return (
+      <g transform={`translate(${cx}, ${cy})`}>
+        <circle r={11} fill="#f472b6" stroke="rgba(0,0,0,0.5)" strokeWidth={1.5} />
+        <g transform="translate(-5.5, -5.5) scale(0.46)">
+          <path
+            d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+            fill="none"
+            stroke="white"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
+        <text x={16} y={4} fill="#f472b6" fontSize={10} fontWeight={600}>
+          BHS
+        </text>
+      </g>
+    )
+  }
 
   // Show loading or no-data state
   if (isLoading) {
@@ -520,64 +619,6 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                   />
                 ))}
 
-                {/* Horizontal reference lines for retirement sum thresholds */}
-                {retirement && (
-                  <>
-                    <ReferenceLine
-                      y={retirement.brsTarget}
-                      stroke="#facc15"
-                      strokeDasharray="4 4"
-                      strokeOpacity={0.7}
-                      label={{
-                        value: 'BRS',
-                        fill: '#facc15',
-                        fontSize: 10,
-                        fontWeight: 600,
-                        position: 'right',
-                      }}
-                    />
-                    <ReferenceLine
-                      y={retirement.frsTarget}
-                      stroke="#38bdf8"
-                      strokeDasharray="4 4"
-                      strokeOpacity={0.7}
-                      label={{
-                        value: 'FRS',
-                        fill: '#38bdf8',
-                        fontSize: 10,
-                        fontWeight: 600,
-                        position: 'right',
-                      }}
-                    />
-                    <ReferenceLine
-                      y={retirement.ersTarget}
-                      stroke="#a78bfa"
-                      strokeDasharray="4 4"
-                      strokeOpacity={0.7}
-                      label={{
-                        value: 'ERS',
-                        fill: '#a78bfa',
-                        fontSize: 10,
-                        fontWeight: 600,
-                        position: 'right',
-                      }}
-                    />
-                    <ReferenceLine
-                      y={retirement.bhsTarget}
-                      stroke="#f472b6"
-                      strokeDasharray="4 4"
-                      strokeOpacity={0.7}
-                      label={{
-                        value: 'BHS',
-                        fill: '#f472b6',
-                        fontSize: 10,
-                        fontWeight: 600,
-                        position: 'right',
-                      }}
-                    />
-                  </>
-                )}
-
                 {visibleAccounts.oa && (
                   <Area
                     type="monotone"
@@ -606,6 +647,8 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                     stroke="#f59e0b"
                     fill="url(#maChartGradient)"
                     strokeWidth={2}
+                    dot={renderMADot}
+                    activeDot={false}
                   />
                 )}
                 {visibleAccounts.ra && (
@@ -618,6 +661,18 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
                     strokeWidth={2}
                   />
                 )}
+
+                {/* OA+SA line until age 55 - shows retirement savings progress with BRS/FRS/ERS markers */}
+                <Line
+                  type="monotone"
+                  dataKey="retirementSavings"
+                  stroke="#94a3b8"
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  dot={renderRetirementSavingsDot}
+                  activeDot={false}
+                  connectNulls={false}
+                />
 
               </ComposedChart>
             ) : (
