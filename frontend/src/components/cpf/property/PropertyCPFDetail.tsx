@@ -80,20 +80,20 @@ export function PropertyCPFDetail({
   return (
     <div className="rounded-xl border border-white/[0.06] overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-4 border-b border-white/[0.06]">
+      <div className="px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-medium text-white">{sg.name}</h3>
+              <h3 className="text-sm font-medium text-white">{sg.name}</h3>
               <button
                 type="button"
                 onClick={onEditInPropertyPlanner}
                 className="p-1 rounded text-gray-500 hover:text-white transition"
               >
-                <Edit3 className="h-3.5 w-3.5" />
+                <Edit3 className="h-3 w-3" />
               </button>
             </div>
-            <p className="text-sm text-gray-400 mt-0.5">
+            <p className="text-xs text-gray-400 mt-0.5">
               {formatCurrency(parseFloat(sg.propertyPrice))} • {holdingYears} year holding
             </p>
           </div>
@@ -105,7 +105,7 @@ export function PropertyCPFDetail({
         {/* Per-Person CPF Usage - Tabular Layout */}
         {borrower1 && (
           <div>
-            <h4 className="text-sm font-medium text-gray-300 uppercase tracking-wide mb-3">CPF Usage by Person</h4>
+            <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">CPF Usage by Person</h4>
 
             <div className="rounded-xl border border-white/[0.06] overflow-hidden">
               {/* Table Header - Names */}
@@ -242,16 +242,16 @@ export function PropertyCPFDetail({
                 borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
               )}>
                 <div className="p-3">
-                  <span className="text-sm text-gray-400">Refund upon sale</span>
+                  <span className="text-xs text-gray-400">Refund upon sale</span>
                 </div>
                 <div className="p-3 text-right">
-                  <span className="text-lg font-semibold text-white font-mono tabular-nums">
+                  <span className="text-sm font-semibold text-white font-mono tabular-nums">
                     {formatCurrency(borrower1.totalCpfUsed + borrower1.accruedInterest)}
                   </span>
                 </div>
                 {borrower2 && (
                   <div className="p-3 text-right">
-                    <span className="text-lg font-semibold text-white font-mono tabular-nums">
+                    <span className="text-sm font-semibold text-white font-mono tabular-nums">
                       {formatCurrency(borrower2.totalCpfUsed + borrower2.accruedInterest)}
                     </span>
                   </div>

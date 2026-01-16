@@ -65,11 +65,11 @@ function PropertyScenarioCard({
       <div className="flex items-start gap-3">
         {/* Icon */}
         <div className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-lg flex-shrink-0 border",
+          "flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0 border",
           isSelected ? "border-white/20" : isDraft ? "border-amber-500/20" : "border-white/[0.06]"
         )}>
           <PropertyIcon className={cn(
-            "h-5 w-5",
+            "h-4 w-4",
             isSelected ? "text-white" : isDraft ? "text-amber-400" : "text-gray-400"
           )} />
         </div>
@@ -98,8 +98,8 @@ function PropertyScenarioCard({
 
           {/* CPF Used */}
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-400">CPF Used</span>
-            <span className="text-sm font-medium text-white font-mono tabular-nums">
+            <span className="text-xs text-gray-500">CPF Used</span>
+            <span className="text-xs font-medium text-white font-mono tabular-nums">
               {formatCurrency(totalCpfUsed)}
             </span>
           </div>

@@ -77,18 +77,18 @@ export function AggregateBar({ stats }: AggregateBarProps) {
         <div className="grid grid-cols-3 gap-6">
           {/* Total CPF Used */}
           <div>
-            <p className="text-sm font-medium text-gray-400 mb-1">Total CPF Used</p>
-            <p className="text-xl font-semibold text-white font-mono tabular-nums">
+            <p className="text-xs font-medium text-gray-400 mb-1">Total CPF Used</p>
+            <p className="text-base font-semibold text-white font-mono tabular-nums">
               {formatCurrency(stats.totalCpfUsed)}
             </p>
             {/* Per-person breakdown */}
             {stats.perPersonUsage.length > 0 && (
-              <div className="mt-2 space-y-1">
+              <div className="mt-1.5 space-y-0.5">
                 {stats.perPersonUsage.map(person => (
-                  <div key={person.id} className="flex items-center gap-1.5 text-sm">
+                  <div key={person.id} className="flex items-center gap-1.5 text-xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-blue-400 flex-shrink-0" />
                     <span className="text-gray-500">{person.name}:</span>
-                    <span className="text-gray-200 font-mono tabular-nums">{formatCurrency(person.cpfUsed)}</span>
+                    <span className="text-gray-300 font-mono tabular-nums">{formatCurrency(person.cpfUsed)}</span>
                   </div>
                 ))}
               </div>
@@ -97,15 +97,15 @@ export function AggregateBar({ stats }: AggregateBarProps) {
 
           {/* Total Accrued Interest */}
           <div>
-            <p className="text-sm font-medium text-gray-400 mb-1">Total Accrued Interest</p>
-            <p className="text-xl font-semibold text-amber-400 font-mono tabular-nums">
+            <p className="text-xs font-medium text-gray-400 mb-1">Total Accrued Interest</p>
+            <p className="text-base font-semibold text-amber-400 font-mono tabular-nums">
               {formatCurrency(stats.totalAccruedInterest)}
             </p>
             {/* Per-person breakdown */}
             {stats.perPersonUsage.length > 0 && (
-              <div className="mt-2 space-y-1">
+              <div className="mt-1.5 space-y-0.5">
                 {stats.perPersonUsage.map(person => (
-                  <div key={person.id} className="flex items-center gap-1.5 text-sm">
+                  <div key={person.id} className="flex items-center gap-1.5 text-xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0" />
                     <span className="text-gray-500">{person.name}:</span>
                     <span className="text-amber-300 font-mono tabular-nums">{formatCurrency(person.accruedInterest)}</span>
@@ -117,8 +117,8 @@ export function AggregateBar({ stats }: AggregateBarProps) {
 
           {/* Total Grants */}
           <div>
-            <p className="text-sm font-medium text-gray-400 mb-1">Total Grants</p>
-            <p className="text-xl font-semibold text-emerald-400 font-mono tabular-nums">
+            <p className="text-xs font-medium text-gray-400 mb-1">Total Grants</p>
+            <p className="text-base font-semibold text-emerald-400 font-mono tabular-nums">
               {formatCurrency(stats.totalGrants)}
             </p>
           </div>

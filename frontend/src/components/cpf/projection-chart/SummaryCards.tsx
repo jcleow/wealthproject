@@ -114,14 +114,14 @@ const TARGET_FULL_NAMES: Record<string, string> = {
 
 interface RetirementTargetsCardProps {
   projectedYear?: number
+  frsGrowthRate?: number
 }
 
-export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardProps) {
+export function RetirementTargetsCard({ projectedYear, frsGrowthRate = 0.035 }: RetirementTargetsCardProps) {
   const currentYear = CPF_POLICY_YEAR
   const targetYear = projectedYear ?? currentYear + 15
 
-  // CPF raises retirement sums by ~3.5% annually
-  const inflationRate = 0.035
+  // CPF raises retirement sums annually (default ~3.5%)
   const yearsAhead = targetYear - currentYear
 
   const targets = [
@@ -134,7 +134,7 @@ export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardPr
   // Calculate projected values with inflation
   const projectedTargets = targets.map((t) => ({
     ...t,
-    projectedValue: Math.round(t.value * Math.pow(1 + inflationRate, yearsAhead)),
+    projectedValue: Math.round(t.value * Math.pow(1 + frsGrowthRate, yearsAhead)),
   }))
 
   return (
@@ -146,7 +146,7 @@ export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardPr
             <p className="text-xs text-slate-200 font-medium">CPF Retirement Targets</p>
             <Tooltip.Root>
               <Tooltip.Trigger asChild>
-                <button type="button" className="text-slate-500 hover:text-slate-300 cursor-help">
+                <button type="button" className="text-slate-500 hover:text-slate-300">
                   <Info className="h-3.5 w-3.5" />
                 </button>
               </Tooltip.Trigger>
@@ -169,11 +169,11 @@ export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardPr
               </Tooltip.Portal>
             </Tooltip.Root>
           </div>
-          <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium text-right min-w-[70px]">
-            {currentYear}
+          <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium text-right min-w-[80px]">
+            Current ({currentYear})
           </span>
-          <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium text-right min-w-[70px]">
-            {targetYear}
+          <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium text-right min-w-[80px]">
+            Projected ({targetYear})
           </span>
         </div>
 
@@ -184,7 +184,7 @@ export function RetirementTargetsCard({ projectedYear }: RetirementTargetsCardPr
               {/* Label with tooltip */}
               <Tooltip.Root>
                 <Tooltip.Trigger asChild>
-                  <span className="flex items-center gap-1.5 cursor-help">
+                  <span className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: target.color }} />
                     <span className="text-slate-300">{target.label}</span>
                   </span>
