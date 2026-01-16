@@ -2,10 +2,10 @@
 
 import { useMemo } from 'react'
 import { Edit3 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
+import { CPFUsageByPersonTable } from './CPFUsageByPersonTable'
 
 interface PropertyCPFDetailProps {
   scenario: PropertyScenarioFull
@@ -101,170 +101,19 @@ export function PropertyCPFDetail({
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-6">
+      <div className="p-4">
         {/* Per-Person CPF Usage - Tabular Layout */}
         {borrower1 && (
           <div>
-            <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">CPF Usage by Person</h4>
-
-            <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-              {/* Table Header - Names */}
-              <div className={cn(
-                "grid",
-                borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
-              )}>
-                <div className="p-3" /> {/* Empty label cell */}
-                <div className="p-3 text-center">
-                  <span className="text-sm font-medium text-white">{borrower1.name}</span>
-                </div>
-                {borrower2 && (
-                  <div className="p-3 text-center">
-                    <span className="text-sm font-medium text-white">{borrower2.name}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Down Payment Section */}
-              <div>
-                <div className={cn(
-                  "grid",
-                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
-                )}>
-                  <div className="p-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Down Payment</p>
-                  </div>
-                  <div />
-                  {borrower2 && <div />}
-                </div>
-                <div className={cn(
-                  "grid",
-                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
-                )}>
-                  <div className="px-3 pb-3">
-                    <span className="text-sm text-gray-400 pl-3">CPF OA</span>
-                  </div>
-                  <div className="px-3 pb-3 text-right">
-                    <span className="text-sm text-white font-mono tabular-nums">{formatCurrency(borrower1.downpaymentCpfOa)}</span>
-                  </div>
-                  {borrower2 && (
-                    <div className="px-3 pb-3 text-right">
-                      <span className="text-sm text-white font-mono tabular-nums">{formatCurrency(borrower2.downpaymentCpfOa)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Monthly Section */}
-              <div>
-                <div className={cn(
-                  "grid",
-                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
-                )}>
-                  <div className="p-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Monthly ({holdingMonths} mo)</p>
-                  </div>
-                  <div />
-                  {borrower2 && <div />}
-                </div>
-                <div className={cn(
-                  "grid",
-                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
-                )}>
-                  <div className="px-3 pb-2">
-                    <span className="text-sm text-gray-400 pl-3">CPF OA</span>
-                  </div>
-                  <div className="px-3 pb-2 text-right">
-                    <span className="text-sm text-gray-300 font-mono tabular-nums">{formatCurrency(borrower1.monthlyCpfOa)}/mo</span>
-                  </div>
-                  {borrower2 && (
-                    <div className="px-3 pb-2 text-right">
-                      <span className="text-sm text-gray-300 font-mono tabular-nums">{formatCurrency(borrower2.monthlyCpfOa)}/mo</span>
-                    </div>
-                  )}
-                </div>
-                <div className={cn(
-                  "grid",
-                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
-                )}>
-                  <div className="px-3 pb-3">
-                    <span className="text-sm text-gray-400 pl-3">Total</span>
-                  </div>
-                  <div className="px-3 pb-3 text-right">
-                    <span className="text-sm text-white font-mono tabular-nums">{formatCurrency(borrower1.monthlyCpfOa * holdingMonths)}</span>
-                  </div>
-                  {borrower2 && (
-                    <div className="px-3 pb-3 text-right">
-                      <span className="text-sm text-white font-mono tabular-nums">{formatCurrency(borrower2.monthlyCpfOa * holdingMonths)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Totals Section */}
-              <div>
-                <div className={cn(
-                  "grid",
-                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
-                )}>
-                  <div className="p-3">
-                    <span className="text-sm text-gray-300">Total CPF Used</span>
-                  </div>
-                  <div className="p-3 text-right">
-                    <span className="text-sm text-white font-semibold font-mono tabular-nums">{formatCurrency(borrower1.totalCpfUsed)}</span>
-                  </div>
-                  {borrower2 && (
-                    <div className="p-3 text-right">
-                      <span className="text-sm text-white font-semibold font-mono tabular-nums">{formatCurrency(borrower2.totalCpfUsed)}</span>
-                    </div>
-                  )}
-                </div>
-                <div className={cn(
-                  "grid",
-                  borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
-                )}>
-                  <div className="px-3 pb-3">
-                    <span className="text-sm text-amber-400">+ Accrued Interest</span>
-                  </div>
-                  <div className="px-3 pb-3 text-right">
-                    <span className="text-sm text-amber-400 font-mono tabular-nums">{formatCurrency(borrower1.accruedInterest)}</span>
-                  </div>
-                  {borrower2 && (
-                    <div className="px-3 pb-3 text-right">
-                      <span className="text-sm text-amber-400 font-mono tabular-nums">{formatCurrency(borrower2.accruedInterest)}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Refund upon sale Row */}
-              <div className={cn(
-                "grid",
-                borrower2 ? "grid-cols-[1fr_120px_120px]" : "grid-cols-[1fr_120px]"
-              )}>
-                <div className="p-3">
-                  <span className="text-xs text-gray-400">Refund upon sale</span>
-                </div>
-                <div className="p-3 text-right">
-                  <span className="text-sm font-semibold text-white font-mono tabular-nums">
-                    {formatCurrency(borrower1.totalCpfUsed + borrower1.accruedInterest)}
-                  </span>
-                </div>
-                {borrower2 && (
-                  <div className="p-3 text-right">
-                    <span className="text-sm font-semibold text-white font-mono tabular-nums">
-                      {formatCurrency(borrower2.totalCpfUsed + borrower2.accruedInterest)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* TODO(human): Add Housing Grants row(s) here
-                  - Grants are property-level (not per-person), so consider using a spanning row or full-width section
-                  - Data: scenario.grants array with {name, amount}
-                  - Total: scenario.grants.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0)
-                  - Remember: grants are refunded WITHOUT accrued interest (unlike CPF contributions)
-                  - Consider: Should this show individual grants or just the total? */}
-            </div>
+            <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+              CPF Usage by Person
+            </h4>
+            <CPFUsageByPersonTable
+              borrower1={borrower1}
+              borrower2={borrower2}
+              holdingMonths={holdingMonths}
+              grants={scenario.grants}
+            />
           </div>
         )}
       </div>

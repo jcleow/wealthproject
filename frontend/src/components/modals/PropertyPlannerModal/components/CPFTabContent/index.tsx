@@ -1,13 +1,10 @@
 'use client'
 
 import { useMemo } from 'react'
-import { formatCurrency } from '@/lib/format'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
 
-import { PersonCPFUsageCard } from './PersonCPFUsageCard'
-import { AccruedInterestChart } from './AccruedInterestChart'
-import { GrantsDisplay } from './GrantsDisplay'
+import { CPFUsageByPersonTable } from '@/components/cpf/property'
 import { SaleImpactSection } from './SaleImpactSection'
 
 interface CPFTabContentProps {
@@ -43,8 +40,6 @@ export function CPFTabContent({ scenario, cpfAccounts }: CPFTabContentProps) {
     const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
     return Math.max(months, 1)
   }, [purchaseDate, sg.saleExpectedDate])
-
-  const holdingYears = Math.ceil(holdingMonths / 12)
 
   // Calculate per-borrower CPF usage
   const borrower1 = useMemo(() => {
@@ -112,61 +107,22 @@ export function CPFTabContent({ scenario, cpfAccounts }: CPFTabContentProps) {
     return refunds
   }, [borrower1, borrower2])
 
-  const isPrivateProperty = sg.propertyType === 'private'
-
   return (
     <div className="space-y-6">
       {/* Per-Person CPF Usage */}
-      <div>
-        <h3 className="text-sm font-medium text-slate-400 mb-3">CPF Usage by Person</h3>
-        <div className={`grid gap-4 ${borrower2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'}`}>
-          {borrower1 && (
-            <PersonCPFUsageCard
-              personName={borrower1.name}
-              downpaymentCpfOa={borrower1.downpaymentCpfOa}
-              monthlyCpfOa={borrower1.monthlyCpfOa}
-              holdingMonths={holdingMonths}
-              totalCpfUsed={borrower1.totalCpfUsed}
-              accruedInterest={borrower1.accruedInterest}
-            />
-          )}
-          {borrower2 && (
-            <PersonCPFUsageCard
-              personName={borrower2.name}
-              downpaymentCpfOa={borrower2.downpaymentCpfOa}
-              monthlyCpfOa={borrower2.monthlyCpfOa}
-              holdingMonths={holdingMonths}
-              totalCpfUsed={borrower2.totalCpfUsed}
-              accruedInterest={borrower2.accruedInterest}
-            />
-          )}
+      {borrower1 && (
+        <div>
+          <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+            CPF Usage by Person
+          </h3>
+          <CPFUsageByPersonTable
+            borrower1={borrower1}
+            borrower2={borrower2}
+            holdingMonths={holdingMonths}
+            grants={scenario.grants}
+          />
         </div>
-
-        {/* Combined Total */}
-        {borrower2 && (
-          <div className="mt-3 p-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-400">Combined Total</span>
-              <span className="text-white font-medium font-mono tabular-nums">
-                {formatCurrency(totalCpfUsed)} CPF + {formatCurrency(totalAccruedInterest)} interest = {formatCurrency(totalCpfUsed + totalAccruedInterest)}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Accrued Interest Chart */}
-      <AccruedInterestChart
-        totalPrincipal={totalCpfUsed}
-        holdingYears={holdingYears}
-        interestRate={0.025}
-      />
-
-      {/* Grants Display */}
-      <GrantsDisplay
-        grants={scenario.grants || []}
-        isPrivateProperty={isPrivateProperty}
-      />
+      )}
 
       {/* Sale Impact (only if sale date is set) */}
       {sg.saleExpectedDate && (
@@ -185,7 +141,4 @@ export function CPFTabContent({ scenario, cpfAccounts }: CPFTabContentProps) {
   )
 }
 
-export { PersonCPFUsageCard } from './PersonCPFUsageCard'
-export { AccruedInterestChart } from './AccruedInterestChart'
-export { GrantsDisplay } from './GrantsDisplay'
 export { SaleImpactSection } from './SaleImpactSection'
