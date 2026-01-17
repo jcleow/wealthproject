@@ -32,8 +32,11 @@ export function CPFUsageByPersonTable({
   const hasSecondBorrower = !!borrower2
   const gridCols = hasSecondBorrower ? 'grid-cols-[1fr_120px_120px]' : 'grid-cols-[1fr_120px]'
 
+  // Ensure grants is always an array (default param only handles undefined, not null)
+  const safeGrants = grants ?? []
+
   // Calculate total grants
-  const totalGrants = grants.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0)
+  const totalGrants = safeGrants.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0)
 
   return (
     <div className="rounded-xl border border-white/[0.06] overflow-hidden">
@@ -195,7 +198,7 @@ export function CPFUsageByPersonTable({
               <span className="text-xs text-gray-500">(property level)</span>
             </div>
           </div>
-          {grants.map((grant) => (
+          {safeGrants.map((grant) => (
             <div key={grant.id} className={cn('grid', gridCols)}>
               <div className="px-3 pb-2">
                 <span className="text-sm text-emerald-400 pl-3">{grant.name}</span>
@@ -207,7 +210,7 @@ export function CPFUsageByPersonTable({
               </div>
             </div>
           ))}
-          {grants.length > 1 && (
+          {safeGrants.length > 1 && (
             <div className={cn('grid', gridCols)}>
               <div className="px-3 pb-3">
                 <span className="text-sm text-gray-300 pl-3">Total Grants</span>
