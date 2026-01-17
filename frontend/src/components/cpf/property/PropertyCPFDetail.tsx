@@ -3,30 +3,39 @@
 import { useMemo } from 'react'
 import { Edit3 } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
-import {
-  calculateBorrowerCPFUsage,
-  calculateHoldingMonths,
-  extractBackendTotalInterest,
-} from '@/lib/cpf'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
+import type { CPFBorrowerUsage } from '@/api/financial/cpf'
 import { CPFUsageByPersonTable } from './CPFUsageByPersonTable'
 import { useCpfHousingUsageQuery } from '@/hooks/queries/useCpfQuery'
 
 interface PropertyCPFDetailProps {
   scenario: PropertyScenarioFull
-  cpfAccounts: CPFAccount[]
+  cpfAccounts: CPFAccount[] // Required by parent but data comes from backend
   onEditInPropertyPlanner?: () => void
+}
+
+/**
+ * Transform backend CPFBorrowerUsage (string decimals) to UI format (numbers)
+ */
+function transformBorrowerUsage(backendData: CPFBorrowerUsage) {
+  return {
+    name: backendData.personName,
+    downpaymentCpfOa: parseFloat(backendData.downpaymentOa),
+    monthlyCpfOa: parseFloat(backendData.monthlyOa),
+    totalCpfUsed: parseFloat(backendData.totalOaUsed),
+    accruedInterest: parseFloat(backendData.accruedInterest),
+  }
 }
 
 export function PropertyCPFDetail({
   scenario,
-  cpfAccounts,
+  cpfAccounts: _cpfAccounts, // Unused - data comes from backend
   onEditInPropertyPlanner,
 }: PropertyCPFDetailProps) {
   const sg = scenario.propertySG
 
-  // Fetch CPF housing usage from backend (accurate compound interest)
+  // Fetch CPF housing usage from backend (all calculations done server-side)
   const { data: housingUsage } = useCpfHousingUsageQuery(scenario.scenario.id)
 
   if (!sg) {
@@ -37,39 +46,18 @@ export function PropertyCPFDetail({
     )
   }
 
-  // Build CPF account lookup map
-  const accountMap = useMemo(
-    () => new Map(cpfAccounts.map(a => [a.id, a])),
-    [cpfAccounts]
-  )
-
-  // Calculate holding period
-  const purchaseDate = sg.btoKeyCollectionDate || scenario.scenario.createdAt
-  const holdingMonths = useMemo(() => {
-    const start = new Date(purchaseDate)
-    const end = sg.saleExpectedDate ? new Date(sg.saleExpectedDate) : new Date()
-    return calculateHoldingMonths(start, end)
-  }, [purchaseDate, sg.saleExpectedDate])
-
+  // Get holding period from backend response (or calculate fallback)
+  const holdingMonths = housingUsage?.usage?.holdingMonths ?? 1
   const holdingYears = Math.ceil(holdingMonths / 12)
 
-  // Calculate per-borrower CPF usage with accurate compound interest from backend
+  // Transform backend borrower data to UI format (pure display - no calculations)
   const { borrower1, borrower2 } = useMemo(() => {
-    const backendTotalInterest = extractBackendTotalInterest(housingUsage)
-
-    return calculateBorrowerCPFUsage({
-      borrower1CpfAccountId: sg.borrower1CpfAccountId,
-      borrower1DownpaymentCpfOa: sg.borrower1DownpaymentCpfOa,
-      borrower1MonthlyCpfOa: sg.borrower1MonthlyCpfOa,
-      borrowerType: sg.borrowerType,
-      borrower2CpfAccountId: sg.borrower2CpfAccountId,
-      borrower2DownpaymentCpfOa: sg.borrower2DownpaymentCpfOa,
-      borrower2MonthlyCpfOa: sg.borrower2MonthlyCpfOa,
-      holdingMonths,
-      accountMap,
-      backendTotalInterest,
-    })
-  }, [sg, accountMap, holdingMonths, housingUsage])
+    const usage = housingUsage?.usage
+    return {
+      borrower1: usage?.borrower1 ? transformBorrowerUsage(usage.borrower1) : null,
+      borrower2: usage?.borrower2 ? transformBorrowerUsage(usage.borrower2) : null,
+    }
+  }, [housingUsage])
 
   return (
     <div className="rounded-xl border border-white/[0.06] overflow-hidden">

@@ -1124,6 +1124,17 @@ type cpfAccruedInterestSchedule struct {
 	YearlyBreakdown []cpfYearlyAccrued `json:"yearlyBreakdown"`
 }
 
+// cpfBorrowerUsage represents per-borrower CPF usage breakdown
+type cpfBorrowerUsage struct {
+	PersonID        string `json:"personId"`
+	PersonName      string `json:"personName"`
+	DownpaymentOA   string `json:"downpaymentOa"`
+	MonthlyOA       string `json:"monthlyOa"`
+	TotalOAUsed     string `json:"totalOaUsed"`
+	AccruedInterest string `json:"accruedInterest"`
+	TotalRefund     string `json:"totalRefund"`
+}
+
 // cpfHousingUsageResponse is the full response for CPF housing usage
 type cpfHousingUsageResponse struct {
 	PropertyScenarioID string                     `json:"propertyScenarioId"`
@@ -1131,6 +1142,9 @@ type cpfHousingUsageResponse struct {
 	MonthlyPayments    []cpfHousingMonthlyPayment `json:"monthlyPayments"`
 	Totals             cpfHousingUsageTotals      `json:"totals"`
 	AccruedInterest    cpfAccruedInterestSchedule `json:"accruedInterest"`
+	Borrower1          *cpfBorrowerUsage          `json:"borrower1,omitempty"`
+	Borrower2          *cpfBorrowerUsage          `json:"borrower2,omitempty"`
+	HoldingMonths      int                        `json:"holdingMonths"`
 }
 
 // cpfPropertySaleAnalysis represents the sale analysis for a property
@@ -1222,6 +1236,34 @@ func (h *CPFV2Handler) convertHousingUsageResult(result *cpf.HousingUsageFullRes
 			}
 		}
 
+		// Convert borrower 1 data
+		var borrower1 *cpfBorrowerUsage
+		if result.Usage.Borrower1 != nil {
+			borrower1 = &cpfBorrowerUsage{
+				PersonID:        result.Usage.Borrower1.PersonID,
+				PersonName:      result.Usage.Borrower1.PersonName,
+				DownpaymentOA:   common.SafeDecimalString(result.Usage.Borrower1.DownpaymentOA),
+				MonthlyOA:       common.SafeDecimalString(result.Usage.Borrower1.MonthlyOA),
+				TotalOAUsed:     common.SafeDecimalString(result.Usage.Borrower1.TotalOAUsed),
+				AccruedInterest: common.SafeDecimalString(result.Usage.Borrower1.AccruedInterest),
+				TotalRefund:     common.SafeDecimalString(result.Usage.Borrower1.TotalRefund),
+			}
+		}
+
+		// Convert borrower 2 data
+		var borrower2 *cpfBorrowerUsage
+		if result.Usage.Borrower2 != nil {
+			borrower2 = &cpfBorrowerUsage{
+				PersonID:        result.Usage.Borrower2.PersonID,
+				PersonName:      result.Usage.Borrower2.PersonName,
+				DownpaymentOA:   common.SafeDecimalString(result.Usage.Borrower2.DownpaymentOA),
+				MonthlyOA:       common.SafeDecimalString(result.Usage.Borrower2.MonthlyOA),
+				TotalOAUsed:     common.SafeDecimalString(result.Usage.Borrower2.TotalOAUsed),
+				AccruedInterest: common.SafeDecimalString(result.Usage.Borrower2.AccruedInterest),
+				TotalRefund:     common.SafeDecimalString(result.Usage.Borrower2.TotalRefund),
+			}
+		}
+
 		usage = &cpfHousingUsageResponse{
 			PropertyScenarioID: result.Usage.PropertyScenarioID,
 			DownPayment: cpfHousingUsageDownPayment{
@@ -1242,6 +1284,9 @@ func (h *CPFV2Handler) convertHousingUsageResult(result *cpf.HousingUsageFullRes
 				TotalAccrued:    common.SafeDecimalString(result.Usage.AccruedInterest.TotalAccrued),
 				YearlyBreakdown: yearlyBreakdown,
 			},
+			Borrower1:     borrower1,
+			Borrower2:     borrower2,
+			HoldingMonths: result.Usage.HoldingMonths,
 		}
 	}
 

@@ -3,32 +3,40 @@
 import { useMemo } from 'react'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
+import type { CPFBorrowerUsage } from '@/api/financial/cpf'
 
-import {
-  calculateBorrowerCPFUsage,
-  calculateHoldingMonths,
-  extractBackendTotalInterest,
-} from '@/lib/cpf'
 import { CPFUsageByPersonTable } from '@/components/cpf/property'
 import { SaleImpactSection } from './SaleImpactSection'
 import { useCpfHousingUsageQuery } from '@/hooks/queries/useCpfQuery'
 
 interface CPFTabContentProps {
   scenario: PropertyScenarioFull
-  cpfAccounts: CPFAccount[]
+  cpfAccounts: CPFAccount[] // Required by parent but data comes from backend
+}
+
+/**
+ * Transform backend CPFBorrowerUsage (string decimals) to UI format (numbers)
+ */
+function transformBorrowerUsage(backendData: CPFBorrowerUsage) {
+  return {
+    name: backendData.personName,
+    downpaymentCpfOa: parseFloat(backendData.downpaymentOa),
+    monthlyCpfOa: parseFloat(backendData.monthlyOa),
+    totalCpfUsed: parseFloat(backendData.totalOaUsed),
+    accruedInterest: parseFloat(backendData.accruedInterest),
+  }
 }
 
 /**
  * CPFTabContent - Displays CPF-specific information for a property scenario
  * within the Property Planner modal.
  *
- * Uses backend API for accurate compound interest calculations while
- * deriving per-borrower breakdowns from scenario data.
+ * Pure display component - all calculations done by backend.
  */
-export function CPFTabContent({ scenario, cpfAccounts }: CPFTabContentProps) {
+export function CPFTabContent({ scenario, cpfAccounts: _cpfAccounts }: CPFTabContentProps) {
   const sg = scenario.propertySG
 
-  // Fetch CPF housing usage from backend (accurate compound interest + sale analysis)
+  // Fetch CPF housing usage from backend (all calculations done server-side)
   const { data: housingUsage } = useCpfHousingUsageQuery(scenario.scenario.id)
 
   if (!sg) {
@@ -39,37 +47,22 @@ export function CPFTabContent({ scenario, cpfAccounts }: CPFTabContentProps) {
     )
   }
 
-  // Build CPF account lookup map
-  const accountMap = useMemo(
-    () => new Map(cpfAccounts.map(a => [a.id, a])),
-    [cpfAccounts]
-  )
+  // Get holding period from backend response
+  const holdingMonths = housingUsage?.usage?.holdingMonths ?? 1
 
-  // Calculate holding period (simplified - from creation or key collection date)
-  const purchaseDate = sg.btoKeyCollectionDate || scenario.scenario.createdAt
-  const holdingMonths = useMemo(() => {
-    const start = new Date(purchaseDate)
-    const end = sg.saleExpectedDate ? new Date(sg.saleExpectedDate) : new Date()
-    return calculateHoldingMonths(start, end)
-  }, [purchaseDate, sg.saleExpectedDate])
-
-  // Calculate per-borrower CPF usage with accurate compound interest from backend
+  // Transform backend borrower data to UI format (pure display - no calculations)
   const { borrower1, borrower2, totalCpfUsed, totalAccruedInterest } = useMemo(() => {
-    const backendTotalInterest = extractBackendTotalInterest(housingUsage)
+    const usage = housingUsage?.usage
+    const b1 = usage?.borrower1 ? transformBorrowerUsage(usage.borrower1) : null
+    const b2 = usage?.borrower2 ? transformBorrowerUsage(usage.borrower2) : null
 
-    return calculateBorrowerCPFUsage({
-      borrower1CpfAccountId: sg.borrower1CpfAccountId,
-      borrower1DownpaymentCpfOa: sg.borrower1DownpaymentCpfOa,
-      borrower1MonthlyCpfOa: sg.borrower1MonthlyCpfOa,
-      borrowerType: sg.borrowerType,
-      borrower2CpfAccountId: sg.borrower2CpfAccountId,
-      borrower2DownpaymentCpfOa: sg.borrower2DownpaymentCpfOa,
-      borrower2MonthlyCpfOa: sg.borrower2MonthlyCpfOa,
-      holdingMonths,
-      accountMap,
-      backendTotalInterest,
-    })
-  }, [sg, accountMap, holdingMonths, housingUsage])
+    return {
+      borrower1: b1,
+      borrower2: b2,
+      totalCpfUsed: (b1?.totalCpfUsed ?? 0) + (b2?.totalCpfUsed ?? 0),
+      totalAccruedInterest: (b1?.accruedInterest ?? 0) + (b2?.accruedInterest ?? 0),
+    }
+  }, [housingUsage])
 
   // Sale calculations - use backend data if available, otherwise fall back to estimates
   const saleData = useMemo(() => {

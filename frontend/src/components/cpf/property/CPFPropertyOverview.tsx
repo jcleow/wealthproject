@@ -7,7 +7,6 @@ import { useQueries } from '@tanstack/react-query'
 import { usePropertyPlannerV2ScenariosQuery } from '@/hooks/queries/usePropertyPlannerV2Query'
 import { useCpfAccountsQuery, CPF_HOUSING_USAGE_QUERY_KEY } from '@/hooks/queries/useCpfQuery'
 import { cpfApi } from '@/api/financial/cpf'
-import { extractBackendTotalInterest, calculateHoldingMonths, calculateProportionalInterest } from '@/lib/cpf'
 import { PropertyScenarioList } from './PropertyScenarioList'
 import { PropertyCPFDetail } from './PropertyCPFDetail'
 import { AggregateBar } from './AggregateBar'
@@ -20,7 +19,7 @@ interface CPFPropertyOverviewProps {
 
 /**
  * Compute aggregate CPF stats across all active property scenarios.
- * Uses backend housing usage data when available for accurate compound interest.
+ * Pure aggregation of backend data - no calculations, just summing.
  */
 function useAggregateStats(
   scenarios: PropertyScenarioFull[],
@@ -30,10 +29,7 @@ function useAggregateStats(
   return useMemo(() => {
     const activeScenarios = scenarios.filter(s => s.propertySG?.isIncluded)
 
-    // Build a map of CPF account ID to person name and OA balance
-    const accountMap = new Map(cpfAccounts.map(a => [a.id, { name: a.personName || 'Unknown', oaBalance: a.oaBalance }]))
-
-    // Aggregate per-person CPF usage
+    // Aggregate per-person CPF usage from backend data
     const perPersonUsage = new Map<string, { name: string; cpfUsed: number; accruedInterest: number }>()
 
     let totalCpfUsed = 0
@@ -48,60 +44,43 @@ function useAggregateStats(
       const scenarioGrants = scenario.grants?.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0) || 0
       totalGrants += scenarioGrants
 
-      // Calculate holding period from creation date
-      const purchaseDate = sg.btoKeyCollectionDate || scenario.scenario.createdAt
-      const start = new Date(purchaseDate)
-      const end = sg.saleExpectedDate ? new Date(sg.saleExpectedDate) : new Date()
-      const holdingMonths = calculateHoldingMonths(start, end)
-
-      // Get backend housing usage data for this scenario (accurate compound interest)
+      // Get backend housing usage data for this scenario
       const housingUsage = housingUsageData.get(scenario.scenario.id)
-      const backendTotalInterest = extractBackendTotalInterest(housingUsage)
+      const usage = housingUsage?.usage
 
-      // Borrower 1 CPF usage
-      const b1CpfAccountId = sg.borrower1CpfAccountId
-      const b1Downpayment = parseFloat(sg.borrower1DownpaymentCpfOa || '0')
-      const b1Monthly = parseFloat(sg.borrower1MonthlyCpfOa || '0')
-      const b1Total = b1Downpayment + (b1Monthly * holdingMonths)
+      // Aggregate borrower 1 from backend data
+      if (usage?.borrower1 && sg.borrower1CpfAccountId) {
+        const b1 = usage.borrower1
+        const b1CpfUsed = parseFloat(b1.totalOaUsed)
+        const b1Interest = parseFloat(b1.accruedInterest)
 
-      // Borrower 2 CPF usage
-      const isJoint = sg.borrowerType === 'joint' && sg.borrower2CpfAccountId
-      const b2CpfAccountId = sg.borrower2CpfAccountId
-      const b2Downpayment = isJoint ? parseFloat(sg.borrower2DownpaymentCpfOa || '0') : 0
-      const b2Monthly = isJoint ? parseFloat(sg.borrower2MonthlyCpfOa || '0') : 0
-      const b2Total = b2Downpayment + (b2Monthly * holdingMonths)
-
-      // Calculate proportional interest for each borrower
-      const { b1Interest, b2Interest } = calculateProportionalInterest(
-        b1Total,
-        b2Total,
-        holdingMonths,
-        backendTotalInterest
-      )
-
-      if (b1CpfAccountId) {
-        const existing = perPersonUsage.get(b1CpfAccountId) || {
-          name: accountMap.get(b1CpfAccountId)?.name || 'Borrower 1',
+        const existing = perPersonUsage.get(sg.borrower1CpfAccountId) || {
+          name: b1.personName || 'Borrower 1',
           cpfUsed: 0,
           accruedInterest: 0
         }
-        existing.cpfUsed += b1Total
+        existing.cpfUsed += b1CpfUsed
         existing.accruedInterest += b1Interest
-        perPersonUsage.set(b1CpfAccountId, existing)
-        totalCpfUsed += b1Total
+        perPersonUsage.set(sg.borrower1CpfAccountId, existing)
+        totalCpfUsed += b1CpfUsed
         totalAccruedInterest += b1Interest
       }
 
-      if (isJoint && b2CpfAccountId) {
-        const existing = perPersonUsage.get(b2CpfAccountId) || {
-          name: accountMap.get(b2CpfAccountId)?.name || 'Borrower 2',
+      // Aggregate borrower 2 from backend data (joint ownership only)
+      if (usage?.borrower2 && sg.borrower2CpfAccountId) {
+        const b2 = usage.borrower2
+        const b2CpfUsed = parseFloat(b2.totalOaUsed)
+        const b2Interest = parseFloat(b2.accruedInterest)
+
+        const existing = perPersonUsage.get(sg.borrower2CpfAccountId) || {
+          name: b2.personName || 'Borrower 2',
           cpfUsed: 0,
           accruedInterest: 0
         }
-        existing.cpfUsed += b2Total
+        existing.cpfUsed += b2CpfUsed
         existing.accruedInterest += b2Interest
-        perPersonUsage.set(b2CpfAccountId, existing)
-        totalCpfUsed += b2Total
+        perPersonUsage.set(sg.borrower2CpfAccountId, existing)
+        totalCpfUsed += b2CpfUsed
         totalAccruedInterest += b2Interest
       }
     }

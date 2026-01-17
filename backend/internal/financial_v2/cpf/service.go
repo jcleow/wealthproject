@@ -401,6 +401,17 @@ type HousingUsageTotals struct {
 	OAForMonthlyPayments *decimal.Decimal
 }
 
+// BorrowerUsage represents CPF usage for a single borrower
+type BorrowerUsage struct {
+	PersonID        string           `json:"personId"`
+	PersonName      string           `json:"personName"`
+	DownpaymentOA   *decimal.Decimal `json:"downpaymentOa"`
+	MonthlyOA       *decimal.Decimal `json:"monthlyOa"`
+	TotalOAUsed     *decimal.Decimal `json:"totalOaUsed"`
+	AccruedInterest *decimal.Decimal `json:"accruedInterest"`
+	TotalRefund     *decimal.Decimal `json:"totalRefund"` // TotalOAUsed + AccruedInterest
+}
+
 // YearlyAccruedInterest represents accrued interest for one year
 type YearlyAccruedInterest struct {
 	Year               int
@@ -423,6 +434,9 @@ type HousingUsageResult struct {
 	MonthlyPayments    []HousingUsageMonthlyPayment
 	Totals             HousingUsageTotals
 	AccruedInterest    AccruedInterestSchedule
+	Borrower1          *BorrowerUsage `json:"borrower1,omitempty"`
+	Borrower2          *BorrowerUsage `json:"borrower2,omitempty"`
+	HoldingMonths      int            `json:"holdingMonths"`
 }
 
 // CPFRefundRequired represents the CPF refund details for property sale
@@ -475,7 +489,7 @@ func (s *Service) ComputeHousingUsage(ctx context.Context, userID, scenarioID st
 	}
 
 	// Calculate CPF housing usage
-	usage := s.computeUsageFromScenario(scenarioFull)
+	usage := s.computeUsageFromScenario(ctx, userID, scenarioFull)
 
 	// Calculate sale analysis if sale date is set
 	var saleAnalysis *PropertySaleAnalysis
@@ -490,7 +504,7 @@ func (s *Service) ComputeHousingUsage(ctx context.Context, userID, scenarioID st
 }
 
 // computeUsageFromScenario derives CPF housing usage from property scenario data
-func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFull) *HousingUsageResult {
+func (s *Service) computeUsageFromScenario(ctx context.Context, userID string, scenarioFull *repo.PropertyScenarioFull) *HousingUsageResult {
 	propertySG := scenarioFull.PropertySG
 	grants := scenarioFull.Grants
 
@@ -600,6 +614,73 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 	// Calculate accrued interest (2.5% p.a. compounded yearly)
 	accruedInterest := calculateAccruedInterestSchedule(totalOAUsed, startDate, asOfDate)
 
+	// Calculate per-borrower CPF usage
+	var borrower1 *BorrowerUsage
+	var borrower2 *BorrowerUsage
+
+	// Borrower 1
+	if propertySG.Borrower1CpfAccountID != nil && *propertySG.Borrower1CpfAccountID != "" {
+		b1TotalOA := b1DownpaymentOA.Add(b1MonthlyCpfOa.Mul(monthsDecimal))
+
+		// Get person name from CPF account
+		b1PersonName := "Borrower 1"
+		b1PersonID := ""
+		if cpfAccount, err := s.store.GetCPFAccountByID(ctx, userID, *propertySG.Borrower1CpfAccountID); err == nil && cpfAccount != nil {
+			b1PersonName = cpfAccount.PersonName
+			b1PersonID = cpfAccount.PersonID
+		}
+
+		// Calculate proportional interest
+		b1Ratio := decimal.MustFromString("1")
+		if !totalOAUsed.IsZero() {
+			b1Ratio = b1TotalOA.Div(totalOAUsed)
+		}
+		b1Interest := accruedInterest.TotalAccrued.Mul(b1Ratio)
+		b1Refund := b1TotalOA.Add(b1Interest)
+
+		borrower1 = &BorrowerUsage{
+			PersonID:        b1PersonID,
+			PersonName:      b1PersonName,
+			DownpaymentOA:   &b1DownpaymentOA,
+			MonthlyOA:       &b1MonthlyCpfOa,
+			TotalOAUsed:     b1TotalOA,
+			AccruedInterest: b1Interest,
+			TotalRefund:     b1Refund,
+		}
+	}
+
+	// Borrower 2 (joint ownership only)
+	isJoint := propertySG.BorrowerType == "joint"
+	if isJoint && propertySG.Borrower2CpfAccountID != nil && *propertySG.Borrower2CpfAccountID != "" {
+		b2TotalOA := b2DownpaymentOA.Add(b2MonthlyCpfOa.Mul(monthsDecimal))
+
+		// Get person name from CPF account
+		b2PersonName := "Borrower 2"
+		b2PersonID := ""
+		if cpfAccount, err := s.store.GetCPFAccountByID(ctx, userID, *propertySG.Borrower2CpfAccountID); err == nil && cpfAccount != nil {
+			b2PersonName = cpfAccount.PersonName
+			b2PersonID = cpfAccount.PersonID
+		}
+
+		// Calculate proportional interest
+		b2Ratio := decimal.Zero()
+		if !totalOAUsed.IsZero() {
+			b2Ratio = b2TotalOA.Div(totalOAUsed)
+		}
+		b2Interest := accruedInterest.TotalAccrued.Mul(b2Ratio)
+		b2Refund := b2TotalOA.Add(b2Interest)
+
+		borrower2 = &BorrowerUsage{
+			PersonID:        b2PersonID,
+			PersonName:      b2PersonName,
+			DownpaymentOA:   &b2DownpaymentOA,
+			MonthlyOA:       &b2MonthlyCpfOa,
+			TotalOAUsed:     b2TotalOA,
+			AccruedInterest: b2Interest,
+			TotalRefund:     b2Refund,
+		}
+	}
+
 	return &HousingUsageResult{
 		PropertyScenarioID: scenarioFull.Scenario.ID,
 		DownPayment: HousingUsageDownPayment{
@@ -616,6 +697,9 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 			OAForMonthlyPayments: oaForMonthlyPayments,
 		},
 		AccruedInterest: *accruedInterest,
+		Borrower1:       borrower1,
+		Borrower2:       borrower2,
+		HoldingMonths:   monthsHolding,
 	}
 }
 

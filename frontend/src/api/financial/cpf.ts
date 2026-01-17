@@ -397,6 +397,19 @@ export interface CPFAccruedInterestSchedule {
 }
 
 /**
+ * Per-borrower CPF usage breakdown.
+ */
+export interface CPFBorrowerUsage {
+  personId: string
+  personName: string
+  downpaymentOa: string
+  monthlyOa: string
+  totalOaUsed: string
+  accruedInterest: string
+  totalRefund: string
+}
+
+/**
  * CPF housing usage response from backend.
  */
 export interface CPFHousingUsageApiResponse {
@@ -405,6 +418,9 @@ export interface CPFHousingUsageApiResponse {
   monthlyPayments: CPFHousingMonthlyPayment[]
   totals: CPFHousingUsageTotals
   accruedInterest: CPFAccruedInterestSchedule
+  borrower1?: CPFBorrowerUsage | null
+  borrower2?: CPFBorrowerUsage | null
+  holdingMonths: number
 }
 
 /**
