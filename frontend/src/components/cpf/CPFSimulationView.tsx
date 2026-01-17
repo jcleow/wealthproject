@@ -343,7 +343,7 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
                 const newAge = displayMode === 'age' ? val : yearToAge(val)
                 setSimulatedAge(newAge)
               }}
-              className="h-1 w-24 cursor-pointer appearance-none rounded-full bg-slate-700/60 accent-blue-500 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-400 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
+              className="h-1 w-48 cursor-pointer appearance-none rounded-full bg-slate-700/60 accent-blue-500 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-400 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
             />
           </div>
 
@@ -391,6 +391,7 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
       </div>
 
       {/* Content */}
+      {/* TODO(human): Add max-width constraint to prevent content from stretching too wide on large screens */}
       <div className="flex-1 overflow-y-auto p-5">
         {activeTab === 'overview' && (
           <div className="grid gap-6 lg:grid-cols-2">

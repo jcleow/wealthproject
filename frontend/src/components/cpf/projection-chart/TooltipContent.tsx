@@ -36,10 +36,6 @@ export function BalanceTooltipContent({ data, visibleAccounts }: BalanceTooltipP
           <TooltipRow label="Total" value={data.total} color="#fff" bold />
         </div>
       </div>
-      <div className="mt-2 border-t border-white/10 pt-2 text-xs text-slate-500">
-        <p>Contributions: {formatCurrency(data.contributions)}</p>
-        <p>Interest: {formatCurrency(data.interest)}</p>
-      </div>
     </div>
   )
 }

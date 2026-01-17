@@ -1,4 +1,5 @@
 import { Info } from 'lucide-react'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import { formatCurrency } from '@/lib/format'
 import { CPF_CONSTANTS, CPF_POLICY_YEAR } from '@/lib/cpf-constants'
 import type { CPFProjectionYear } from '@/types/cpf'
@@ -103,7 +104,26 @@ export function CPFLifePayoutCard({ estimates, payoutStartAge, selectedPlan }: C
   )
 }
 
-export function RetirementTargetsCard() {
+// Full names for retirement sum tooltips
+const TARGET_FULL_NAMES: Record<string, string> = {
+  BRS: 'Basic Retirement Sum',
+  FRS: 'Full Retirement Sum',
+  ERS: 'Enhanced Retirement Sum',
+  BHS: 'Basic Healthcare Sum',
+}
+
+interface RetirementTargetsCardProps {
+  projectedYear?: number
+  frsGrowthRate?: number
+}
+
+export function RetirementTargetsCard({ projectedYear, frsGrowthRate = 0.035 }: RetirementTargetsCardProps) {
+  const currentYear = CPF_POLICY_YEAR
+  const targetYear = projectedYear ?? currentYear + 15
+
+  // CPF raises retirement sums annually (default ~3.5%)
+  const yearsAhead = targetYear - currentYear
+
   const targets = [
     { label: 'BRS', value: CPF_CONSTANTS.BRS, color: THRESHOLD_COLORS.brs },
     { label: 'FRS', value: CPF_CONSTANTS.FRS, color: THRESHOLD_COLORS.frs },
@@ -111,20 +131,89 @@ export function RetirementTargetsCard() {
     { label: 'BHS', value: CPF_CONSTANTS.BHS, color: THRESHOLD_COLORS.bhs },
   ]
 
+  // Calculate projected values with inflation
+  const projectedTargets = targets.map((t) => ({
+    ...t,
+    projectedValue: Math.round(t.value * Math.pow(1 + frsGrowthRate, yearsAhead)),
+  }))
+
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
-      <p className="text-xs text-slate-400">{CPF_POLICY_YEAR} Retirement Targets</p>
-      <div className="mt-3 space-y-2">
-        {targets.map((target) => (
-          <div key={target.label} className="flex items-center justify-between text-xs">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: target.color }} />
-              <span className="text-slate-400">{target.label}</span>
-            </span>
-            <span className="font-mono tabular-nums text-slate-300">{formatCurrency(target.value)}</span>
+    <Tooltip.Provider delayDuration={200}>
+      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
+        {/* Header row - using same grid as data rows for alignment */}
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 items-center mb-3">
+          <div className="flex items-center gap-1">
+            <p className="text-xs text-slate-200 font-medium">CPF Retirement Targets</p>
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button type="button" className="text-slate-500 hover:text-slate-300">
+                  <Info className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  side="bottom"
+                  align="start"
+                  className="z-[100] rounded-lg bg-gray-900 border border-white/10 px-3 py-2.5 text-xs text-slate-300 shadow-xl max-w-[280px]"
+                  sideOffset={4}
+                >
+                  <p className="font-medium text-slate-100 mb-1.5">Retirement Sums</p>
+                  <ul className="space-y-1">
+                    <li><span className="text-yellow-400">BRS</span> – Basic Retirement Sum</li>
+                    <li><span className="text-cyan-400">FRS</span> – Full Retirement Sum</li>
+                    <li><span className="text-purple-400">ERS</span> – Enhanced Retirement Sum</li>
+                    <li><span className="text-pink-400">BHS</span> – Basic Healthcare Sum</li>
+                  </ul>
+                  <Tooltip.Arrow className="fill-gray-900" />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
           </div>
-        ))}
+          <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium text-right min-w-[80px]">
+            Current ({currentYear})
+          </span>
+          <span className="text-[10px] text-slate-300 uppercase tracking-wide font-medium text-right min-w-[80px]">
+            Projected ({targetYear})
+          </span>
+        </div>
+
+        {/* Target Rows */}
+        <div className="space-y-2">
+          {projectedTargets.map((target) => (
+            <div key={target.label} className="grid grid-cols-[1fr_auto_auto] gap-x-4 items-center text-xs">
+              {/* Label with tooltip */}
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ backgroundColor: target.color }} />
+                    <span className="text-slate-300">{target.label}</span>
+                  </span>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="top"
+                    className="z-[100] rounded-lg bg-gray-900 border border-white/10 px-2.5 py-1.5 text-xs text-slate-200 shadow-xl"
+                    sideOffset={4}
+                  >
+                    {TARGET_FULL_NAMES[target.label]}
+                    <Tooltip.Arrow className="fill-gray-900" />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+
+              {/* Current value */}
+              <span className="font-mono tabular-nums text-slate-300 text-right min-w-[70px]">
+                {formatCurrency(target.value)}
+              </span>
+
+              {/* Projected value */}
+              <span className="font-mono tabular-nums text-slate-300 text-right min-w-[70px]">
+                {formatCurrency(target.projectedValue)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </Tooltip.Provider>
   )
 }

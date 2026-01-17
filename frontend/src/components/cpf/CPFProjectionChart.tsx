@@ -143,7 +143,10 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
           payoutStartAge={assumptions.payoutStartAge}
           selectedPlan={assumptions.cpfLifePlan}
         />
-        <RetirementTargetsCard />
+        <RetirementTargetsCard
+          projectedYear={projection.find((p) => p.age === profile.age)?.year ?? new Date().getFullYear()}
+          frsGrowthRate={assumptions.frsGrowthRate}
+        />
       </div>
 
       <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">

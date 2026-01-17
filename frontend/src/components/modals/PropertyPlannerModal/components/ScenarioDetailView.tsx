@@ -8,10 +8,12 @@ import {
   Home,
   Banknote,
   TrendingUp,
+  Landmark,
 } from 'lucide-react'
 
 import type { PropertyScenario } from '@/app/property-planner/types'
-import type { ComputedValues } from '@/types/propertyPlannerV2'
+import type { ComputedValues, PropertyScenarioFull } from '@/types/propertyPlannerV2'
+import type { CPFAccount } from '@/types/cpf'
 import type { ProjectedCpfAccount } from './MortgageForm/types'
 
 import {
@@ -31,6 +33,10 @@ import { TabbedResultsPanel, type ResultsTab } from './TabbedResultsPanel'
 interface ScenarioDetailViewProps {
   activeResultsTab: ResultsTab
   editingScenario: PropertyScenario | null
+  /** Full scenario data with propertySG for CPF tab */
+  scenarioFull?: PropertyScenarioFull | null
+  /** Full CPF accounts for CPF tab */
+  cpfAccountsFull?: CPFAccount[]
   /** Sale milestone icon name */
   editingScenarioSaleIcon?: string
   /** Sale milestone icon color */
@@ -56,6 +62,8 @@ interface ScenarioDetailViewProps {
 export function ScenarioDetailView({
   activeResultsTab,
   editingScenario,
+  scenarioFull = null,
+  cpfAccountsFull = [],
   editingScenarioSaleIcon,
   editingScenarioSaleIconColor,
   editingScenarioSaleIconSearch,
@@ -141,6 +149,17 @@ export function ScenarioDetailView({
             <Banknote className="w-3.5 h-3.5" />
             Sale
           </button>
+          <button
+            type="button"
+            onClick={() => onActiveResultsTabChange('cpf')}
+            className={cn(
+              "px-4 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-2",
+              activeResultsTab === 'cpf' ? "bg-white/10 text-white" : "text-slate-500 hover:text-slate-300"
+            )}
+          >
+            <Landmark className="w-3.5 h-3.5" />
+            CPF
+          </button>
         </div>
 
         <button
@@ -159,9 +178,9 @@ export function ScenarioDetailView({
 
       <div className={cn(
         "grid gap-6",
-        activeResultsTab === 'appreciation' ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"
+        (activeResultsTab === 'appreciation' || activeResultsTab === 'cpf') ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-2"
       )}>
-        {activeResultsTab !== 'appreciation' && (
+        {activeResultsTab !== 'appreciation' && activeResultsTab !== 'cpf' && (
           <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-6">
             <AnimatePresence mode="wait">
               {activeResultsTab === 'purchase' ? (
@@ -202,6 +221,8 @@ export function ScenarioDetailView({
           cpfAccounts={projectedCpfAccounts}
           cashAccounts={cashAccounts}
           computedValues={computedValues}
+          scenarioFull={scenarioFull}
+          cpfAccountsFull={cpfAccountsFull.length > 0 ? cpfAccountsFull : cpfAccounts}
         />
       </div>
     </motion.div>
