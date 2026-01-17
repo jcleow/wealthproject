@@ -108,10 +108,12 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null)
 
   // Fetch property scenarios
-  const { data: scenarios = [], isLoading: scenariosLoading } = usePropertyPlannerV2ScenariosQuery()
+  const { data: scenariosData, isLoading: scenariosLoading } = usePropertyPlannerV2ScenariosQuery()
+  const scenarios = scenariosData ?? []
 
   // Fetch CPF accounts for person names and OA balances
-  const { data: cpfAccounts = [], isLoading: accountsLoading } = useCpfAccountsQuery()
+  const { data: cpfAccountsData, isLoading: accountsLoading } = useCpfAccountsQuery()
+  const cpfAccounts = cpfAccountsData ?? []
 
   // Get active scenarios for housing usage queries
   const activeScenarios = useMemo(
