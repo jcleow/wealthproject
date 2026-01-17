@@ -618,8 +618,10 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 	var borrower1 *BorrowerUsage
 	var borrower2 *BorrowerUsage
 
-	// Borrower 1 - uses pre-fetched person name from PropertySG (JOINed in repository)
-	if propertySG.Borrower1CpfAccountID != nil && *propertySG.Borrower1CpfAccountID != "" {
+	// Borrower 1 - return data if they have CPF OA usage (even without linked CPF account)
+	// This allows the UI to show CPF usage from property scenario data
+	b1HasCpfUsage := !b1DownpaymentOA.IsZero() || !b1MonthlyCpfOa.IsZero()
+	if b1HasCpfUsage {
 		b1TotalOA := b1DownpaymentOA.Add(b1MonthlyCpfOa.Mul(monthsDecimal))
 
 		// Calculate proportional interest
@@ -630,6 +632,8 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 		b1Interest := accruedInterest.TotalAccrued.Mul(b1Ratio)
 		b1Refund := b1TotalOA.Add(b1Interest)
 
+		// Use pre-fetched person name from PropertySG (JOINed in repository)
+		// Falls back to empty string if no CPF account is linked
 		borrower1 = &BorrowerUsage{
 			PersonID:        propertySG.Borrower1PersonID,
 			PersonName:      propertySG.Borrower1PersonName,
@@ -641,9 +645,10 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 		}
 	}
 
-	// Borrower 2 (joint ownership only) - uses pre-fetched person name from PropertySG
+	// Borrower 2 (joint ownership only) - return data if they have CPF OA usage
 	isJoint := propertySG.BorrowerType == "joint"
-	if isJoint && propertySG.Borrower2CpfAccountID != nil && *propertySG.Borrower2CpfAccountID != "" {
+	b2HasCpfUsage := !b2DownpaymentOA.IsZero() || !b2MonthlyCpfOa.IsZero()
+	if isJoint && b2HasCpfUsage {
 		b2TotalOA := b2DownpaymentOA.Add(b2MonthlyCpfOa.Mul(monthsDecimal))
 
 		// Calculate proportional interest
@@ -654,6 +659,7 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 		b2Interest := accruedInterest.TotalAccrued.Mul(b2Ratio)
 		b2Refund := b2TotalOA.Add(b2Interest)
 
+		// Use pre-fetched person name from PropertySG (JOINed in repository)
 		borrower2 = &BorrowerUsage{
 			PersonID:        propertySG.Borrower2PersonID,
 			PersonName:      propertySG.Borrower2PersonName,

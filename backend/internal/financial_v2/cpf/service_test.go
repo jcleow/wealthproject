@@ -130,6 +130,58 @@ func TestComputeUsageFromScenario_EmptyPersonName_UsesEmptyString(t *testing.T) 
 	assert.Equal(t, "", result.Borrower1.PersonID, "Empty person ID should pass through")
 }
 
+// TestComputeUsageFromScenario_NoCpfAccountLinked verifies that borrower data
+// is returned even when no CPF account ID is linked, as long as CPF payment values exist.
+// This allows the UI to show CPF usage from property scenario data.
+func TestComputeUsageFromScenario_NoCpfAccountLinked(t *testing.T) {
+	// Arrange
+	service := &Service{}
+	// Note: No Borrower1CpfAccountID or Borrower2CpfAccountID set
+	scenarioFull := &repo.PropertyScenarioFull{
+		Scenario: repo.PropertyScenario{
+			ID:     "scenario-no-cpf-linked",
+			UserID: "user-1",
+		},
+		PropertySG: &repo.PropertySG{
+			ID:                        "property-sg-no-cpf",
+			Name:                      "Property Without CPF Account Link",
+			PropertyType:              "hdb",
+			PropertySubtype:           "bto",
+			PropertyPrice:             *decimal.MustFromString("450000"),
+			BorrowerType:              "joint",
+			Borrower1CpfAccountID:     nil, // Not linked
+			Borrower2CpfAccountID:     nil, // Not linked
+			Borrower1PersonID:         "",  // Empty
+			Borrower1PersonName:       "",  // Empty
+			Borrower2PersonID:         "",  // Empty
+			Borrower2PersonName:       "",  // Empty
+			Borrower1DownpaymentCpfOa: *decimal.MustFromString("50000"),
+			Borrower2DownpaymentCpfOa: *decimal.MustFromString("35000"),
+			Borrower1MonthlyCpfOa:     *decimal.MustFromString("1590"),
+			Borrower2MonthlyCpfOa:     *decimal.MustFromString("1060"),
+			CreatedAt:                 time.Now().AddDate(-1, 0, 0),
+		},
+		Grants: []repo.PropertySGGrant{},
+	}
+
+	// Act
+	result := service.computeUsageFromScenario(scenarioFull)
+
+	// Assert - borrower data should be returned based on CPF payment values
+	require.NotNil(t, result, "Result should not be nil")
+	require.NotNil(t, result.Borrower1, "Borrower1 should not be nil when CPF payment values exist")
+	require.NotNil(t, result.Borrower2, "Borrower2 should not be nil for joint ownership with CPF payment values")
+
+	// Verify the calculated amounts are correct
+	// Borrower 1: 50000 downpayment + 1590/month * 12 months = 50000 + 19080 = 69080
+	assert.Equal(t, "", result.Borrower1.PersonName, "Person name should be empty when not linked")
+	assert.True(t, !result.Borrower1.TotalOAUsed.IsZero(), "Borrower1 total OA used should not be zero")
+
+	// Verify borrower 2 also has data
+	assert.Equal(t, "", result.Borrower2.PersonName, "Person name should be empty when not linked")
+	assert.True(t, !result.Borrower2.TotalOAUsed.IsZero(), "Borrower2 total OA used should not be zero")
+}
+
 func TestComputeUsageFromScenario_CalculatesProportionalInterest(t *testing.T) {
 	// Arrange
 	service := &Service{}
