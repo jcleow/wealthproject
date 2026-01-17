@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import type { PropertySGGrant } from '@/types/propertyPlannerV2'
@@ -29,6 +31,8 @@ export function CPFUsageByPersonTable({
   holdingMonths,
   grants = [],
 }: CPFUsageByPersonTableProps) {
+  const [isMonthlyExpanded, setIsMonthlyExpanded] = useState(false)
+
   const hasSecondBorrower = !!borrower2
   const gridCols = hasSecondBorrower ? 'grid-cols-[1fr_120px_120px]' : 'grid-cols-[1fr_120px]'
 
@@ -81,51 +85,74 @@ export function CPFUsageByPersonTable({
         </div>
       </div>
 
-      {/* Monthly Section */}
+      {/* Housing Grants Row - Always visible */}
+      <div className={cn('grid', gridCols)}>
+        <div className="p-3">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Housing Grants</p>
+        </div>
+        <div className={cn('p-3 text-right', hasSecondBorrower && 'col-span-2')}>
+          <span className={cn(
+            'text-sm font-mono tabular-nums',
+            totalGrants > 0 ? 'text-emerald-400' : 'text-gray-500'
+          )}>
+            {totalGrants > 0 ? formatCurrency(totalGrants) : '$0'}
+          </span>
+        </div>
+      </div>
+
+      {/* Monthly Section - Collapsible */}
       <div>
-        <div className={cn('grid', gridCols)}>
-          <div className="p-3">
+        <button
+          type="button"
+          onClick={() => setIsMonthlyExpanded(!isMonthlyExpanded)}
+          className={cn('grid w-full text-left hover:bg-white/[0.02] transition-colors', gridCols)}
+        >
+          <div className="p-3 flex items-center gap-1.5">
+            {isMonthlyExpanded ? (
+              <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5 text-gray-500" />
+            )}
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
               Monthly ({holdingMonths} mo)
             </p>
           </div>
-          <div />
-          {hasSecondBorrower && <div />}
-        </div>
-        <div className={cn('grid', gridCols)}>
-          <div className="px-3 pb-2">
-            <span className="text-sm text-gray-400 pl-3">CPF OA</span>
-          </div>
-          <div className="px-3 pb-2 text-right">
-            <span className="text-sm text-gray-300 font-mono tabular-nums">
-              {formatCurrency(borrower1.monthlyCpfOa)}/mo
-            </span>
-          </div>
-          {hasSecondBorrower && (
-            <div className="px-3 pb-2 text-right">
-              <span className="text-sm text-gray-300 font-mono tabular-nums">
-                {formatCurrency(borrower2.monthlyCpfOa)}/mo
-              </span>
-            </div>
-          )}
-        </div>
-        <div className={cn('grid', gridCols)}>
-          <div className="px-3 pb-3">
-            <span className="text-sm text-gray-400 pl-3">Total</span>
-          </div>
-          <div className="px-3 pb-3 text-right">
+          <div className="p-3 text-right">
             <span className="text-sm text-white font-mono tabular-nums">
               {formatCurrency(borrower1.monthlyCpfOa * holdingMonths)}
             </span>
           </div>
           {hasSecondBorrower && (
-            <div className="px-3 pb-3 text-right">
+            <div className="p-3 text-right">
               <span className="text-sm text-white font-mono tabular-nums">
                 {formatCurrency(borrower2.monthlyCpfOa * holdingMonths)}
               </span>
             </div>
           )}
-        </div>
+        </button>
+
+        {/* Expanded details */}
+        {isMonthlyExpanded && (
+          <div className="bg-white/[0.01]">
+            <div className={cn('grid', gridCols)}>
+              <div className="px-3 py-2">
+                <span className="text-sm text-gray-400 pl-6">CPF OA rate</span>
+              </div>
+              <div className="px-3 py-2 text-right">
+                <span className="text-sm text-gray-300 font-mono tabular-nums">
+                  {formatCurrency(borrower1.monthlyCpfOa)}/mo
+                </span>
+              </div>
+              {hasSecondBorrower && (
+                <div className="px-3 py-2 text-right">
+                  <span className="text-sm text-gray-300 font-mono tabular-nums">
+                    {formatCurrency(borrower2.monthlyCpfOa)}/mo
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Totals Section */}
@@ -185,52 +212,6 @@ export function CPFUsageByPersonTable({
         )}
       </div>
 
-      {/* Housing Grants Section - Property level, not per person */}
-      {totalGrants > 0 && (
-        <div className="border-t border-white/[0.06]">
-          <div className={cn('grid', gridCols)}>
-            <div className="p-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-                Housing Grants
-              </p>
-            </div>
-            <div className={cn('p-3 text-right', hasSecondBorrower && 'col-span-2')}>
-              <span className="text-xs text-gray-500">(property level)</span>
-            </div>
-          </div>
-          {safeGrants.map((grant) => (
-            <div key={grant.id} className={cn('grid', gridCols)}>
-              <div className="px-3 pb-2">
-                <span className="text-sm text-emerald-400 pl-3">{grant.name}</span>
-              </div>
-              <div className={cn('px-3 pb-2 text-right', hasSecondBorrower && 'col-span-2')}>
-                <span className="text-sm text-emerald-400 font-mono tabular-nums">
-                  {formatCurrency(parseFloat(grant.amount || '0'))}
-                </span>
-              </div>
-            </div>
-          ))}
-          {safeGrants.length > 1 && (
-            <div className={cn('grid', gridCols)}>
-              <div className="px-3 pb-3">
-                <span className="text-sm text-gray-300 pl-3">Total Grants</span>
-              </div>
-              <div className={cn('px-3 pb-3 text-right', hasSecondBorrower && 'col-span-2')}>
-                <span className="text-sm font-semibold text-emerald-400 font-mono tabular-nums">
-                  {formatCurrency(totalGrants)}
-                </span>
-              </div>
-            </div>
-          )}
-          <div className={cn('grid', gridCols)}>
-            <div className="px-3 pb-3">
-              <span className="text-xs text-gray-500 pl-3 italic">No accrued interest</span>
-            </div>
-            <div />
-            {hasSecondBorrower && <div />}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

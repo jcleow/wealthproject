@@ -1108,6 +1108,16 @@ export function generateDinkKidsPlannedProfile(): ProfileData {
           endDate: getMonthString(15),
         },
       ],
+      grants: [
+        {
+          name: 'Enhanced CPF Housing Grant (EHG)',
+          amount: '50000',
+        },
+        {
+          name: 'Proximity Housing Grant (PHG)',
+          amount: '30000',
+        },
+      ],
     },
     incomeAllocations: [
       {

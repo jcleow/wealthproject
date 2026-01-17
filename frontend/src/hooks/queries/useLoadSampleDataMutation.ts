@@ -259,6 +259,7 @@ export function useLoadSampleDataMutation() {
             ratePeriods: propConfig.ratePeriods,
             growthPeriods: propConfig.growthPeriods,
             fees: propConfig.fees,
+            grants: propConfig.grants,
           }
 
           propertyScenario = await propertyPlannerV2Api.createScenario(scenarioInput)
