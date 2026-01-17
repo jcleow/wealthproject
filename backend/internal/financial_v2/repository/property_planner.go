@@ -42,7 +42,12 @@ type PropertySG struct {
 	Borrower1CpfAccountID *string          `json:"borrower1CpfAccountId"`
 	Borrower2IncomeID     *string          `json:"borrower2IncomeId"`
 	Borrower2CpfAccountID *string          `json:"borrower2CpfAccountId"`
-	OtherDebt             decimal.Decimal  `json:"otherDebt"`
+	// Derived fields from CPF accounts (populated via JOIN, not stored in DB)
+	Borrower1PersonID   string `json:"borrower1PersonId"`
+	Borrower1PersonName string `json:"borrower1PersonName"`
+	Borrower2PersonID   string `json:"borrower2PersonId"`
+	Borrower2PersonName string `json:"borrower2PersonName"`
+	OtherDebt           decimal.Decimal `json:"otherDebt"`
 	// Residency is DERIVED from Borrower1IncomeID → finance_incomes.residency_status (not stored in DB)
 	Residency     string  `json:"residency"`
 	PropertyCount int     `json:"propertyCount"`
@@ -610,28 +615,41 @@ func (s *Store) GetPropertyScenario(ctx context.Context, userID, scenarioID stri
 }
 
 // getPropertySG fetches Singapore property details by ID
+// JOINs cpf_accounts and persons tables to get borrower person names in a single query
 func (s *Store) getPropertySG(ctx context.Context, id string) (*PropertySG, error) {
 	var details PropertySG
 	err := s.pool.QueryRow(ctx, `
-		SELECT id, name, property_type, property_subtype,
-			purchase_icon, purchase_icon_color, sale_icon, sale_icon_color, is_included,
-			property_price, valuation_price, loan_type,
-			downpayment_cpf_oa, downpayment_cash,
-			borrower_type, borrower1_income_id, borrower1_cpf_account_id,
-			borrower2_income_id, borrower2_cpf_account_id,
-			other_debt, property_count,
-			bto_launch_date, bto_key_collection_date,
-			sale_expected_date, sale_expected_price,
-			lease_remaining_years,
-			borrower1_downpayment_cpf_oa, borrower2_downpayment_cpf_oa,
-			borrower1_monthly_cpf_oa, borrower2_monthly_cpf_oa,
-			borrower1_downpayment_cash_account_id, borrower1_downpayment_cash_amount,
-			borrower2_downpayment_cash_account_id, borrower2_downpayment_cash_amount,
-			borrower1_monthly_cash_account_id, borrower1_monthly_cash_amount_type, borrower1_monthly_cash_amount,
-			borrower2_monthly_cash_account_id, borrower2_monthly_cash_amount_type, borrower2_monthly_cash_amount,
-			borrower1_cpf_refund_account_id, borrower2_cpf_refund_account_id, net_cash_proceeds_account_id,
-			created_at, updated_at
-		FROM property_sg WHERE id = $1
+		SELECT
+			sg.id, sg.name, sg.property_type, sg.property_subtype,
+			sg.purchase_icon, sg.purchase_icon_color, sg.sale_icon, sg.sale_icon_color, sg.is_included,
+			sg.property_price, sg.valuation_price, sg.loan_type,
+			sg.downpayment_cpf_oa, sg.downpayment_cash,
+			sg.borrower_type, sg.borrower1_income_id, sg.borrower1_cpf_account_id,
+			sg.borrower2_income_id, sg.borrower2_cpf_account_id,
+			-- Borrower 1 person info (via CPF account -> person)
+			COALESCE(b1_cpf.person_id, '') as b1_person_id,
+			COALESCE(b1_person.name, 'Borrower 1') as b1_person_name,
+			-- Borrower 2 person info (via CPF account -> person)
+			COALESCE(b2_cpf.person_id, '') as b2_person_id,
+			COALESCE(b2_person.name, 'Borrower 2') as b2_person_name,
+			sg.other_debt, sg.property_count,
+			sg.bto_launch_date, sg.bto_key_collection_date,
+			sg.sale_expected_date, sg.sale_expected_price,
+			sg.lease_remaining_years,
+			sg.borrower1_downpayment_cpf_oa, sg.borrower2_downpayment_cpf_oa,
+			sg.borrower1_monthly_cpf_oa, sg.borrower2_monthly_cpf_oa,
+			sg.borrower1_downpayment_cash_account_id, sg.borrower1_downpayment_cash_amount,
+			sg.borrower2_downpayment_cash_account_id, sg.borrower2_downpayment_cash_amount,
+			sg.borrower1_monthly_cash_account_id, sg.borrower1_monthly_cash_amount_type, sg.borrower1_monthly_cash_amount,
+			sg.borrower2_monthly_cash_account_id, sg.borrower2_monthly_cash_amount_type, sg.borrower2_monthly_cash_amount,
+			sg.borrower1_cpf_refund_account_id, sg.borrower2_cpf_refund_account_id, sg.net_cash_proceeds_account_id,
+			sg.created_at, sg.updated_at
+		FROM property_sg sg
+		LEFT JOIN cpf_accounts b1_cpf ON sg.borrower1_cpf_account_id = b1_cpf.id
+		LEFT JOIN persons b1_person ON b1_cpf.person_id = b1_person.id
+		LEFT JOIN cpf_accounts b2_cpf ON sg.borrower2_cpf_account_id = b2_cpf.id
+		LEFT JOIN persons b2_person ON b2_cpf.person_id = b2_person.id
+		WHERE sg.id = $1
 	`, id).Scan(
 		&details.ID, &details.Name, &details.PropertyType, &details.PropertySubtype,
 		&details.PurchaseIcon, &details.PurchaseIconColor, &details.SaleIcon, &details.SaleIconColor, &details.IsIncluded,
@@ -639,6 +657,8 @@ func (s *Store) getPropertySG(ctx context.Context, id string) (*PropertySG, erro
 		&details.DownpaymentCpfOa, &details.DownpaymentCash,
 		&details.BorrowerType, &details.Borrower1IncomeID, &details.Borrower1CpfAccountID,
 		&details.Borrower2IncomeID, &details.Borrower2CpfAccountID,
+		&details.Borrower1PersonID, &details.Borrower1PersonName,
+		&details.Borrower2PersonID, &details.Borrower2PersonName,
 		&details.OtherDebt, &details.PropertyCount,
 		&details.BtoLaunchDate, &details.BtoKeyCollectionDate,
 		&details.SaleExpectedDate, &details.SaleExpectedPrice,

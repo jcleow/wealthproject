@@ -8,6 +8,76 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// GetCPFAccountsByIDs retrieves multiple CPF accounts by their IDs in a single query.
+// Returns a map of ID -> CPFAccount for efficient lookup.
+// Person-related fields are read from persons table via JOIN.
+func (s *Store) GetCPFAccountsByIDs(ctx context.Context, userID string, ids []string) (map[string]*CPFAccount, error) {
+	if len(ids) == 0 {
+		return make(map[string]*CPFAccount), nil
+	}
+
+	query := `
+	SELECT
+		c.id,
+		c.user_id,
+		c.person_id,
+		COALESCE(p.name, '') as person_name,
+		COALESCE(c.parent_id, c.id) as parent_id,
+		COALESCE(c.start_date, c.created_at) as start_date,
+		c.end_date,
+		c.oa_balance,
+		c.sa_balance,
+		c.ma_balance,
+		c.ra_balance,
+		p.date_of_birth,
+		p.residency_status,
+		p.pr_grant_date,
+		COALESCE(p.gender, 'male') as gender,
+		c.created_at,
+		c.updated_at
+	FROM cpf_accounts c
+	LEFT JOIN persons p ON c.person_id = p.id
+	WHERE c.user_id = $1 AND c.id = ANY($2)`
+
+	logQuery(query, []any{userID, ids})
+
+	rows, err := s.pool.Query(ctx, query, userID, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CPF accounts by IDs: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]*CPFAccount, len(ids))
+	for rows.Next() {
+		var cpf CPFAccount
+		err := rows.Scan(
+			&cpf.ID,
+			&cpf.UserID,
+			&cpf.PersonID,
+			&cpf.PersonName,
+			&cpf.ParentID,
+			&cpf.StartDate,
+			&cpf.EndDate,
+			&cpf.OABalance,
+			&cpf.SABalance,
+			&cpf.MABalance,
+			&cpf.RABalance,
+			&cpf.DateOfBirth,
+			&cpf.ResidencyStatus,
+			&cpf.PRGrantDate,
+			&cpf.Gender,
+			&cpf.CreatedAt,
+			&cpf.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan CPF account: %w", err)
+		}
+		result[cpf.ID] = &cpf
+	}
+
+	return result, nil
+}
+
 // GetCPFAccountByID retrieves a CPF account by its ID.
 // Person-related fields (date_of_birth, residency_status, pr_grant_date) are read from persons table via JOIN.
 // Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount().

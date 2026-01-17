@@ -489,7 +489,7 @@ func (s *Service) ComputeHousingUsage(ctx context.Context, userID, scenarioID st
 	}
 
 	// Calculate CPF housing usage
-	usage := s.computeUsageFromScenario(ctx, userID, scenarioFull)
+	usage := s.computeUsageFromScenario(scenarioFull)
 
 	// Calculate sale analysis if sale date is set
 	var saleAnalysis *PropertySaleAnalysis
@@ -504,7 +504,7 @@ func (s *Service) ComputeHousingUsage(ctx context.Context, userID, scenarioID st
 }
 
 // computeUsageFromScenario derives CPF housing usage from property scenario data
-func (s *Service) computeUsageFromScenario(ctx context.Context, userID string, scenarioFull *repo.PropertyScenarioFull) *HousingUsageResult {
+func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFull) *HousingUsageResult {
 	propertySG := scenarioFull.PropertySG
 	grants := scenarioFull.Grants
 
@@ -618,17 +618,9 @@ func (s *Service) computeUsageFromScenario(ctx context.Context, userID string, s
 	var borrower1 *BorrowerUsage
 	var borrower2 *BorrowerUsage
 
-	// Borrower 1
+	// Borrower 1 - uses pre-fetched person name from PropertySG (JOINed in repository)
 	if propertySG.Borrower1CpfAccountID != nil && *propertySG.Borrower1CpfAccountID != "" {
 		b1TotalOA := b1DownpaymentOA.Add(b1MonthlyCpfOa.Mul(monthsDecimal))
-
-		// Get person name from CPF account
-		b1PersonName := "Borrower 1"
-		b1PersonID := ""
-		if cpfAccount, err := s.store.GetCPFAccountByID(ctx, userID, *propertySG.Borrower1CpfAccountID); err == nil && cpfAccount != nil {
-			b1PersonName = cpfAccount.PersonName
-			b1PersonID = cpfAccount.PersonID
-		}
 
 		// Calculate proportional interest
 		b1Ratio := decimal.MustFromString("1")
@@ -639,8 +631,8 @@ func (s *Service) computeUsageFromScenario(ctx context.Context, userID string, s
 		b1Refund := b1TotalOA.Add(b1Interest)
 
 		borrower1 = &BorrowerUsage{
-			PersonID:        b1PersonID,
-			PersonName:      b1PersonName,
+			PersonID:        propertySG.Borrower1PersonID,
+			PersonName:      propertySG.Borrower1PersonName,
 			DownpaymentOA:   &b1DownpaymentOA,
 			MonthlyOA:       &b1MonthlyCpfOa,
 			TotalOAUsed:     b1TotalOA,
@@ -649,18 +641,10 @@ func (s *Service) computeUsageFromScenario(ctx context.Context, userID string, s
 		}
 	}
 
-	// Borrower 2 (joint ownership only)
+	// Borrower 2 (joint ownership only) - uses pre-fetched person name from PropertySG
 	isJoint := propertySG.BorrowerType == "joint"
 	if isJoint && propertySG.Borrower2CpfAccountID != nil && *propertySG.Borrower2CpfAccountID != "" {
 		b2TotalOA := b2DownpaymentOA.Add(b2MonthlyCpfOa.Mul(monthsDecimal))
-
-		// Get person name from CPF account
-		b2PersonName := "Borrower 2"
-		b2PersonID := ""
-		if cpfAccount, err := s.store.GetCPFAccountByID(ctx, userID, *propertySG.Borrower2CpfAccountID); err == nil && cpfAccount != nil {
-			b2PersonName = cpfAccount.PersonName
-			b2PersonID = cpfAccount.PersonID
-		}
 
 		// Calculate proportional interest
 		b2Ratio := decimal.Zero()
@@ -671,8 +655,8 @@ func (s *Service) computeUsageFromScenario(ctx context.Context, userID string, s
 		b2Refund := b2TotalOA.Add(b2Interest)
 
 		borrower2 = &BorrowerUsage{
-			PersonID:        b2PersonID,
-			PersonName:      b2PersonName,
+			PersonID:        propertySG.Borrower2PersonID,
+			PersonName:      propertySG.Borrower2PersonName,
 			DownpaymentOA:   &b2DownpaymentOA,
 			MonthlyOA:       &b2MonthlyCpfOa,
 			TotalOAUsed:     b2TotalOA,
