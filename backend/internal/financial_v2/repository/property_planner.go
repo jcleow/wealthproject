@@ -572,8 +572,8 @@ func (s *Store) GetPropertyScenario(ctx context.Context, userID, scenarioID stri
 		Grants:        []PropertySGGrant{},
 	}
 
-	// 2. Get SG details if present
-	if scenario.PropertySGID != nil {
+	// 2. Get SG details if present (check for both nil and empty string)
+	if scenario.PropertySGID != nil && *scenario.PropertySGID != "" {
 		sgDetails, err := s.getPropertySG(ctx, *scenario.PropertySGID)
 		if err != nil {
 			return nil, fmt.Errorf("get sg details: %w", err)
