@@ -90,17 +90,12 @@ export function calculateBorrowerCPFUsage(input: BorrowerCalculationInput): Borr
   const b2TotalUsed = b2DownpaymentOa + (b2MonthlyOa * holdingMonths)
 
   // Calculate proportional interest for each borrower
-  const combinedTotal = b1TotalUsed + b2TotalUsed
-  const b1Ratio = combinedTotal > 0 ? b1TotalUsed / combinedTotal : 1
-  const b2Ratio = combinedTotal > 0 ? b2TotalUsed / combinedTotal : 0
-
-  // Use backend interest if available, otherwise fall back to simple calculation
-  const b1Interest = backendTotalInterest !== null
-    ? backendTotalInterest * b1Ratio
-    : b1TotalUsed * CPF_OA_INTEREST_RATE * (holdingMonths / 12)
-  const b2Interest = backendTotalInterest !== null
-    ? backendTotalInterest * b2Ratio
-    : b2TotalUsed * CPF_OA_INTEREST_RATE * (holdingMonths / 12)
+  const { b1Interest, b2Interest } = calculateProportionalInterest(
+    b1TotalUsed,
+    b2TotalUsed,
+    holdingMonths,
+    backendTotalInterest
+  )
 
   // Build borrower 1 data
   const borrower1Data: BorrowerCPFData | null = borrower1CpfAccountId ? {
@@ -126,6 +121,44 @@ export function calculateBorrowerCPFUsage(input: BorrowerCalculationInput): Borr
     totalCpfUsed: b1TotalUsed + b2TotalUsed,
     totalAccruedInterest: b1Interest + b2Interest,
   }
+}
+
+/**
+ * Result of proportional interest calculation for two borrowers
+ */
+export interface ProportionalInterestResult {
+  b1Interest: number
+  b2Interest: number
+}
+
+/**
+ * Calculate proportional interest for two borrowers based on their CPF usage.
+ * Uses backend interest when available, otherwise falls back to simple interest.
+ *
+ * @param b1Total - Borrower 1 total CPF used
+ * @param b2Total - Borrower 2 total CPF used (0 if single borrower)
+ * @param holdingMonths - Number of months property is held
+ * @param backendTotalInterest - Total interest from backend (null if unavailable)
+ * @returns Proportional interest for each borrower
+ */
+export function calculateProportionalInterest(
+  b1Total: number,
+  b2Total: number,
+  holdingMonths: number,
+  backendTotalInterest: number | null
+): ProportionalInterestResult {
+  const combinedTotal = b1Total + b2Total
+  const b1Ratio = combinedTotal > 0 ? b1Total / combinedTotal : 1
+  const b2Ratio = combinedTotal > 0 ? b2Total / combinedTotal : 0
+
+  const b1Interest = backendTotalInterest !== null
+    ? backendTotalInterest * b1Ratio
+    : b1Total * CPF_OA_INTEREST_RATE * (holdingMonths / 12)
+  const b2Interest = backendTotalInterest !== null
+    ? backendTotalInterest * b2Ratio
+    : b2Total * CPF_OA_INTEREST_RATE * (holdingMonths / 12)
+
+  return { b1Interest, b2Interest }
 }
 
 /**

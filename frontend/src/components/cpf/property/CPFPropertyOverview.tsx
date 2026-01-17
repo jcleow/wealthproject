@@ -7,7 +7,7 @@ import { useQueries } from '@tanstack/react-query'
 import { usePropertyPlannerV2ScenariosQuery } from '@/hooks/queries/usePropertyPlannerV2Query'
 import { useCpfAccountsQuery, CPF_HOUSING_USAGE_QUERY_KEY } from '@/hooks/queries/useCpfQuery'
 import { cpfApi } from '@/api/financial/cpf'
-import { CPF_OA_INTEREST_RATE, extractBackendTotalInterest, calculateHoldingMonths } from '@/lib/cpf'
+import { extractBackendTotalInterest, calculateHoldingMonths, calculateProportionalInterest } from '@/lib/cpf'
 import { PropertyScenarioList } from './PropertyScenarioList'
 import { PropertyCPFDetail } from './PropertyCPFDetail'
 import { AggregateBar } from './AggregateBar'
@@ -72,17 +72,12 @@ function useAggregateStats(
       const b2Total = b2Downpayment + (b2Monthly * holdingMonths)
 
       // Calculate proportional interest for each borrower
-      const combinedTotal = b1Total + b2Total
-      const b1Ratio = combinedTotal > 0 ? b1Total / combinedTotal : 1
-      const b2Ratio = combinedTotal > 0 ? b2Total / combinedTotal : 0
-
-      // Use backend interest if available, otherwise fall back to simple calculation
-      const b1Interest = backendTotalInterest !== null
-        ? backendTotalInterest * b1Ratio
-        : b1Total * CPF_OA_INTEREST_RATE * (holdingMonths / 12)
-      const b2Interest = backendTotalInterest !== null
-        ? backendTotalInterest * b2Ratio
-        : b2Total * CPF_OA_INTEREST_RATE * (holdingMonths / 12)
+      const { b1Interest, b2Interest } = calculateProportionalInterest(
+        b1Total,
+        b2Total,
+        holdingMonths,
+        backendTotalInterest
+      )
 
       if (b1CpfAccountId) {
         const existing = perPersonUsage.get(b1CpfAccountId) || {
