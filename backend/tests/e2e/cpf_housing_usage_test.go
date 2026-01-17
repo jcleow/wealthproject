@@ -48,11 +48,6 @@ func TestCPFHousingUsage_ReturnsPerBorrowerBreakdown(t *testing.T) {
 	ctx := context.Background()
 	userID := testutil.TestUserID
 
-	cleanupCPFHousingUsageTestData(t, pool, userID)
-	t.Cleanup(func() {
-		cleanupCPFHousingUsageTestData(t, pool, userID)
-	})
-
 	var person1ID, person2ID string
 	err := pool.QueryRow(ctx, `
 		INSERT INTO persons (user_id, name, date_of_birth, residency_status)
@@ -167,11 +162,6 @@ func TestCPFHousingUsage_SingleBorrower_NoBorrower2(t *testing.T) {
 	ctx := context.Background()
 	userID := testutil.TestUserID
 
-	cleanupCPFHousingUsageTestData(t, pool, userID)
-	t.Cleanup(func() {
-		cleanupCPFHousingUsageTestData(t, pool, userID)
-	})
-
 	var personID string
 	err := pool.QueryRow(ctx, `
 		INSERT INTO persons (user_id, name, date_of_birth, residency_status)
@@ -263,27 +253,3 @@ func TestCPFHousingUsage_NotFound_InvalidScenarioID(t *testing.T) {
 	resp.Body.Close()
 }
 
-func cleanupCPFHousingUsageTestData(t *testing.T, pool *pgxpool.Pool, userID string) {
-	t.Helper()
-	ctx := context.Background()
-
-	// Delete in order respecting foreign key constraints
-	queries := []string{
-		// Property-related
-		"DELETE FROM liability_rate_periods WHERE property_scenario_id IN (SELECT id FROM property_scenarios WHERE user_id = $1)",
-		"DELETE FROM growth_periods WHERE property_scenario_id IN (SELECT id FROM property_scenarios WHERE user_id = $1)",
-		"DELETE FROM property_fees WHERE property_scenario_id IN (SELECT id FROM property_scenarios WHERE user_id = $1)",
-		"DELETE FROM property_sg_grants WHERE property_sg_id IN (SELECT id FROM property_sg WHERE id IN (SELECT property_sg_id FROM property_scenarios WHERE user_id = $1))",
-		"DELETE FROM property_sg WHERE id IN (SELECT property_sg_id FROM property_scenarios WHERE user_id = $1)",
-		"DELETE FROM property_scenarios WHERE user_id = $1",
-		// CPF and persons
-		"DELETE FROM cpf_accounts WHERE user_id = $1",
-		"DELETE FROM persons WHERE user_id = $1",
-	}
-
-	for _, q := range queries {
-		if _, err := pool.Exec(ctx, q, userID); err != nil {
-			t.Logf("Cleanup query failed (may be expected): %v", err)
-		}
-	}
-}
