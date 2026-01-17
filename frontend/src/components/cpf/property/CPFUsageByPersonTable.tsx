@@ -93,7 +93,7 @@ export function CPFUsageByPersonTable({
         <div className={cn('p-3 text-right', hasSecondBorrower && 'col-span-2')}>
           <span className={cn(
             'text-sm font-mono tabular-nums',
-            totalGrants > 0 ? 'text-emerald-400' : 'text-gray-500'
+            totalGrants > 0 ? 'text-white' : 'text-gray-500'
           )}>
             {totalGrants > 0 ? formatCurrency(totalGrants) : '$0'}
           </span>
@@ -162,13 +162,13 @@ export function CPFUsageByPersonTable({
             <span className="text-sm text-gray-300">Total CPF Used</span>
           </div>
           <div className="p-3 text-right">
-            <span className="text-sm text-white font-semibold font-mono tabular-nums">
+            <span className="text-sm text-white font-mono tabular-nums">
               {formatCurrency(borrower1.totalCpfUsed)}
             </span>
           </div>
           {hasSecondBorrower && (
             <div className="p-3 text-right">
-              <span className="text-sm text-white font-semibold font-mono tabular-nums">
+              <span className="text-sm text-white font-mono tabular-nums">
                 {formatCurrency(borrower2.totalCpfUsed)}
               </span>
             </div>
@@ -199,13 +199,13 @@ export function CPFUsageByPersonTable({
           <span className="text-xs text-gray-400">Refund upon sale</span>
         </div>
         <div className="p-3 text-right">
-          <span className="text-sm font-semibold text-white font-mono tabular-nums">
+          <span className="text-sm text-white font-mono tabular-nums">
             {formatCurrency(borrower1.totalCpfUsed + borrower1.accruedInterest)}
           </span>
         </div>
         {hasSecondBorrower && (
           <div className="p-3 text-right">
-            <span className="text-sm font-semibold text-white font-mono tabular-nums">
+            <span className="text-sm text-white font-mono tabular-nums">
               {formatCurrency(borrower2.totalCpfUsed + borrower2.accruedInterest)}
             </span>
           </div>
