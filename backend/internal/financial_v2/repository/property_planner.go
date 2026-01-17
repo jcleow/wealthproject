@@ -596,7 +596,7 @@ func (s *Store) GetPropertyScenario(ctx context.Context, userID, scenarioID stri
 	}
 
 	// 4. Get growth periods (linked to property_sg)
-	if scenario.PropertySGID != nil {
+	if scenario.PropertySGID != nil && *scenario.PropertySGID != "" {
 		growthPeriods, err := s.getGrowthPeriods(ctx, *scenario.PropertySGID)
 		if err != nil {
 			return nil, fmt.Errorf("get growth periods: %w", err)
@@ -1067,7 +1067,7 @@ func (s *Store) DeletePropertyScenario(ctx context.Context, userID, scenarioID s
 	}
 
 	// Delete SG details (not cascaded from scenario deletion)
-	if propertySGID != nil {
+	if propertySGID != nil && *propertySGID != "" {
 		if _, err := tx.Exec(ctx, `DELETE FROM property_sg WHERE id = $1`, *propertySGID); err != nil {
 			return fmt.Errorf("delete sg details: %w", err)
 		}
