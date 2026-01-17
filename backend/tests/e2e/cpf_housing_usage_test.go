@@ -42,18 +42,17 @@ type cpfBorrowerUsageE2E struct {
 }
 
 func TestCPFHousingUsage_ReturnsPerBorrowerBreakdown(t *testing.T) {
+	// Arrange
 	ts := testutil.NewTestServer(t)
 	pool := testutil.GetTestPool(t)
 	ctx := context.Background()
 	userID := testutil.TestUserID
 
-	// Cleanup before and after test
 	cleanupCPFHousingUsageTestData(t, pool, userID)
 	t.Cleanup(func() {
 		cleanupCPFHousingUsageTestData(t, pool, userID)
 	})
 
-	// Step 1: Create persons via direct SQL (faster than API for test setup)
 	var person1ID, person2ID string
 	err := pool.QueryRow(ctx, `
 		INSERT INTO persons (user_id, name, date_of_birth, residency_status)
@@ -127,7 +126,7 @@ func TestCPFHousingUsage_ReturnsPerBorrowerBreakdown(t *testing.T) {
 	scenarioID := createResult.Scenario.ID
 	require.NotEmpty(t, scenarioID, "Scenario ID should not be empty")
 
-	// Step 4: Call CPF housing usage endpoint
+	// Act
 	resp = ts.Request("GET", "/api/v2/cpf/housing-usage/"+scenarioID).
 		WithDefaultAuth().
 		Do(t)
@@ -139,7 +138,7 @@ func TestCPFHousingUsage_ReturnsPerBorrowerBreakdown(t *testing.T) {
 	require.NoError(t, err, "Failed to decode housing usage response")
 	resp.Body.Close()
 
-	// Step 5: Verify borrower person names are returned
+	// Assert
 	require.NotNil(t, usageResult.Usage, "Usage should not be nil")
 	require.NotNil(t, usageResult.Usage.Borrower1, "Borrower1 should not be nil")
 	require.NotNil(t, usageResult.Usage.Borrower2, "Borrower2 should not be nil for joint ownership")
@@ -162,6 +161,7 @@ func TestCPFHousingUsage_ReturnsPerBorrowerBreakdown(t *testing.T) {
 }
 
 func TestCPFHousingUsage_SingleBorrower_NoBorrower2(t *testing.T) {
+	// Arrange
 	ts := testutil.NewTestServer(t)
 	pool := testutil.GetTestPool(t)
 	ctx := context.Background()
@@ -172,7 +172,6 @@ func TestCPFHousingUsage_SingleBorrower_NoBorrower2(t *testing.T) {
 		cleanupCPFHousingUsageTestData(t, pool, userID)
 	})
 
-	// Create single person and CPF account
 	var personID string
 	err := pool.QueryRow(ctx, `
 		INSERT INTO persons (user_id, name, date_of_birth, residency_status)
@@ -227,7 +226,7 @@ func TestCPFHousingUsage_SingleBorrower_NoBorrower2(t *testing.T) {
 
 	scenarioID := createResult.Scenario.ID
 
-	// Call CPF housing usage endpoint
+	// Act
 	resp = ts.Request("GET", "/api/v2/cpf/housing-usage/"+scenarioID).
 		WithDefaultAuth().
 		Do(t)
@@ -239,7 +238,7 @@ func TestCPFHousingUsage_SingleBorrower_NoBorrower2(t *testing.T) {
 	require.NoError(t, err)
 	resp.Body.Close()
 
-	// Verify single borrower has data, borrower 2 is nil
+	// Assert
 	require.NotNil(t, usageResult.Usage)
 	require.NotNil(t, usageResult.Usage.Borrower1)
 	assert.Equal(t, "Charlie Wong", usageResult.Usage.Borrower1.PersonName)
@@ -250,13 +249,15 @@ func TestCPFHousingUsage_SingleBorrower_NoBorrower2(t *testing.T) {
 }
 
 func TestCPFHousingUsage_NotFound_InvalidScenarioID(t *testing.T) {
+	// Arrange
 	ts := testutil.NewTestServer(t)
 
-	// Call with non-existent scenario ID
+	// Act
 	resp := ts.Request("GET", "/api/v2/cpf/housing-usage/00000000-0000-0000-0000-000000000000").
 		WithDefaultAuth().
 		Do(t)
 
+	// Assert
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode,
 		"Should return 404 for non-existent scenario")
 	resp.Body.Close()
