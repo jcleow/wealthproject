@@ -7,7 +7,7 @@ import { useQueries } from '@tanstack/react-query'
 import { usePropertyPlannerV2ScenariosQuery } from '@/hooks/queries/usePropertyPlannerV2Query'
 import { useCpfAccountsQuery, CPF_HOUSING_USAGE_QUERY_KEY } from '@/hooks/queries/useCpfQuery'
 import { cpfApi } from '@/api/financial/cpf'
-import { CPF_OA_INTEREST_RATE } from '@/lib/cpf'
+import { CPF_OA_INTEREST_RATE, extractBackendTotalInterest, calculateHoldingMonths } from '@/lib/cpf'
 import { PropertyScenarioList } from './PropertyScenarioList'
 import { PropertyCPFDetail } from './PropertyCPFDetail'
 import { AggregateBar } from './AggregateBar'
@@ -52,13 +52,11 @@ function useAggregateStats(
       const purchaseDate = sg.btoKeyCollectionDate || scenario.scenario.createdAt
       const start = new Date(purchaseDate)
       const end = sg.saleExpectedDate ? new Date(sg.saleExpectedDate) : new Date()
-      const holdingMonths = Math.max((end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()), 1)
+      const holdingMonths = calculateHoldingMonths(start, end)
 
       // Get backend housing usage data for this scenario (accurate compound interest)
       const housingUsage = housingUsageData.get(scenario.scenario.id)
-      const backendTotalInterest = housingUsage?.usage?.accruedInterest?.totalAccrued
-        ? parseFloat(housingUsage.usage.accruedInterest.totalAccrued)
-        : null
+      const backendTotalInterest = extractBackendTotalInterest(housingUsage)
 
       // Borrower 1 CPF usage
       const b1CpfAccountId = sg.borrower1CpfAccountId
