@@ -540,22 +540,38 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 			startDate = parsedDate
 		}
 	}
-	asOfDate := time.Now()
 
-	// Calculate months since start
-	monthsSinceStart := (asOfDate.Year()-startDate.Year())*12 + int(asOfDate.Month()) - int(startDate.Month())
-	if monthsSinceStart < 0 {
-		monthsSinceStart = 0
+	// Determine end date for calculation
+	// For projection mode (future properties or sale planning), use expected sale date
+	// For actual mode (current properties), use now
+	now := time.Now()
+	asOfDate := now
+	isFutureProperty := startDate.After(now)
+
+	// If sale date is set, use it for projection
+	if propertySG.SaleExpectedDate != nil && *propertySG.SaleExpectedDate != "" {
+		if parsedDate, err := time.Parse("2006-01", *propertySG.SaleExpectedDate); err == nil {
+			asOfDate = parsedDate
+		}
+	} else if isFutureProperty {
+		// For future properties without sale date, project 10 years
+		asOfDate = startDate.AddDate(10, 0, 0)
 	}
 
-	// Generate monthly payments (up to current date, max 360 months)
+	// Calculate months for holding period
+	monthsHolding := (asOfDate.Year()-startDate.Year())*12 + int(asOfDate.Month()) - int(startDate.Month())
+	if monthsHolding < 0 {
+		monthsHolding = 0
+	}
+
+	// Generate monthly payments (up to projected end date, max 360 months)
 	const maxMonths = 360
-	if monthsSinceStart > maxMonths {
-		monthsSinceStart = maxMonths
+	if monthsHolding > maxMonths {
+		monthsHolding = maxMonths
 	}
 
-	monthlyPayments := make([]HousingUsageMonthlyPayment, 0, monthsSinceStart)
-	for i := 0; i < monthsSinceStart; i++ {
+	monthlyPayments := make([]HousingUsageMonthlyPayment, 0, monthsHolding)
+	for i := 0; i < monthsHolding; i++ {
 		paymentDate := startDate.AddDate(0, i, 0)
 		month := paymentDate.Format("2006-01")
 
@@ -575,7 +591,7 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 	}
 
 	// Calculate totals
-	monthsDecimal := decimal.MustFromString(fmt.Sprintf("%d", monthsSinceStart))
+	monthsDecimal := decimal.MustFromString(fmt.Sprintf("%d", monthsHolding))
 	oaForMonthlyPayments := monthlyOAUsed.Mul(monthsDecimal)
 	cashForMonthlyPayments := monthlyCashUsed.Mul(monthsDecimal)
 	totalOAUsed := oaForDownPayment.Add(oaForMonthlyPayments)
@@ -613,7 +629,13 @@ func calculateAccruedInterestSchedule(
 	startYear := startDate.Year()
 	endYear := asOfDate.Year()
 
-	yearlyBreakdown := make([]YearlyAccruedInterest, 0, endYear-startYear+1)
+	// Handle edge case where asOfDate is before startDate
+	yearCount := endYear - startYear + 1
+	if yearCount < 1 {
+		yearCount = 1
+	}
+
+	yearlyBreakdown := make([]YearlyAccruedInterest, 0, yearCount)
 	cumulativePrincipal := totalOAUsed
 	cumulativeInterest := decimal.Zero()
 

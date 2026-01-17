@@ -6,6 +6,7 @@ import { formatCurrency } from '@/lib/format'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
 import { CPFUsageByPersonTable } from './CPFUsageByPersonTable'
+import { useCpfHousingUsageQuery } from '@/hooks/queries/useCpfQuery'
 
 interface PropertyCPFDetailProps {
   scenario: PropertyScenarioFull
@@ -19,6 +20,10 @@ export function PropertyCPFDetail({
   onEditInPropertyPlanner,
 }: PropertyCPFDetailProps) {
   const sg = scenario.propertySG
+
+  // Fetch CPF housing usage from backend (accurate compound interest)
+  const { data: housingUsage } = useCpfHousingUsageQuery(scenario.scenario.id)
+
   if (!sg) {
     return (
       <div className="flex items-center justify-center h-full rounded-xl border border-gray-700 bg-gray-900/60">
@@ -44,38 +49,54 @@ export function PropertyCPFDetail({
 
   const holdingYears = Math.ceil(holdingMonths / 12)
 
-  // Calculate per-borrower CPF usage
-  const borrower1 = useMemo(() => {
-    if (!sg.borrower1CpfAccountId) return null
-    const account = accountMap.get(sg.borrower1CpfAccountId)
-    const downpayment = parseFloat(sg.borrower1DownpaymentCpfOa || '0')
-    const monthly = parseFloat(sg.borrower1MonthlyCpfOa || '0')
-    const total = downpayment + (monthly * holdingMonths)
-    const interest = total * 0.025 * (holdingMonths / 12)
-    return {
-      name: account?.personName || 'Borrower 1',
-      downpaymentCpfOa: downpayment,
-      monthlyCpfOa: monthly,
-      totalCpfUsed: total,
-      accruedInterest: interest,
-    }
-  }, [sg, accountMap, holdingMonths])
+  // Calculate per-borrower CPF usage with accurate compound interest from backend
+  const { borrower1, borrower2 } = useMemo(() => {
+    // Get per-borrower raw data from scenario
+    const b1DownpaymentOa = parseFloat(sg.borrower1DownpaymentCpfOa || '0')
+    const b1MonthlyOa = parseFloat(sg.borrower1MonthlyCpfOa || '0')
+    const b1TotalUsed = b1DownpaymentOa + (b1MonthlyOa * holdingMonths)
 
-  const borrower2 = useMemo(() => {
-    if (sg.borrowerType !== 'joint' || !sg.borrower2CpfAccountId) return null
-    const account = accountMap.get(sg.borrower2CpfAccountId)
-    const downpayment = parseFloat(sg.borrower2DownpaymentCpfOa || '0')
-    const monthly = parseFloat(sg.borrower2MonthlyCpfOa || '0')
-    const total = downpayment + (monthly * holdingMonths)
-    const interest = total * 0.025 * (holdingMonths / 12)
-    return {
-      name: account?.personName || 'Borrower 2',
-      downpaymentCpfOa: downpayment,
-      monthlyCpfOa: monthly,
-      totalCpfUsed: total,
-      accruedInterest: interest,
-    }
-  }, [sg, accountMap, holdingMonths])
+    const isJoint = sg.borrowerType === 'joint' && sg.borrower2CpfAccountId
+    const b2DownpaymentOa = isJoint ? parseFloat(sg.borrower2DownpaymentCpfOa || '0') : 0
+    const b2MonthlyOa = isJoint ? parseFloat(sg.borrower2MonthlyCpfOa || '0') : 0
+    const b2TotalUsed = b2DownpaymentOa + (b2MonthlyOa * holdingMonths)
+
+    // Get total accrued interest from backend (accurate compound interest)
+    const totalAccruedInterest = housingUsage?.usage?.accruedInterest?.totalAccrued
+      ? parseFloat(housingUsage.usage.accruedInterest.totalAccrued)
+      : null
+
+    // Calculate proportional interest for each borrower
+    const combinedTotal = b1TotalUsed + b2TotalUsed
+    const b1Ratio = combinedTotal > 0 ? b1TotalUsed / combinedTotal : 1
+    const b2Ratio = combinedTotal > 0 ? b2TotalUsed / combinedTotal : 0
+
+    // Use backend interest if available, otherwise fall back to simple calculation
+    const b1Interest = totalAccruedInterest !== null
+      ? totalAccruedInterest * b1Ratio
+      : b1TotalUsed * 0.025 * (holdingMonths / 12)
+    const b2Interest = totalAccruedInterest !== null
+      ? totalAccruedInterest * b2Ratio
+      : b2TotalUsed * 0.025 * (holdingMonths / 12)
+
+    const borrower1Data = sg.borrower1CpfAccountId ? {
+      name: accountMap.get(sg.borrower1CpfAccountId)?.personName || 'Borrower 1',
+      downpaymentCpfOa: b1DownpaymentOa,
+      monthlyCpfOa: b1MonthlyOa,
+      totalCpfUsed: b1TotalUsed,
+      accruedInterest: b1Interest,
+    } : null
+
+    const borrower2Data = isJoint ? {
+      name: accountMap.get(sg.borrower2CpfAccountId!)?.personName || 'Borrower 2',
+      downpaymentCpfOa: b2DownpaymentOa,
+      monthlyCpfOa: b2MonthlyOa,
+      totalCpfUsed: b2TotalUsed,
+      accruedInterest: b2Interest,
+    } : null
+
+    return { borrower1: borrower1Data, borrower2: borrower2Data }
+  }, [sg, accountMap, holdingMonths, housingUsage])
 
   return (
     <div className="rounded-xl border border-white/[0.06] overflow-hidden">
