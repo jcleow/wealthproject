@@ -32,6 +32,7 @@ export function CPFUsageByPersonTable({
   grants = [],
 }: CPFUsageByPersonTableProps) {
   const [isMonthlyExpanded, setIsMonthlyExpanded] = useState(false)
+  const [isGrantsExpanded, setIsGrantsExpanded] = useState(false)
 
   const hasSecondBorrower = !!borrower2
   const gridCols = hasSecondBorrower ? 'grid-cols-[1fr_120px_120px]' : 'grid-cols-[1fr_120px]'
@@ -85,19 +86,61 @@ export function CPFUsageByPersonTable({
         </div>
       </div>
 
-      {/* Housing Grants Row - Always visible */}
-      <div className={cn('grid', gridCols)}>
-        <div className="p-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Housing Grants</p>
-        </div>
-        <div className={cn('p-3 text-right', hasSecondBorrower && 'col-span-2')}>
-          <span className={cn(
-            'text-sm font-mono tabular-nums',
-            totalGrants > 0 ? 'text-white' : 'text-gray-500'
-          )}>
-            {totalGrants > 0 ? formatCurrency(totalGrants) : '$0'}
-          </span>
-        </div>
+      {/* Housing Grants Section - Collapsible when grants exist */}
+      <div>
+        {safeGrants.length > 0 ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setIsGrantsExpanded(!isGrantsExpanded)}
+              className={cn('grid w-full text-left hover:bg-white/[0.02] transition-colors', gridCols)}
+            >
+              <div className="p-3 flex items-center gap-1.5">
+                {isGrantsExpanded ? (
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 text-gray-500" />
+                )}
+                <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                  Housing Grants ({safeGrants.length})
+                </p>
+              </div>
+              <div className={cn('p-3 text-right', hasSecondBorrower && 'col-span-2')}>
+                <span className="text-sm text-white font-mono tabular-nums">
+                  {formatCurrency(totalGrants)}
+                </span>
+              </div>
+            </button>
+
+            {/* Expanded grant details */}
+            {isGrantsExpanded && (
+              <div className="bg-white/[0.01]">
+                {safeGrants.map((grant, index) => (
+                  <div key={grant.id || index} className={cn('grid', gridCols)}>
+                    <div className="px-3 py-2">
+                      <span className="text-sm text-gray-400 pl-6">{grant.name}</span>
+                    </div>
+                    <div className={cn('px-3 py-2 text-right', hasSecondBorrower && 'col-span-2')}>
+                      <span className="text-sm text-gray-300 font-mono tabular-nums">
+                        {formatCurrency(parseFloat(grant.amount || '0'))}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          /* No grants - show static row */
+          <div className={cn('grid', gridCols)}>
+            <div className="p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Housing Grants</p>
+            </div>
+            <div className={cn('p-3 text-right', hasSecondBorrower && 'col-span-2')}>
+              <span className="text-sm text-gray-500 font-mono tabular-nums">$0</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Monthly Section - Collapsible */}
