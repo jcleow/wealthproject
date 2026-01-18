@@ -70,6 +70,14 @@ export function PropertyCPFDetail({
               {formatCurrency(parseFloat(sg.propertyPrice))} • {holdingYears} year holding
             </p>
           </div>
+          <button
+            type="button"
+            onClick={onEditInPropertyPlanner}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            Edit
+          </button>
         </div>
       </div>
 
@@ -77,27 +85,13 @@ export function PropertyCPFDetail({
       <div className="p-4">
         {/* Per-Person CPF Usage - Tabular Layout */}
         {borrower1 && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide">
-                CPF Contribution by Person
-              </h4>
-              <button
-                type="button"
-                onClick={onEditInPropertyPlanner}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
-              >
-                <Edit3 className="h-3.5 w-3.5" />
-                Edit
-              </button>
-            </div>
-            <CPFPropertyContributionByPersonTable
-              borrower1={borrower1}
-              borrower2={borrower2}
-              holdingMonths={holdingMonths}
-              grants={scenario.grants}
-            />
-          </div>
+          <CPFPropertyContributionByPersonTable
+            title="CPF Contribution by Person"
+            borrower1={borrower1}
+            borrower2={borrower2}
+            holdingMonths={holdingMonths}
+            grants={scenario.grants}
+          />
         )}
       </div>
     </div>

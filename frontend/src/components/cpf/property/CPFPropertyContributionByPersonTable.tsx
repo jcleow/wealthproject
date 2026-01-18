@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import type { PropertySGGrant } from '@/types/propertyPlannerV2'
@@ -19,6 +19,7 @@ interface BorrowerData {
 }
 
 interface CPFUsageByPersonTableProps {
+  title?: string
   borrower1: BorrowerData
   borrower2?: BorrowerData | null
   holdingMonths: number
@@ -36,17 +37,24 @@ interface SectionBaseProps {
 // TABLE HEADER
 // ============================================
 
-function TableHeader({ gridCols, borrower1, borrower2}: SectionBaseProps) {
-
+function TableHeader({ gridCols, borrower1, borrower2 }: SectionBaseProps) {
   return (
     <div className={cn('grid', gridCols)}>
-      <div className="p-3" /> {/* Empty label cell */}
-      <div className="p-3 text-center">
-        <span className="text-sm font-medium text-white">{borrower1.name}</span>
+      <div className="p-3">
+        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+          CPF Contribution By Person
+        </span>
+      </div>
+      <div className="p-3 text-right">
+        <span className="text-sm font-medium text-white">
+          {borrower1.name || 'Borrower 1'}
+        </span>
       </div>
       {borrower2 && (
-        <div className="p-3 text-center">
-          <span className="text-sm font-medium text-white">{borrower2?.name}</span>
+        <div className="p-3 text-right">
+          <span className="text-sm font-medium text-white">
+            {borrower2.name || 'Borrower 2'}
+          </span>
         </div>
       )}
     </div>
@@ -58,7 +66,6 @@ function TableHeader({ gridCols, borrower1, borrower2}: SectionBaseProps) {
 // ============================================
 
 function DownpaymentSection({ gridCols, borrower1, borrower2 }: SectionBaseProps) {
-
   return (
     <div>
       <div className={cn('grid', gridCols)}>
@@ -101,6 +108,9 @@ function HousingGrantsSection({ gridCols, borrower2, grants = [] }: HousingGrant
   const [isExpanded, setIsExpanded] = useState(false)
   const safeGrants = grants ?? []
   const totalGrants = safeGrants.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0)
+  const hasSecondBorrower = !!borrower2
+  // Split 50/50 between borrowers, or full amount for single borrower
+  const grantPerPerson = hasSecondBorrower ? totalGrants / 2 : totalGrants
 
   if (safeGrants.length === 0) {
     return (
@@ -108,9 +118,14 @@ function HousingGrantsSection({ gridCols, borrower2, grants = [] }: HousingGrant
         <div className="p-3">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Housing Grants</p>
         </div>
-        <div className={cn('p-3 text-right', borrower2 && 'col-span-2')}>
+        <div className="p-3 text-right">
           <span className="text-sm text-gray-500 font-mono tabular-nums">$0</span>
         </div>
+        {borrower2 && (
+          <div className="p-3 text-right">
+            <span className="text-sm text-gray-500 font-mono tabular-nums">$0</span>
+          </div>
+        )}
       </div>
     )
   }
@@ -131,28 +146,54 @@ function HousingGrantsSection({ gridCols, borrower2, grants = [] }: HousingGrant
           <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
             Housing Grants ({safeGrants.length})
           </p>
+          {hasSecondBorrower && (
+            <span className="group relative">
+              <Info className="h-3 w-3 text-gray-600 cursor-help" />
+              <span className="absolute left-1/2 -translate-x-1/2 bottom-full mb-1.5 hidden group-hover:block whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-gray-300 border border-white/10 z-10">
+                Grants assumed split 50/50 between owners
+              </span>
+            </span>
+          )}
         </div>
-        <div className={cn('p-3 text-right', borrower2 && 'col-span-2')}>
+        <div className="p-3 text-right">
           <span className="text-sm text-white font-mono tabular-nums">
-            {formatCurrency(totalGrants)}
+            {formatCurrency(grantPerPerson)}
           </span>
         </div>
+        {borrower2 && (
+          <div className="p-3 text-right">
+            <span className="text-sm text-white font-mono tabular-nums">
+              {formatCurrency(grantPerPerson)}
+            </span>
+          </div>
+        )}
       </button>
 
       {isExpanded && (
         <div className="bg-white/[0.01]">
-          {safeGrants.map((grant, index) => (
-            <div key={grant.id || index} className={cn('grid', gridCols)}>
-              <div className="px-3 py-2">
-                <span className="text-sm text-gray-400 pl-6">{grant.name}</span>
+          {safeGrants.map((grant, index) => {
+            const grantAmount = parseFloat(grant.amount || '0')
+            const grantPerPersonAmount = hasSecondBorrower ? grantAmount / 2 : grantAmount
+            return (
+              <div key={grant.id || index} className={cn('grid', gridCols)}>
+                <div className="px-3 py-2">
+                  <span className="text-sm text-gray-400 pl-6">{grant.name}</span>
+                </div>
+                <div className="px-3 py-2 text-right">
+                  <span className="text-sm text-gray-300 font-mono tabular-nums">
+                    {formatCurrency(grantPerPersonAmount)}
+                  </span>
+                </div>
+                {borrower2 && (
+                  <div className="px-3 py-2 text-right">
+                    <span className="text-sm text-gray-300 font-mono tabular-nums">
+                      {formatCurrency(grantPerPersonAmount)}
+                    </span>
+                  </div>
+                )}
               </div>
-              <div className={cn('px-3 py-2 text-right', borrower2 && 'col-span-2')}>
-                <span className="text-sm text-gray-300 font-mono tabular-nums">
-                  {formatCurrency(parseFloat(grant.amount || '0'))}
-                </span>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -284,7 +325,7 @@ function RefundSection({ gridCols, borrower1, borrower2 }: SectionBaseProps) {
   return (
     <div className={cn('grid', gridCols)}>
       <div className="p-3">
-        <span className="text-sm text-gray-300">Refund upon sale</span>
+        <span className="text-sm text-gray-300">Refund to OA upon sale</span>
       </div>
       <div className="p-3 text-right">
         <span className="text-sm text-white font-mono tabular-nums">
@@ -309,24 +350,33 @@ function RefundSection({ gridCols, borrower1, borrower2 }: SectionBaseProps) {
 /**
  * CPFPropertyContributionByPersonTable - Reusable tabular display of CPF usage by person
  * Used in both PropertyCPFDetail and CPFTabContent for consistency
+ *
+ * Housing grants are split 50/50 between joint owners (shown in each person's column)
  */
 export function CPFPropertyContributionByPersonTable({
+  title,
   borrower1,
   borrower2,
   holdingMonths,
   grants = [],
 }: CPFUsageByPersonTableProps) {
-  const gridCols = !!borrower2 ? 'grid-cols-[1fr_120px_120px]' : 'grid-cols-[1fr_120px]'
+  const hasSecondBorrower = !!borrower2
+
+  // Grid columns: label | borrower1 | borrower2?
+  const gridCols = hasSecondBorrower
+    ? 'grid-cols-[1fr_120px_120px]'
+    : 'grid-cols-[1fr_120px]'
+
   const sectionProps = { gridCols, borrower1, borrower2 }
 
   return (
-    <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+      <>
       <TableHeader {...sectionProps} />
       <DownpaymentSection {...sectionProps} />
       <HousingGrantsSection {...sectionProps} grants={grants} />
       <MonthlySection {...sectionProps} holdingMonths={holdingMonths} />
       <TotalsSection {...sectionProps} />
       <RefundSection {...sectionProps} />
-    </div>
+      </>
   )
 }
