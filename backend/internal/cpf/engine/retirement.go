@@ -120,3 +120,38 @@ func RedirectContributionToRA(
 
 	return saContribution
 }
+
+// RedirectMAOverflowFromBHS caps MA at BHS and redirects any overflow to SA or RA.
+// Per CPF policy, once MA reaches the Basic Healthcare Sum (BHS), additional
+// contributions that would go to MA are redirected to:
+// - SA (Special Account) for members age < 55
+// - RA (Retirement Account) for members age >= 55
+// Modifies state in place.
+// Returns (overflowToSA, overflowToRA).
+func RedirectMAOverflowFromBHS(
+	state *CPFState,
+	bhs *decimal.Decimal,
+	age int,
+) (*decimal.Decimal, *decimal.Decimal) {
+	// If MA is at or below BHS, no overflow
+	if state.MA == nil || bhs == nil || state.MA.Cmp(bhs) <= 0 {
+		return decimal.Zero(), decimal.Zero()
+	}
+
+	// Calculate overflow amount
+	overflow := state.MA.Sub(bhs)
+
+	// Cap MA at BHS
+	state.MA = bhs
+
+	// Redirect overflow based on age
+	if age < RAFormationAge {
+		// Age < 55: overflow goes to SA
+		state.SA = state.SA.Add(overflow)
+		return overflow, decimal.Zero()
+	}
+
+	// Age >= 55: overflow goes to RA
+	state.RA = state.RA.Add(overflow)
+	return decimal.Zero(), overflow
+}

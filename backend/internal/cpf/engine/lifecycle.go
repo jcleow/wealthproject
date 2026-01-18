@@ -25,6 +25,8 @@ type MonthlyResult struct {
 	// Contributions added this month
 	TotalContributions *decimal.Decimal
 	SARedirectedToRA   *decimal.Decimal // SA contribution redirected to RA (age 55+)
+	MAOverflowToSA     *decimal.Decimal // MA overflow to SA when exceeding BHS (age < 55)
+	MAOverflowToRA     *decimal.Decimal // MA overflow to RA when exceeding BHS (age >= 55)
 
 	// State snapshot after all operations
 	EndOfMonthState *CPFState
@@ -80,6 +82,8 @@ func ProcessMonth(
 	result := &MonthlyResult{
 		TotalContributions: decimal.Zero(),
 		SARedirectedToRA:   decimal.Zero(),
+		MAOverflowToSA:     decimal.Zero(),
+		MAOverflowToRA:     decimal.Zero(),
 	}
 
 	// Update state's AsOfDate to current date
@@ -121,8 +125,40 @@ func ProcessMonth(
 				}
 			}
 			if contrib.Allocation.MA != nil {
-				state.MA = state.MA.Add(contrib.Allocation.MA)
-				result.TotalContributions = result.TotalContributions.Add(contrib.Allocation.MA)
+				// Check BHS cap BEFORE adding MA contribution
+				// Per CPF policy: once MA reaches BHS, excess overflows to SA (age<55) or RA (age>=55)
+				bhs := opts.Assumptions.GetBHS(date.Year())
+				maContrib := contrib.Allocation.MA
+
+				if state.MA.Cmp(bhs) >= 0 {
+					// MA already at or above BHS - entire contribution overflows
+					if age < 55 {
+						state.SA = state.SA.Add(maContrib)
+						result.MAOverflowToSA = result.MAOverflowToSA.Add(maContrib)
+					} else {
+						state.RA = state.RA.Add(maContrib)
+						result.MAOverflowToRA = result.MAOverflowToRA.Add(maContrib)
+					}
+				} else {
+					// Calculate room available in MA before hitting BHS
+					room := bhs.Sub(state.MA)
+					if maContrib.Cmp(room) <= 0 {
+						// Entire contribution fits in MA
+						state.MA = state.MA.Add(maContrib)
+					} else {
+						// Split: fill MA to BHS, overflow rest
+						state.MA = bhs
+						overflow := maContrib.Sub(room)
+						if age < 55 {
+							state.SA = state.SA.Add(overflow)
+							result.MAOverflowToSA = result.MAOverflowToSA.Add(overflow)
+						} else {
+							state.RA = state.RA.Add(overflow)
+							result.MAOverflowToRA = result.MAOverflowToRA.Add(overflow)
+						}
+					}
+				}
+				result.TotalContributions = result.TotalContributions.Add(maContrib)
 			}
 			if contrib.Allocation.RA != nil {
 				state.RA = state.RA.Add(contrib.Allocation.RA)
