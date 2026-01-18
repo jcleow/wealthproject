@@ -3,21 +3,42 @@
 import { useMemo } from 'react'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
+import type { CPFBorrowerUsage } from '@/api/financial/cpf'
 
 import { CPFUsageByPersonTable } from '@/components/cpf/property'
 import { SaleImpactSection } from './SaleImpactSection'
+import { useCpfHousingUsageQuery } from '@/hooks/queries/useCpfQuery'
 
 interface CPFTabContentProps {
   scenario: PropertyScenarioFull
-  cpfAccounts: CPFAccount[]
+  cpfAccounts: CPFAccount[] // Required by parent but data comes from backend
+}
+
+/**
+ * Transform backend CPFBorrowerUsage (string decimals) to UI format (numbers)
+ */
+function transformBorrowerUsage(backendData: CPFBorrowerUsage) {
+  return {
+    name: backendData.personName,
+    downpaymentCpfOa: parseFloat(backendData.downpaymentOa),
+    monthlyCpfOa: parseFloat(backendData.monthlyOa),
+    totalCpfUsed: parseFloat(backendData.totalOaUsed),
+    accruedInterest: parseFloat(backendData.accruedInterest),
+  }
 }
 
 /**
  * CPFTabContent - Displays CPF-specific information for a property scenario
  * within the Property Planner modal.
+ *
+ * Pure display component - all calculations done by backend.
  */
-export function CPFTabContent({ scenario, cpfAccounts }: CPFTabContentProps) {
+export function CPFTabContent({ scenario, cpfAccounts: _cpfAccounts }: CPFTabContentProps) {
   const sg = scenario.propertySG
+
+  // Fetch CPF housing usage from backend (all calculations done server-side)
+  const { data: housingUsage } = useCpfHousingUsageQuery(scenario.scenario.id)
+
   if (!sg) {
     return (
       <div className="text-center py-8">
@@ -26,64 +47,55 @@ export function CPFTabContent({ scenario, cpfAccounts }: CPFTabContentProps) {
     )
   }
 
-  // Build CPF account lookup map
-  const accountMap = useMemo(
-    () => new Map(cpfAccounts.map(a => [a.id, a])),
-    [cpfAccounts]
-  )
+  // Get holding period from backend response
+  const holdingMonths = housingUsage?.usage?.holdingMonths ?? 1
 
-  // Calculate holding period (simplified - from creation or key collection date)
-  const purchaseDate = sg.btoKeyCollectionDate || scenario.scenario.createdAt
-  const holdingMonths = useMemo(() => {
-    const start = new Date(purchaseDate)
-    const end = sg.saleExpectedDate ? new Date(sg.saleExpectedDate) : new Date()
-    const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
-    return Math.max(months, 1)
-  }, [purchaseDate, sg.saleExpectedDate])
+  // Transform backend borrower data to UI format (pure display - no calculations)
+  const { borrower1, borrower2, totalCpfUsed, totalAccruedInterest } = useMemo(() => {
+    const usage = housingUsage?.usage
+    const b1 = usage?.borrower1 ? transformBorrowerUsage(usage.borrower1) : null
+    const b2 = usage?.borrower2 ? transformBorrowerUsage(usage.borrower2) : null
 
-  // Calculate per-borrower CPF usage
-  const borrower1 = useMemo(() => {
-    if (!sg.borrower1CpfAccountId) return null
-    const account = accountMap.get(sg.borrower1CpfAccountId)
-    const downpayment = parseFloat(sg.borrower1DownpaymentCpfOa || '0')
-    const monthly = parseFloat(sg.borrower1MonthlyCpfOa || '0')
-    const total = downpayment + (monthly * holdingMonths)
-    const interest = total * 0.025 * (holdingMonths / 12)
     return {
-      name: account?.personName || 'Borrower 1',
-      downpaymentCpfOa: downpayment,
-      monthlyCpfOa: monthly,
-      totalCpfUsed: total,
-      accruedInterest: interest,
+      borrower1: b1,
+      borrower2: b2,
+      totalCpfUsed: (b1?.totalCpfUsed ?? 0) + (b2?.totalCpfUsed ?? 0),
+      totalAccruedInterest: (b1?.accruedInterest ?? 0) + (b2?.accruedInterest ?? 0),
     }
-  }, [sg, accountMap, holdingMonths])
+  }, [housingUsage])
 
-  const borrower2 = useMemo(() => {
-    if (sg.borrowerType !== 'joint' || !sg.borrower2CpfAccountId) return null
-    const account = accountMap.get(sg.borrower2CpfAccountId)
-    const downpayment = parseFloat(sg.borrower2DownpaymentCpfOa || '0')
-    const monthly = parseFloat(sg.borrower2MonthlyCpfOa || '0')
-    const total = downpayment + (monthly * holdingMonths)
-    const interest = total * 0.025 * (holdingMonths / 12)
+  // Sale calculations - use backend data if available, otherwise fall back to estimates
+  const saleData = useMemo(() => {
+    const backendSale = housingUsage?.saleAnalysis
+
+    if (backendSale) {
+      // Use accurate backend calculations
+      return {
+        expectedSalePrice: parseFloat(backendSale.grossProceeds),
+        outstandingLoan: parseFloat(backendSale.outstandingLoan),
+        sellingCosts: parseFloat(backendSale.sellingCosts),
+        cpfPrincipal: parseFloat(backendSale.cpfRefundRequired.principalUsed),
+        cpfAccruedInterest: parseFloat(backendSale.cpfRefundRequired.accruedInterest),
+        netCashProceeds: parseFloat(backendSale.netCashProceeds),
+      }
+    }
+
+    // Fallback to frontend estimates
+    const expectedSalePrice = parseFloat(sg.saleExpectedPrice || '0') || parseFloat(sg.propertyPrice) * 1.2
+    const outstandingLoan = parseFloat(scenario.computed?.loanAmount || '0') * 0.7
+    const sellingCosts = expectedSalePrice * 0.02
+    const totalCpfRefund = totalCpfUsed + totalAccruedInterest
+    const netCashProceeds = expectedSalePrice - outstandingLoan - sellingCosts - totalCpfRefund
+
     return {
-      name: account?.personName || 'Borrower 2',
-      downpaymentCpfOa: downpayment,
-      monthlyCpfOa: monthly,
-      totalCpfUsed: total,
-      accruedInterest: interest,
+      expectedSalePrice,
+      outstandingLoan,
+      sellingCosts,
+      cpfPrincipal: totalCpfUsed,
+      cpfAccruedInterest: totalAccruedInterest,
+      netCashProceeds,
     }
-  }, [sg, accountMap, holdingMonths])
-
-  // Combined totals
-  const totalCpfUsed = (borrower1?.totalCpfUsed || 0) + (borrower2?.totalCpfUsed || 0)
-  const totalAccruedInterest = (borrower1?.accruedInterest || 0) + (borrower2?.accruedInterest || 0)
-
-  // Sale calculations
-  const expectedSalePrice = parseFloat(sg.saleExpectedPrice || '0') || parseFloat(sg.propertyPrice) * 1.2
-  const outstandingLoan = parseFloat(scenario.computed?.loanAmount || '0') * 0.7 // Rough estimate
-  const sellingCosts = expectedSalePrice * 0.02
-  const totalCpfRefund = totalCpfUsed + totalAccruedInterest
-  const netCashProceeds = expectedSalePrice - outstandingLoan - sellingCosts - totalCpfRefund
+  }, [housingUsage, sg, scenario.computed, totalCpfUsed, totalAccruedInterest])
 
   // Build borrower refunds for sale impact section
   const borrowerRefunds = useMemo(() => {
@@ -128,12 +140,12 @@ export function CPFTabContent({ scenario, cpfAccounts }: CPFTabContentProps) {
       {sg.saleExpectedDate && (
         <SaleImpactSection
           expectedSaleDate={sg.saleExpectedDate}
-          expectedSalePrice={expectedSalePrice}
-          outstandingLoan={outstandingLoan}
-          sellingCosts={sellingCosts}
-          cpfPrincipal={totalCpfUsed}
-          cpfAccruedInterest={totalAccruedInterest}
-          netCashProceeds={netCashProceeds}
+          expectedSalePrice={saleData.expectedSalePrice}
+          outstandingLoan={saleData.outstandingLoan}
+          sellingCosts={saleData.sellingCosts}
+          cpfPrincipal={saleData.cpfPrincipal}
+          cpfAccruedInterest={saleData.cpfAccruedInterest}
+          netCashProceeds={saleData.netCashProceeds}
           borrowerRefunds={borrowerRefunds}
         />
       )}

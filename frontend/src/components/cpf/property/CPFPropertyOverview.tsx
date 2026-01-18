@@ -2,29 +2,34 @@
 
 import { useState, useMemo } from 'react'
 import { Home, Plus } from 'lucide-react'
+import { useQueries } from '@tanstack/react-query'
 
 import { usePropertyPlannerV2ScenariosQuery } from '@/hooks/queries/usePropertyPlannerV2Query'
-import { useCpfAccountsQuery } from '@/hooks/queries/useCpfQuery'
+import { useCpfAccountsQuery, CPF_HOUSING_USAGE_QUERY_KEY } from '@/hooks/queries/useCpfQuery'
+import { cpfApi } from '@/api/financial/cpf'
 import { PropertyScenarioList } from './PropertyScenarioList'
 import { PropertyCPFDetail } from './PropertyCPFDetail'
 import { AggregateBar } from './AggregateBar'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
+import type { CPFHousingUsageFullResponse } from '@/api/financial/cpf'
 
 interface CPFPropertyOverviewProps {
   onOpenPropertyPlanner?: (scenarioId?: string, initialTab?: string) => void
 }
 
 /**
- * Compute aggregate CPF stats across all active property scenarios
+ * Compute aggregate CPF stats across all active property scenarios.
+ * Pure aggregation of backend data - no calculations, just summing.
  */
-function useAggregateStats(scenarios: PropertyScenarioFull[], cpfAccounts: { id: string; oaBalance: number; personName?: string }[]) {
+function useAggregateStats(
+  scenarios: PropertyScenarioFull[],
+  cpfAccounts: { id: string; oaBalance: number; personName?: string }[],
+  housingUsageData: Map<string, CPFHousingUsageFullResponse | null>
+) {
   return useMemo(() => {
     const activeScenarios = scenarios.filter(s => s.propertySG?.isIncluded)
 
-    // Build a map of CPF account ID to person name and OA balance
-    const accountMap = new Map(cpfAccounts.map(a => [a.id, { name: a.personName || 'Unknown', oaBalance: a.oaBalance }]))
-
-    // Aggregate per-person CPF usage
+    // Aggregate per-person CPF usage from backend data
     const perPersonUsage = new Map<string, { name: string; cpfUsed: number; accruedInterest: number }>()
 
     let totalCpfUsed = 0
@@ -39,49 +44,43 @@ function useAggregateStats(scenarios: PropertyScenarioFull[], cpfAccounts: { id:
       const scenarioGrants = scenario.grants?.reduce((sum, g) => sum + parseFloat(g.amount || '0'), 0) || 0
       totalGrants += scenarioGrants
 
-      // Calculate holding period from creation date
-      const purchaseDate = sg.btoKeyCollectionDate || scenario.scenario.createdAt
-      const start = new Date(purchaseDate)
-      const end = sg.saleExpectedDate ? new Date(sg.saleExpectedDate) : new Date()
-      const holdingMonths = Math.max((end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()), 1)
+      // Get backend housing usage data for this scenario
+      const housingUsage = housingUsageData.get(scenario.scenario.id)
+      const usage = housingUsage?.usage
 
-      // Borrower 1 CPF usage
-      const b1CpfAccountId = sg.borrower1CpfAccountId
-      const b1Downpayment = parseFloat(sg.borrower1DownpaymentCpfOa || '0')
-      const b1Monthly = parseFloat(sg.borrower1MonthlyCpfOa || '0')
-      const b1Total = b1Downpayment + (b1Monthly * holdingMonths)
-      const b1Interest = b1Total * 0.025 * (holdingMonths / 12)
+      // Aggregate borrower 1 from backend data
+      if (usage?.borrower1 && sg.borrower1CpfAccountId) {
+        const b1 = usage.borrower1
+        const b1CpfUsed = parseFloat(b1.totalOaUsed)
+        const b1Interest = parseFloat(b1.accruedInterest)
 
-      if (b1CpfAccountId) {
-        const existing = perPersonUsage.get(b1CpfAccountId) || {
-          name: accountMap.get(b1CpfAccountId)?.name || 'Borrower 1',
+        const existing = perPersonUsage.get(sg.borrower1CpfAccountId) || {
+          name: b1.personName || 'Borrower 1',
           cpfUsed: 0,
           accruedInterest: 0
         }
-        existing.cpfUsed += b1Total
+        existing.cpfUsed += b1CpfUsed
         existing.accruedInterest += b1Interest
-        perPersonUsage.set(b1CpfAccountId, existing)
-        totalCpfUsed += b1Total
+        perPersonUsage.set(sg.borrower1CpfAccountId, existing)
+        totalCpfUsed += b1CpfUsed
         totalAccruedInterest += b1Interest
       }
 
-      // Borrower 2 CPF usage (if joint)
-      if (sg.borrowerType === 'joint' && sg.borrower2CpfAccountId) {
-        const b2CpfAccountId = sg.borrower2CpfAccountId
-        const b2Downpayment = parseFloat(sg.borrower2DownpaymentCpfOa || '0')
-        const b2Monthly = parseFloat(sg.borrower2MonthlyCpfOa || '0')
-        const b2Total = b2Downpayment + (b2Monthly * holdingMonths)
-        const b2Interest = b2Total * 0.025 * (holdingMonths / 12)
+      // Aggregate borrower 2 from backend data (joint ownership only)
+      if (usage?.borrower2 && sg.borrower2CpfAccountId) {
+        const b2 = usage.borrower2
+        const b2CpfUsed = parseFloat(b2.totalOaUsed)
+        const b2Interest = parseFloat(b2.accruedInterest)
 
-        const existing = perPersonUsage.get(b2CpfAccountId) || {
-          name: accountMap.get(b2CpfAccountId)?.name || 'Borrower 2',
+        const existing = perPersonUsage.get(sg.borrower2CpfAccountId) || {
+          name: b2.personName || 'Borrower 2',
           cpfUsed: 0,
           accruedInterest: 0
         }
-        existing.cpfUsed += b2Total
+        existing.cpfUsed += b2CpfUsed
         existing.accruedInterest += b2Interest
-        perPersonUsage.set(b2CpfAccountId, existing)
-        totalCpfUsed += b2Total
+        perPersonUsage.set(sg.borrower2CpfAccountId, existing)
+        totalCpfUsed += b2CpfUsed
         totalAccruedInterest += b2Interest
       }
     }
@@ -102,29 +101,55 @@ function useAggregateStats(scenarios: PropertyScenarioFull[], cpfAccounts: { id:
         ...data
       }))
     }
-  }, [scenarios, cpfAccounts])
+  }, [scenarios, cpfAccounts, housingUsageData])
 }
 
 export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOverviewProps) {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null)
 
   // Fetch property scenarios
-  const { data: scenarios = [], isLoading: scenariosLoading } = usePropertyPlannerV2ScenariosQuery()
+  const { data: scenariosData, isLoading: scenariosLoading } = usePropertyPlannerV2ScenariosQuery()
+  const scenarios = scenariosData ?? []
 
   // Fetch CPF accounts for person names and OA balances
-  const { data: cpfAccounts = [], isLoading: accountsLoading } = useCpfAccountsQuery()
+  const { data: cpfAccountsData, isLoading: accountsLoading } = useCpfAccountsQuery()
+  const cpfAccounts = cpfAccountsData ?? []
 
-  // Compute aggregate stats
-  const stats = useAggregateStats(
-    scenarios,
-    cpfAccounts.map(a => ({ id: a.id, oaBalance: a.oaBalance, personName: a.personName }))
-  )
-
-  // Split scenarios into active and draft
+  // Get active scenarios for housing usage queries
   const activeScenarios = useMemo(
     () => scenarios.filter(s => s.propertySG?.isIncluded),
     [scenarios]
   )
+
+  // Fetch CPF housing usage for each active scenario in parallel (accurate compound interest)
+  const housingUsageQueries = useQueries({
+    queries: activeScenarios.map(scenario => ({
+      queryKey: CPF_HOUSING_USAGE_QUERY_KEY(scenario.scenario.id),
+      queryFn: () => cpfApi.getCPFHousingUsage(scenario.scenario.id),
+      staleTime: 30_000,
+    })),
+  })
+
+  // Build a map of scenario ID -> housing usage data
+  const housingUsageData = useMemo(() => {
+    const map = new Map<string, CPFHousingUsageFullResponse | null>()
+    activeScenarios.forEach((scenario, index) => {
+      const query = housingUsageQueries[index]
+      if (query?.isSuccess && query.data) {
+        map.set(scenario.scenario.id, query.data)
+      }
+    })
+    return map
+  }, [activeScenarios, housingUsageQueries])
+
+  // Compute aggregate stats using backend housing usage data
+  const stats = useAggregateStats(
+    scenarios,
+    cpfAccounts.map(a => ({ id: a.id, oaBalance: a.oaBalance, personName: a.personName })),
+    housingUsageData
+  )
+
+  // Split scenarios into draft (activeScenarios already computed above)
   const draftScenarios = useMemo(
     () => scenarios.filter(s => !s.propertySG?.isIncluded),
     [scenarios]

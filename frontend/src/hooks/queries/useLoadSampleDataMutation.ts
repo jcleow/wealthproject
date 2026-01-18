@@ -72,6 +72,7 @@ export function useLoadSampleDataMutation() {
         if (!person) continue
 
         try {
+          console.debug('[loadProfile] Creating CPF account for:', person.name, 'with OA balance:', cpfConfig.oaBalance)
           // Note: CPF housing usage is derived from property scenarios - see GetCPFOAUsageByAccount()
           const cpfAccount = await financialApi.createCPFAccount({
             personId: person.id,
@@ -80,6 +81,7 @@ export function useLoadSampleDataMutation() {
             maBalance: cpfConfig.maBalance,
             raBalance: cpfConfig.raBalance,
           })
+          console.debug('[loadProfile] Created CPF account:', cpfAccount.id, 'OA balance:', cpfAccount.oaBalance)
           createdCpfAccounts.push(cpfAccount)
         } catch (error) {
           console.error('[loadProfile] Failed to create CPF account for:', person.name, error)
@@ -259,7 +261,17 @@ export function useLoadSampleDataMutation() {
             ratePeriods: propConfig.ratePeriods,
             growthPeriods: propConfig.growthPeriods,
             fees: propConfig.fees,
+            grants: propConfig.grants,
           }
+
+          console.debug('[loadProfile] Creating property scenario with:', {
+            borrower1CpfAccountId: borrower1Cpf?.id,
+            borrower1OaBalance: borrower1Cpf?.oaBalance,
+            borrower2CpfAccountId: borrower2Cpf?.id,
+            borrower2OaBalance: borrower2Cpf?.oaBalance,
+            downpaymentCpfOa: restPropertySG.downpaymentCpfOa,
+            grantsCount: propConfig.grants?.length ?? 0,
+          })
 
           propertyScenario = await propertyPlannerV2Api.createScenario(scenarioInput)
           console.debug('[loadProfile] Created property scenario:', propertyScenario.scenario.id)

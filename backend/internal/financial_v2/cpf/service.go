@@ -401,6 +401,17 @@ type HousingUsageTotals struct {
 	OAForMonthlyPayments *decimal.Decimal
 }
 
+// BorrowerUsage represents CPF usage for a single borrower
+type BorrowerUsage struct {
+	PersonID        string           `json:"personId"`
+	PersonName      string           `json:"personName"`
+	DownpaymentOA   *decimal.Decimal `json:"downpaymentOa"`
+	MonthlyOA       *decimal.Decimal `json:"monthlyOa"`
+	TotalOAUsed     *decimal.Decimal `json:"totalOaUsed"`
+	AccruedInterest *decimal.Decimal `json:"accruedInterest"`
+	TotalRefund     *decimal.Decimal `json:"totalRefund"` // TotalOAUsed + AccruedInterest
+}
+
 // YearlyAccruedInterest represents accrued interest for one year
 type YearlyAccruedInterest struct {
 	Year               int
@@ -423,6 +434,9 @@ type HousingUsageResult struct {
 	MonthlyPayments    []HousingUsageMonthlyPayment
 	Totals             HousingUsageTotals
 	AccruedInterest    AccruedInterestSchedule
+	Borrower1          *BorrowerUsage `json:"borrower1,omitempty"`
+	Borrower2          *BorrowerUsage `json:"borrower2,omitempty"`
+	HoldingMonths      int            `json:"holdingMonths"`
 }
 
 // CPFRefundRequired represents the CPF refund details for property sale
@@ -540,22 +554,38 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 			startDate = parsedDate
 		}
 	}
-	asOfDate := time.Now()
 
-	// Calculate months since start
-	monthsSinceStart := (asOfDate.Year()-startDate.Year())*12 + int(asOfDate.Month()) - int(startDate.Month())
-	if monthsSinceStart < 0 {
-		monthsSinceStart = 0
+	// Determine end date for calculation
+	// For projection mode (future properties or sale planning), use expected sale date
+	// For actual mode (current properties), use now
+	now := time.Now()
+	asOfDate := now
+	isFutureProperty := startDate.After(now)
+
+	// If sale date is set, use it for projection
+	if propertySG.SaleExpectedDate != nil && *propertySG.SaleExpectedDate != "" {
+		if parsedDate, err := time.Parse("2006-01", *propertySG.SaleExpectedDate); err == nil {
+			asOfDate = parsedDate
+		}
+	} else if isFutureProperty {
+		// For future properties without sale date, project 10 years
+		asOfDate = startDate.AddDate(10, 0, 0)
 	}
 
-	// Generate monthly payments (up to current date, max 360 months)
+	// Calculate months for holding period
+	monthsHolding := (asOfDate.Year()-startDate.Year())*12 + int(asOfDate.Month()) - int(startDate.Month())
+	if monthsHolding < 0 {
+		monthsHolding = 0
+	}
+
+	// Generate monthly payments (up to projected end date, max 360 months)
 	const maxMonths = 360
-	if monthsSinceStart > maxMonths {
-		monthsSinceStart = maxMonths
+	if monthsHolding > maxMonths {
+		monthsHolding = maxMonths
 	}
 
-	monthlyPayments := make([]HousingUsageMonthlyPayment, 0, monthsSinceStart)
-	for i := 0; i < monthsSinceStart; i++ {
+	monthlyPayments := make([]HousingUsageMonthlyPayment, 0, monthsHolding)
+	for i := 0; i < monthsHolding; i++ {
 		paymentDate := startDate.AddDate(0, i, 0)
 		month := paymentDate.Format("2006-01")
 
@@ -575,7 +605,7 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 	}
 
 	// Calculate totals
-	monthsDecimal := decimal.MustFromString(fmt.Sprintf("%d", monthsSinceStart))
+	monthsDecimal := decimal.MustFromString(fmt.Sprintf("%d", monthsHolding))
 	oaForMonthlyPayments := monthlyOAUsed.Mul(monthsDecimal)
 	cashForMonthlyPayments := monthlyCashUsed.Mul(monthsDecimal)
 	totalOAUsed := oaForDownPayment.Add(oaForMonthlyPayments)
@@ -583,6 +613,63 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 
 	// Calculate accrued interest (2.5% p.a. compounded yearly)
 	accruedInterest := calculateAccruedInterestSchedule(totalOAUsed, startDate, asOfDate)
+
+	// Calculate per-borrower CPF usage
+	var borrower1 *BorrowerUsage
+	var borrower2 *BorrowerUsage
+
+	// Borrower 1 - return data if they have CPF OA usage (even without linked CPF account)
+	// This allows the UI to show CPF usage from property scenario data
+	b1HasCpfUsage := !b1DownpaymentOA.IsZero() || !b1MonthlyCpfOa.IsZero()
+	if b1HasCpfUsage {
+		b1TotalOA := b1DownpaymentOA.Add(b1MonthlyCpfOa.Mul(monthsDecimal))
+
+		// Calculate proportional interest
+		b1Ratio := decimal.MustFromString("1")
+		if !totalOAUsed.IsZero() {
+			b1Ratio = b1TotalOA.Div(totalOAUsed)
+		}
+		b1Interest := accruedInterest.TotalAccrued.Mul(b1Ratio)
+		b1Refund := b1TotalOA.Add(b1Interest)
+
+		// Use pre-fetched person name from PropertySG (JOINed in repository)
+		// Falls back to empty string if no CPF account is linked
+		borrower1 = &BorrowerUsage{
+			PersonID:        propertySG.Borrower1PersonID,
+			PersonName:      propertySG.Borrower1PersonName,
+			DownpaymentOA:   &b1DownpaymentOA,
+			MonthlyOA:       &b1MonthlyCpfOa,
+			TotalOAUsed:     b1TotalOA,
+			AccruedInterest: b1Interest,
+			TotalRefund:     b1Refund,
+		}
+	}
+
+	// Borrower 2 (joint ownership only) - return data if they have CPF OA usage
+	isJoint := propertySG.BorrowerType == "joint"
+	b2HasCpfUsage := !b2DownpaymentOA.IsZero() || !b2MonthlyCpfOa.IsZero()
+	if isJoint && b2HasCpfUsage {
+		b2TotalOA := b2DownpaymentOA.Add(b2MonthlyCpfOa.Mul(monthsDecimal))
+
+		// Calculate proportional interest
+		b2Ratio := decimal.Zero()
+		if !totalOAUsed.IsZero() {
+			b2Ratio = b2TotalOA.Div(totalOAUsed)
+		}
+		b2Interest := accruedInterest.TotalAccrued.Mul(b2Ratio)
+		b2Refund := b2TotalOA.Add(b2Interest)
+
+		// Use pre-fetched person name from PropertySG (JOINed in repository)
+		borrower2 = &BorrowerUsage{
+			PersonID:        propertySG.Borrower2PersonID,
+			PersonName:      propertySG.Borrower2PersonName,
+			DownpaymentOA:   &b2DownpaymentOA,
+			MonthlyOA:       &b2MonthlyCpfOa,
+			TotalOAUsed:     b2TotalOA,
+			AccruedInterest: b2Interest,
+			TotalRefund:     b2Refund,
+		}
+	}
 
 	return &HousingUsageResult{
 		PropertyScenarioID: scenarioFull.Scenario.ID,
@@ -600,6 +687,9 @@ func (s *Service) computeUsageFromScenario(scenarioFull *repo.PropertyScenarioFu
 			OAForMonthlyPayments: oaForMonthlyPayments,
 		},
 		AccruedInterest: *accruedInterest,
+		Borrower1:       borrower1,
+		Borrower2:       borrower2,
+		HoldingMonths:   monthsHolding,
 	}
 }
 
@@ -613,7 +703,13 @@ func calculateAccruedInterestSchedule(
 	startYear := startDate.Year()
 	endYear := asOfDate.Year()
 
-	yearlyBreakdown := make([]YearlyAccruedInterest, 0, endYear-startYear+1)
+	// Handle edge case where asOfDate is before startDate
+	yearCount := endYear - startYear + 1
+	if yearCount < 1 {
+		yearCount = 1
+	}
+
+	yearlyBreakdown := make([]YearlyAccruedInterest, 0, yearCount)
 	cumulativePrincipal := totalOAUsed
 	cumulativeInterest := decimal.Zero()
 

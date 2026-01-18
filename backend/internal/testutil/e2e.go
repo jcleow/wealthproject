@@ -107,10 +107,10 @@ func CleanupAllTables(ctx context.Context, pool *pgxpool.Pool) error {
 		"liability_rate_periods",
 		"growth_periods",
 		"property_fees",
+		"property_sg_grants",
+		"property_sg",
 		"property_scenarios",
-		"property_sg_details",
 		// Scenario events
-		"scenario_event_impacts",
 		"scenario_events",
 		// Financial tables
 		"income_allocations",
@@ -121,6 +121,7 @@ func CleanupAllTables(ctx context.Context, pool *pgxpool.Pool) error {
 		"finance_investments",
 		"finance_cash_accounts",
 		"cpf_accounts",
+		"persons",
 	}
 
 	for _, table := range tables {

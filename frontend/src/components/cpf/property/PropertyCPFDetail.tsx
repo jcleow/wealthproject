@@ -5,20 +5,39 @@ import { Edit3 } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
+import type { CPFBorrowerUsage } from '@/api/financial/cpf'
 import { CPFUsageByPersonTable } from './CPFUsageByPersonTable'
+import { useCpfHousingUsageQuery } from '@/hooks/queries/useCpfQuery'
 
 interface PropertyCPFDetailProps {
   scenario: PropertyScenarioFull
-  cpfAccounts: CPFAccount[]
+  cpfAccounts: CPFAccount[] // Required by parent but data comes from backend
   onEditInPropertyPlanner?: () => void
+}
+
+/**
+ * Transform backend CPFBorrowerUsage (string decimals) to UI format (numbers)
+ */
+function transformBorrowerUsage(backendData: CPFBorrowerUsage) {
+  return {
+    name: backendData.personName,
+    downpaymentCpfOa: parseFloat(backendData.downpaymentOa),
+    monthlyCpfOa: parseFloat(backendData.monthlyOa),
+    totalCpfUsed: parseFloat(backendData.totalOaUsed),
+    accruedInterest: parseFloat(backendData.accruedInterest),
+  }
 }
 
 export function PropertyCPFDetail({
   scenario,
-  cpfAccounts,
+  cpfAccounts: _cpfAccounts, // Unused - data comes from backend
   onEditInPropertyPlanner,
 }: PropertyCPFDetailProps) {
   const sg = scenario.propertySG
+
+  // Fetch CPF housing usage from backend (all calculations done server-side)
+  const { data: housingUsage } = useCpfHousingUsageQuery(scenario.scenario.id)
+
   if (!sg) {
     return (
       <div className="flex items-center justify-center h-full rounded-xl border border-gray-700 bg-gray-900/60">
@@ -27,55 +46,18 @@ export function PropertyCPFDetail({
     )
   }
 
-  // Build CPF account lookup map
-  const accountMap = useMemo(
-    () => new Map(cpfAccounts.map(a => [a.id, a])),
-    [cpfAccounts]
-  )
-
-  // Calculate holding period
-  const purchaseDate = sg.btoKeyCollectionDate || scenario.scenario.createdAt
-  const holdingMonths = useMemo(() => {
-    const start = new Date(purchaseDate)
-    const end = sg.saleExpectedDate ? new Date(sg.saleExpectedDate) : new Date()
-    const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
-    return Math.max(months, 1)
-  }, [purchaseDate, sg.saleExpectedDate])
-
+  // Get holding period from backend response (or calculate fallback)
+  const holdingMonths = housingUsage?.usage?.holdingMonths ?? 1
   const holdingYears = Math.ceil(holdingMonths / 12)
 
-  // Calculate per-borrower CPF usage
-  const borrower1 = useMemo(() => {
-    if (!sg.borrower1CpfAccountId) return null
-    const account = accountMap.get(sg.borrower1CpfAccountId)
-    const downpayment = parseFloat(sg.borrower1DownpaymentCpfOa || '0')
-    const monthly = parseFloat(sg.borrower1MonthlyCpfOa || '0')
-    const total = downpayment + (monthly * holdingMonths)
-    const interest = total * 0.025 * (holdingMonths / 12)
+  // Transform backend borrower data to UI format (pure display - no calculations)
+  const { borrower1, borrower2 } = useMemo(() => {
+    const usage = housingUsage?.usage
     return {
-      name: account?.personName || 'Borrower 1',
-      downpaymentCpfOa: downpayment,
-      monthlyCpfOa: monthly,
-      totalCpfUsed: total,
-      accruedInterest: interest,
+      borrower1: usage?.borrower1 ? transformBorrowerUsage(usage.borrower1) : null,
+      borrower2: usage?.borrower2 ? transformBorrowerUsage(usage.borrower2) : null,
     }
-  }, [sg, accountMap, holdingMonths])
-
-  const borrower2 = useMemo(() => {
-    if (sg.borrowerType !== 'joint' || !sg.borrower2CpfAccountId) return null
-    const account = accountMap.get(sg.borrower2CpfAccountId)
-    const downpayment = parseFloat(sg.borrower2DownpaymentCpfOa || '0')
-    const monthly = parseFloat(sg.borrower2MonthlyCpfOa || '0')
-    const total = downpayment + (monthly * holdingMonths)
-    const interest = total * 0.025 * (holdingMonths / 12)
-    return {
-      name: account?.personName || 'Borrower 2',
-      downpaymentCpfOa: downpayment,
-      monthlyCpfOa: monthly,
-      totalCpfUsed: total,
-      accruedInterest: interest,
-    }
-  }, [sg, accountMap, holdingMonths])
+  }, [housingUsage])
 
   return (
     <div className="rounded-xl border border-white/[0.06] overflow-hidden">

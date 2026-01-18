@@ -10,6 +10,7 @@ import (
 	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/testutil"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -679,6 +680,183 @@ func TestIntegration_PropertyPlanner_DeleteAllScenarios_Empty(t *testing.T) {
 	rowsDeleted, err := store.DeleteAllPropertyScenarios(ctx, userID)
 	require.NoError(t, err, "DeleteAllPropertyScenarios should succeed even with no data")
 	assert.Equal(t, int64(0), rowsDeleted, "Should have deleted 0 scenarios")
+}
+
+// TestIntegration_PropertyPlanner_BorrowerPersonNames tests that the SQL JOIN
+// correctly fetches borrower person names from the persons table via cpf_accounts.
+func TestIntegration_PropertyPlanner_BorrowerPersonNames(t *testing.T) {
+	pool := testutil.GetTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	userID := testutil.TestUserID
+
+	cleanupPropertyPlannerTestData(t, store, userID)
+	// Clean up persons and CPF accounts
+	cleanupBorrowerTestData(t, pool, userID)
+	t.Cleanup(func() {
+		cleanupPropertyPlannerTestData(t, store, userID)
+		cleanupBorrowerTestData(t, pool, userID)
+	})
+
+	// Create two persons
+	var person1ID, person2ID string
+	err := pool.QueryRow(ctx, `
+		INSERT INTO persons (user_id, name, date_of_birth, residency_status)
+		VALUES ($1, 'Alice Tan', '1990-05-15', 'citizen')
+		RETURNING id
+	`, userID).Scan(&person1ID)
+	require.NoError(t, err, "Failed to create person 1")
+
+	err = pool.QueryRow(ctx, `
+		INSERT INTO persons (user_id, name, date_of_birth, residency_status)
+		VALUES ($1, 'Bob Lim', '1988-03-20', 'pr')
+		RETURNING id
+	`, userID).Scan(&person2ID)
+	require.NoError(t, err, "Failed to create person 2")
+
+	// Create CPF accounts linked to persons
+	var cpfAccount1ID, cpfAccount2ID string
+	err = pool.QueryRow(ctx, `
+		INSERT INTO cpf_accounts (user_id, person_id, oa_balance, sa_balance, ma_balance)
+		VALUES ($1, $2, 50000, 30000, 20000)
+		RETURNING id
+	`, userID, person1ID).Scan(&cpfAccount1ID)
+	require.NoError(t, err, "Failed to create CPF account 1")
+
+	err = pool.QueryRow(ctx, `
+		INSERT INTO cpf_accounts (user_id, person_id, oa_balance, sa_balance, ma_balance)
+		VALUES ($1, $2, 40000, 25000, 15000)
+		RETURNING id
+	`, userID, person2ID).Scan(&cpfAccount2ID)
+	require.NoError(t, err, "Failed to create CPF account 2")
+
+	// Create property scenario with joint borrowers linked to CPF accounts
+	input := CreateScenarioInput{
+		Country: "SG",
+		PropertySG: &CreatePropertySGInput{
+			Name:                      "Joint Borrower Test Property",
+			PropertyType:              "hdb",
+			PropertySubtype:           "resale",
+			PropertyPrice:             *decimal.MustFromString("650000"),
+			LoanType:                  "hdb",
+			BorrowerType:              "joint",
+			Borrower1CpfAccountID:     &cpfAccount1ID,
+			Borrower2CpfAccountID:     &cpfAccount2ID,
+			Borrower1DownpaymentCpfOa: decimal.MustFromString("50000"),
+			Borrower2DownpaymentCpfOa: decimal.MustFromString("40000"),
+		},
+		RatePeriods: []CreateRatePeriodInput{
+			{
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 25,
+				Rate:      *decimal.MustFromString("2.6"),
+				RateType:  "fixed",
+			},
+		},
+	}
+
+	created, err := store.CreatePropertyScenario(ctx, userID, input)
+	require.NoError(t, err, "CreatePropertyScenario should succeed")
+
+	// Verify borrower person names are fetched via JOIN
+	assert.Equal(t, "Alice Tan", created.PropertySG.Borrower1PersonName,
+		"Borrower 1 person name should be fetched from persons table via cpf_accounts JOIN")
+	assert.Equal(t, "Bob Lim", created.PropertySG.Borrower2PersonName,
+		"Borrower 2 person name should be fetched from persons table via cpf_accounts JOIN")
+	assert.Equal(t, person1ID, created.PropertySG.Borrower1PersonID,
+		"Borrower 1 person ID should be fetched")
+	assert.Equal(t, person2ID, created.PropertySG.Borrower2PersonID,
+		"Borrower 2 person ID should be fetched")
+
+	// Fetch again to verify GetPropertyScenario also uses the JOIN
+	fetched, err := store.GetPropertyScenario(ctx, userID, created.Scenario.ID)
+	require.NoError(t, err, "GetPropertyScenario should succeed")
+
+	assert.Equal(t, "Alice Tan", fetched.PropertySG.Borrower1PersonName,
+		"Borrower 1 name should persist on refetch")
+	assert.Equal(t, "Bob Lim", fetched.PropertySG.Borrower2PersonName,
+		"Borrower 2 name should persist on refetch")
+}
+
+func TestIntegration_PropertyPlanner_SingleBorrower_NoBorrower2Name(t *testing.T) {
+	pool := testutil.GetTestPool(t)
+	store := NewStore(pool)
+	ctx := context.Background()
+	userID := testutil.TestUserID
+
+	cleanupPropertyPlannerTestData(t, store, userID)
+	cleanupBorrowerTestData(t, pool, userID)
+	t.Cleanup(func() {
+		cleanupPropertyPlannerTestData(t, store, userID)
+		cleanupBorrowerTestData(t, pool, userID)
+	})
+
+	// Create one person
+	var person1ID string
+	err := pool.QueryRow(ctx, `
+		INSERT INTO persons (user_id, name, date_of_birth, residency_status)
+		VALUES ($1, 'Charlie Wong', '1992-08-10', 'citizen')
+		RETURNING id
+	`, userID).Scan(&person1ID)
+	require.NoError(t, err)
+
+	// Create CPF account for single borrower
+	var cpfAccount1ID string
+	err = pool.QueryRow(ctx, `
+		INSERT INTO cpf_accounts (user_id, person_id, oa_balance, sa_balance, ma_balance)
+		VALUES ($1, $2, 60000, 35000, 25000)
+		RETURNING id
+	`, userID, person1ID).Scan(&cpfAccount1ID)
+	require.NoError(t, err)
+
+	// Create single-borrower property scenario
+	input := CreateScenarioInput{
+		Country: "SG",
+		PropertySG: &CreatePropertySGInput{
+			Name:                      "Single Borrower Property",
+			PropertyType:              "condo",
+			PropertySubtype:           "resale",
+			PropertyPrice:             *decimal.MustFromString("1200000"),
+			LoanType:                  "bank",
+			BorrowerType:              "single",
+			Borrower1CpfAccountID:     &cpfAccount1ID,
+			Borrower1DownpaymentCpfOa: decimal.MustFromString("100000"),
+		},
+		RatePeriods: []CreateRatePeriodInput{
+			{
+				StartDate: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+				TermYears: 30,
+				Rate:      *decimal.MustFromString("3.5"),
+				RateType:  "fixed",
+			},
+		},
+	}
+
+	created, err := store.CreatePropertyScenario(ctx, userID, input)
+	require.NoError(t, err)
+
+	// Borrower 1 should have name, borrower 2 should be empty
+	assert.Equal(t, "Charlie Wong", created.PropertySG.Borrower1PersonName)
+	assert.Equal(t, "", created.PropertySG.Borrower2PersonName,
+		"Borrower 2 name should be empty for single ownership")
+	assert.Equal(t, "", created.PropertySG.Borrower2PersonID,
+		"Borrower 2 person ID should be empty for single ownership")
+}
+
+func cleanupBorrowerTestData(t *testing.T, pool *pgxpool.Pool, userID string) {
+	t.Helper()
+	ctx := context.Background()
+
+	// Delete in order respecting foreign key constraints
+	queries := []string{
+		"DELETE FROM cpf_accounts WHERE user_id = $1",
+		"DELETE FROM persons WHERE user_id = $1",
+	}
+	for _, q := range queries {
+		if _, err := pool.Exec(ctx, q, userID); err != nil {
+			t.Logf("Cleanup query failed (may be expected): %v", err)
+		}
+	}
 }
 
 // Helper functions

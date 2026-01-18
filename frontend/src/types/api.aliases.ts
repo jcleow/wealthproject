@@ -2,21 +2,21 @@
  * Type Re-exports from Generated API Types
  *
  * This file re-exports types from api.generated.ts with simplified names.
- * The generated types use full Go package paths as prefixes, so we alias them here.
+ * The generated types use package path prefixes, so we alias them here.
  *
  * Usage:
  *   import { Expense, Income, Person } from '@/types/api.aliases'
  */
 
 import type {
-  // Repository types (entities) - full package path
-  FinancialChatSystemBackendInternalFinancialV2RepositoryNonCashAsset,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryCashAsset,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryCPFAccount,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryPerson,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryPropertySG,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryPropertySGGrant,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryPropertyFee,
+  // Repository types (entities)
+  RepositoryNonCashAsset,
+  RepositoryCashAsset,
+  RepositoryCPFAccount,
+  RepositoryPerson,
+  RepositoryPropertySG,
+  RepositoryPropertySGGrant,
+  RepositoryPropertyFee,
   FinancialChatSystemBackendInternalFinancialV2RepositoryExpense,
   FinancialChatSystemBackendInternalFinancialV2RepositoryGroupedExpenses,
   FinancialChatSystemBackendInternalFinancialV2RepositoryIncome,
@@ -24,51 +24,51 @@ import type {
   FinancialChatSystemBackendInternalFinancialV2RepositoryLiability,
   FinancialChatSystemBackendInternalFinancialV2RepositoryPropertyScenario,
   // Handler input types
-  CmdServerHandlersAssetCreateInput,
-  CmdServerHandlersAssetInput,
-  CmdServerHandlersCashAccountV2Input,
-  CmdServerHandlersCpfV2CreateInput,
-  CmdServerHandlersCpfV2Input,
-  CmdServerHandlersExpenseCreateInput,
-  CmdServerHandlersExpenseV2Input,
-  CmdServerHandlersIncomeV2CreateInput,
-  CmdServerHandlersIncomeV2Input,
-  CmdServerHandlersInvestmentCreateInput,
-  CmdServerHandlersInvestmentV2Input,
-  CmdServerHandlersLiabilityCreateInput,
-  CmdServerHandlersLiabilityInput,
-  CmdServerHandlersPersonV2CreateInput,
-  CmdServerHandlersPersonV2UpdateInput,
-  CmdServerHandlersStopInput,
+  HandlersAssetCreateInput,
+  HandlersAssetInput,
+  HandlersCashAccountV2Input,
+  HandlersCpfV2CreateInput,
+  HandlersCpfV2Input,
+  HandlersExpenseCreateInput,
+  HandlersExpenseV2Input,
+  HandlersIncomeV2CreateInput,
+  HandlersIncomeV2Input,
+  HandlersInvestmentCreateInput,
+  HandlersInvestmentV2Input,
+  HandlersLiabilityCreateInput,
+  HandlersLiabilityInput,
+  HandlersPersonV2CreateInput,
+  HandlersPersonV2UpdateInput,
+  HandlersStopInput,
   // Fund flow types
-  CmdServerHandlersFundFlowRuleDTO,
-  CmdServerHandlersFundFlowRuleCreateDTO,
-  CmdServerHandlersStopFundFlowRuleDTO,
+  HandlersFundFlowRuleDTO,
+  HandlersFundFlowRuleCreateDTO,
+  HandlersStopFundFlowRuleDTO,
   // Scenario types
-  CmdServerHandlersScenarioEventV2DTO,
-  CmdServerHandlersScenarioImpactV2DTO,
-  CmdServerHandlersScenarioResponse,
+  HandlersScenarioEventV2DTO,
+  HandlersScenarioImpactV2DTO,
+  HandlersScenarioResponse,
   // Timeline types
-  FinancialChatSystemBackendInternalFinancialTimelineTimelineResponse,
-  FinancialChatSystemBackendInternalFinancialV2TimelineTimelineV2Response,
-  FinancialChatSystemBackendInternalFinancialV2TimelineMonthDetailResponse,
-  FinancialChatSystemBackendInternalFinancialV2TimelineTimelineAnnualChartResponse,
+  TimelineTimelineResponse,
+  TimelineV2TimelineV2Response,
+  TimelineV2MonthDetailResponse,
+  TimelineV2TimelineAnnualChartResponse,
   // Chat types
-  CmdServerHandlersChatRequest,
-  CmdServerHandlersChatResponse,
+  HandlersChatRequest,
+  HandlersChatResponse,
   // Property types
-  CmdServerHandlersCreatePropertySGRequest,
-  CmdServerHandlersCreateFeeRequest,
-  CmdServerHandlersCreateGrantRequest,
-  CmdServerHandlersCreateGrowthPeriodRequest,
-  CmdServerHandlersCreateRatePeriodRequest,
-  CmdServerHandlersGrowthPeriodResponse,
-  CmdServerHandlersLiabilityRatePeriodResponse,
-  FinancialChatSystemBackendInternalFinancialV2PropertyPropertySnapshot,
-  FinancialChatSystemBackendInternalFinancialV2PropertyMortgagePaymentSnapshot,
-  FinancialChatSystemBackendInternalFinancialV2PropertyPropertyFeeSnapshot,
-  FinancialChatSystemBackendInternalFinancialV2PropertyComputedValues,
-  FinancialChatSystemBackendInternalFinancialV2PropertyCPFOAAccountUsageInfo,
+  HandlersCreatePropertySGRequest,
+  HandlersCreateFeeRequest,
+  HandlersCreateGrantRequest,
+  HandlersCreateGrowthPeriodRequest,
+  HandlersCreateRatePeriodRequest,
+  HandlersGrowthPeriodResponse,
+  HandlersLiabilityRatePeriodResponse,
+  PropertyPropertySnapshot,
+  PropertyMortgagePaymentSnapshot,
+  PropertyPropertyFeeSnapshot,
+  PropertyComputedValues,
+  PropertyCPFOAAccountUsageInfo,
 } from './api.generated'
 
 // Re-export everything from generated types (for types not aliased here)
@@ -79,13 +79,13 @@ export * from './api.generated'
 // ============================================================================
 
 // Repository types (entities)
-export type NonCashAsset = FinancialChatSystemBackendInternalFinancialV2RepositoryNonCashAsset
-export type CashAsset = FinancialChatSystemBackendInternalFinancialV2RepositoryCashAsset
-export type CPFAccount = FinancialChatSystemBackendInternalFinancialV2RepositoryCPFAccount
-export type Person = FinancialChatSystemBackendInternalFinancialV2RepositoryPerson
-export type PropertySG = FinancialChatSystemBackendInternalFinancialV2RepositoryPropertySG
-export type PropertySGGrant = FinancialChatSystemBackendInternalFinancialV2RepositoryPropertySGGrant
-export type PropertyFee = FinancialChatSystemBackendInternalFinancialV2RepositoryPropertyFee
+export type NonCashAsset = RepositoryNonCashAsset
+export type CashAsset = RepositoryCashAsset
+export type CPFAccount = RepositoryCPFAccount
+export type Person = RepositoryPerson
+export type PropertySG = RepositoryPropertySG
+export type PropertySGGrant = RepositoryPropertySGGrant
+export type PropertyFee = RepositoryPropertyFee
 
 // Long repository type names
 export type Expense = FinancialChatSystemBackendInternalFinancialV2RepositoryExpense
@@ -96,56 +96,56 @@ export type Liability = FinancialChatSystemBackendInternalFinancialV2RepositoryL
 export type PropertyScenario = FinancialChatSystemBackendInternalFinancialV2RepositoryPropertyScenario
 
 // Handler input types
-export type AssetCreateInput = CmdServerHandlersAssetCreateInput
-export type AssetInput = CmdServerHandlersAssetInput
-export type CashAccountV2Input = CmdServerHandlersCashAccountV2Input
-export type CpfV2CreateInput = CmdServerHandlersCpfV2CreateInput
-export type CpfV2Input = CmdServerHandlersCpfV2Input
-export type ExpenseCreateInput = CmdServerHandlersExpenseCreateInput
-export type ExpenseV2Input = CmdServerHandlersExpenseV2Input
-export type IncomeV2CreateInput = CmdServerHandlersIncomeV2CreateInput
-export type IncomeV2Input = CmdServerHandlersIncomeV2Input
-export type InvestmentCreateInput = CmdServerHandlersInvestmentCreateInput
-export type InvestmentV2Input = CmdServerHandlersInvestmentV2Input
-export type LiabilityCreateInput = CmdServerHandlersLiabilityCreateInput
-export type LiabilityInput = CmdServerHandlersLiabilityInput
-export type PersonV2CreateInput = CmdServerHandlersPersonV2CreateInput
-export type PersonV2UpdateInput = CmdServerHandlersPersonV2UpdateInput
-export type StopInput = CmdServerHandlersStopInput
+export type AssetCreateInput = HandlersAssetCreateInput
+export type AssetInput = HandlersAssetInput
+export type CashAccountV2Input = HandlersCashAccountV2Input
+export type CpfV2CreateInput = HandlersCpfV2CreateInput
+export type CpfV2Input = HandlersCpfV2Input
+export type ExpenseCreateInput = HandlersExpenseCreateInput
+export type ExpenseV2Input = HandlersExpenseV2Input
+export type IncomeV2CreateInput = HandlersIncomeV2CreateInput
+export type IncomeV2Input = HandlersIncomeV2Input
+export type InvestmentCreateInput = HandlersInvestmentCreateInput
+export type InvestmentV2Input = HandlersInvestmentV2Input
+export type LiabilityCreateInput = HandlersLiabilityCreateInput
+export type LiabilityInput = HandlersLiabilityInput
+export type PersonV2CreateInput = HandlersPersonV2CreateInput
+export type PersonV2UpdateInput = HandlersPersonV2UpdateInput
+export type StopInput = HandlersStopInput
 
 // Fund flow types
-export type FundFlowRuleDTO = CmdServerHandlersFundFlowRuleDTO
-export type FundFlowRuleCreateDTO = CmdServerHandlersFundFlowRuleCreateDTO
-export type StopFundFlowRuleDTO = CmdServerHandlersStopFundFlowRuleDTO
+export type FundFlowRuleDTO = HandlersFundFlowRuleDTO
+export type FundFlowRuleCreateDTO = HandlersFundFlowRuleCreateDTO
+export type StopFundFlowRuleDTO = HandlersStopFundFlowRuleDTO
 
 // Scenario types
-export type ScenarioEventV2DTO = CmdServerHandlersScenarioEventV2DTO
-export type ScenarioImpactV2DTO = CmdServerHandlersScenarioImpactV2DTO
-export type ScenarioResponse = CmdServerHandlersScenarioResponse
+export type ScenarioEventV2DTO = HandlersScenarioEventV2DTO
+export type ScenarioImpactV2DTO = HandlersScenarioImpactV2DTO
+export type ScenarioResponse = HandlersScenarioResponse
 
 // Timeline types
-export type TimelineResponse = FinancialChatSystemBackendInternalFinancialTimelineTimelineResponse
-export type TimelineV2Response = FinancialChatSystemBackendInternalFinancialV2TimelineTimelineV2Response
-export type MonthDetailResponse = FinancialChatSystemBackendInternalFinancialV2TimelineMonthDetailResponse
-export type TimelineAnnualChartResponse = FinancialChatSystemBackendInternalFinancialV2TimelineTimelineAnnualChartResponse
+export type TimelineResponse = TimelineTimelineResponse
+export type TimelineV2Response = TimelineV2TimelineV2Response
+export type MonthDetailResponse = TimelineV2MonthDetailResponse
+export type TimelineAnnualChartResponse = TimelineV2TimelineAnnualChartResponse
 
 // Chat types
-export type ChatRequest = CmdServerHandlersChatRequest
-export type ChatResponse = CmdServerHandlersChatResponse
+export type ChatRequest = HandlersChatRequest
+export type ChatResponse = HandlersChatResponse
 
 // Property types
-export type CreatePropertySGRequest = CmdServerHandlersCreatePropertySGRequest
-export type CreateFeeRequest = CmdServerHandlersCreateFeeRequest
-export type CreateGrantRequest = CmdServerHandlersCreateGrantRequest
-export type CreateGrowthPeriodRequest = CmdServerHandlersCreateGrowthPeriodRequest
-export type CreateRatePeriodRequest = CmdServerHandlersCreateRatePeriodRequest
-export type GrowthPeriodResponse = CmdServerHandlersGrowthPeriodResponse
-export type LiabilityRatePeriodResponse = CmdServerHandlersLiabilityRatePeriodResponse
-export type PropertySnapshot = FinancialChatSystemBackendInternalFinancialV2PropertyPropertySnapshot
-export type MortgagePaymentSnapshot = FinancialChatSystemBackendInternalFinancialV2PropertyMortgagePaymentSnapshot
-export type PropertyFeeSnapshot = FinancialChatSystemBackendInternalFinancialV2PropertyPropertyFeeSnapshot
-export type CPFOAAccountUsageInfo = FinancialChatSystemBackendInternalFinancialV2PropertyCPFOAAccountUsageInfo
-export { FinancialChatSystemBackendInternalFinancialV2PropertyComputedValues as PropertyComputedValues }
+export type CreatePropertySGRequest = HandlersCreatePropertySGRequest
+export type CreateFeeRequest = HandlersCreateFeeRequest
+export type CreateGrantRequest = HandlersCreateGrantRequest
+export type CreateGrowthPeriodRequest = HandlersCreateGrowthPeriodRequest
+export type CreateRatePeriodRequest = HandlersCreateRatePeriodRequest
+export type GrowthPeriodResponse = HandlersGrowthPeriodResponse
+export type LiabilityRatePeriodResponse = HandlersLiabilityRatePeriodResponse
+export type PropertySnapshot = PropertyPropertySnapshot
+export type MortgagePaymentSnapshot = PropertyMortgagePaymentSnapshot
+export type PropertyFeeSnapshot = PropertyPropertyFeeSnapshot
+export type CPFOAAccountUsageInfo = PropertyCPFOAAccountUsageInfo
+export { PropertyComputedValues }
 
 // ============================================================================
 // Convenience Type Aliases (for API payloads)

@@ -10,6 +10,7 @@ import type {
 export const CPF_QUERY_KEY = ['cpf'] as const
 export const CPF_ACCOUNTS_QUERY_KEY = ['cpf', 'accounts'] as const
 export const CPF_ASSUMPTIONS_QUERY_KEY = (cpfAccountId: string) => ['cpf', 'assumptions', cpfAccountId] as const
+export const CPF_HOUSING_USAGE_QUERY_KEY = (scenarioId: string) => ['cpf', 'housing-usage', scenarioId] as const
 
 export function useCpfAccountQuery() {
   return useQuery({
@@ -291,5 +292,22 @@ export function useCpfBalanceProjectionQuery(
     staleTime: 0, // Force fresh fetch every time (was 5 minutes)
     // Keep previous data visible while fetching new data (prevents loading flash)
     keepPreviousData: true,
+  })
+}
+
+// ============================================================================
+// CPF Housing Usage Hooks
+// ============================================================================
+
+/**
+ * Query hook for fetching CPF housing usage for a property scenario.
+ * Returns computed CPF usage, accrued interest, and sale analysis from backend.
+ */
+export function useCpfHousingUsageQuery(scenarioId: string | undefined) {
+  return useQuery({
+    queryKey: CPF_HOUSING_USAGE_QUERY_KEY(scenarioId ?? ''),
+    queryFn: () => cpfApi.getCPFHousingUsage(scenarioId!),
+    enabled: !!scenarioId,
+    staleTime: 30_000, // 30 seconds - housing usage doesn't change often
   })
 }
