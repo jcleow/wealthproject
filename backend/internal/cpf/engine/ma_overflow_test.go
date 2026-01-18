@@ -544,14 +544,16 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 				t.Logf("Final MA: %s (capped at BHS)", endMA.String())
 			}
 
-			// KEY ASSERTION: Verify BHS is actually growing across years
+			// KEY ASSERTION: Verify BHS is exactly the expected grown value
 			if tt.year > baseYear {
-				if projectedBHS.LTE(baseBHS) {
-					t.Errorf("CRITICAL: BHS for year %d (%s) should be GREATER than base BHS (%s). Growth not applied!",
-						tt.year, projectedBHS.String(), baseBHS.String())
+				// Calculate exact expected BHS: baseBHS × 1.04^(years)
+				expectedBHS := getBHSForYear(tt.year)
+				if !projectedBHS.EQ(expectedBHS) {
+					t.Errorf("CRITICAL: BHS for year %d = %s, expected exactly %s",
+						tt.year, projectedBHS.String(), expectedBHS.String())
 				}
-				t.Logf("BHS growth verification: %s > base %s ✓",
-					projectedBHS.String(), baseBHS.String())
+				t.Logf("BHS growth verification: year %d = %s ✓",
+					tt.year, projectedBHS.String())
 			}
 		})
 	}
