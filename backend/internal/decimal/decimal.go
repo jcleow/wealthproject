@@ -164,6 +164,31 @@ func (d *Decimal) Cmp(other *Decimal) int {
 	return d.Decimal.Cmp(&other.Decimal)
 }
 
+// GT returns true if d > other (greater than)
+func (d *Decimal) GT(other *Decimal) bool {
+	return d.Cmp(other) > 0
+}
+
+// GTE returns true if d >= other (greater than or equal)
+func (d *Decimal) GTE(other *Decimal) bool {
+	return d.Cmp(other) >= 0
+}
+
+// LT returns true if d < other (less than)
+func (d *Decimal) LT(other *Decimal) bool {
+	return d.Cmp(other) < 0
+}
+
+// LTE returns true if d <= other (less than or equal)
+func (d *Decimal) LTE(other *Decimal) bool {
+	return d.Cmp(other) <= 0
+}
+
+// EQ returns true if d == other (equal)
+func (d *Decimal) EQ(other *Decimal) bool {
+	return d.Cmp(other) == 0
+}
+
 // Abs returns the absolute value of the decimal
 func (d *Decimal) Abs() *Decimal {
 	result := &Decimal{}

@@ -155,7 +155,7 @@ func ApplyMAContributionWithBHSCap(
 	}
 
 	// Case 1: MA already at or above BHS - entire contribution overflows
-	if state.MA.Cmp(bhs) >= 0 {
+	if state.MA.GTE(bhs) {
 		redirectMAOverflowByAge(state, result, maContrib, age)
 		return decimal.Zero()
 	}
@@ -189,7 +189,7 @@ func RedirectMAOverflowFromBHS(
 	age int,
 ) (*decimal.Decimal, *decimal.Decimal) {
 	// If MA is at or below BHS, no overflow
-	if state.MA == nil || bhs == nil || state.MA.Cmp(bhs) <= 0 {
+	if state.MA == nil || bhs == nil || state.MA.LTE(bhs) {
 		return decimal.Zero(), decimal.Zero()
 	}
 

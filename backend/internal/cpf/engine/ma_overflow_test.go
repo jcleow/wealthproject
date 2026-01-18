@@ -14,88 +14,88 @@ func TestRedirectMAOverflowFromBHS(t *testing.T) {
 	bhs := decimal.NewFromInt64(79000, 0)
 
 	tests := []struct {
-		name              string
-		initialMA         int64
-		age               int
-		wantOverflowToSA  float64
-		wantOverflowToRA  float64
-		wantFinalMA       float64
-		wantFinalSA       float64
-		wantFinalRA       float64
-		initialSA         int64
-		initialRA         int64
+		name             string
+		initialMA        int64
+		age              int
+		wantOverflowToSA int64
+		wantOverflowToRA int64
+		wantFinalMA      int64
+		wantFinalSA      int64
+		wantFinalRA      int64
+		initialSA        int64
+		initialRA        int64
 	}{
 		{
-			name:              "MA below BHS - no overflow",
-			initialMA:         50000,
-			age:               35,
-			wantOverflowToSA:  0,
-			wantOverflowToRA:  0,
-			wantFinalMA:       50000,
-			wantFinalSA:       10000, // unchanged
-			wantFinalRA:       0,
-			initialSA:         10000,
-			initialRA:         0,
+			name:             "MA below BHS - no overflow",
+			initialMA:        50000,
+			age:              35,
+			wantOverflowToSA: 0,
+			wantOverflowToRA: 0,
+			wantFinalMA:      50000,
+			wantFinalSA:      10000, // unchanged
+			wantFinalRA:      0,
+			initialSA:        10000,
+			initialRA:        0,
 		},
 		{
-			name:              "MA exactly at BHS - no overflow",
-			initialMA:         79000,
-			age:               35,
-			wantOverflowToSA:  0,
-			wantOverflowToRA:  0,
-			wantFinalMA:       79000,
-			wantFinalSA:       10000, // unchanged
-			wantFinalRA:       0,
-			initialSA:         10000,
-			initialRA:         0,
+			name:             "MA exactly at BHS - no overflow",
+			initialMA:        79000,
+			age:              35,
+			wantOverflowToSA: 0,
+			wantOverflowToRA: 0,
+			wantFinalMA:      79000,
+			wantFinalSA:      10000, // unchanged
+			wantFinalRA:      0,
+			initialSA:        10000,
+			initialRA:        0,
 		},
 		{
-			name:              "MA exceeds BHS (age < 55) - overflow to SA",
-			initialMA:         85000,
-			age:               35,
-			wantOverflowToSA:  6000, // 85000 - 79000
-			wantOverflowToRA:  0,
-			wantFinalMA:       79000, // capped at BHS
-			wantFinalSA:       16000, // 10000 + 6000
-			wantFinalRA:       0,
-			initialSA:         10000,
-			initialRA:         0,
+			name:             "MA exceeds BHS (age < 55) - overflow to SA",
+			initialMA:        85000,
+			age:              35,
+			wantOverflowToSA: 6000, // 85000 - 79000
+			wantOverflowToRA: 0,
+			wantFinalMA:      79000, // capped at BHS
+			wantFinalSA:      16000, // 10000 + 6000
+			wantFinalRA:      0,
+			initialSA:        10000,
+			initialRA:        0,
 		},
 		{
-			name:              "MA exceeds BHS (age 54) - overflow to SA",
-			initialMA:         100000,
-			age:               54,
-			wantOverflowToSA:  21000, // 100000 - 79000
-			wantOverflowToRA:  0,
-			wantFinalMA:       79000,
-			wantFinalSA:       31000, // 10000 + 21000
-			wantFinalRA:       0,
-			initialSA:         10000,
-			initialRA:         0,
+			name:             "MA exceeds BHS (age 54) - overflow to SA",
+			initialMA:        100000,
+			age:              54,
+			wantOverflowToSA: 21000, // 100000 - 79000
+			wantOverflowToRA: 0,
+			wantFinalMA:      79000,
+			wantFinalSA:      31000, // 10000 + 21000
+			wantFinalRA:      0,
+			initialSA:        10000,
+			initialRA:        0,
 		},
 		{
-			name:              "MA exceeds BHS (age 55) - overflow to RA",
-			initialMA:         90000,
-			age:               55,
-			wantOverflowToSA:  0,
-			wantOverflowToRA:  11000, // 90000 - 79000
-			wantFinalMA:       79000,
-			wantFinalSA:       10000, // unchanged
-			wantFinalRA:       111000, // 100000 + 11000
-			initialSA:         10000,
-			initialRA:         100000,
+			name:             "MA exceeds BHS (age 55) - overflow to RA",
+			initialMA:        90000,
+			age:              55,
+			wantOverflowToSA: 0,
+			wantOverflowToRA: 11000, // 90000 - 79000
+			wantFinalMA:      79000,
+			wantFinalSA:      10000, // unchanged
+			wantFinalRA:      111000, // 100000 + 11000
+			initialSA:        10000,
+			initialRA:        100000,
 		},
 		{
-			name:              "MA exceeds BHS (age 60) - overflow to RA",
-			initialMA:         95000,
-			age:               60,
-			wantOverflowToSA:  0,
-			wantOverflowToRA:  16000, // 95000 - 79000
-			wantFinalMA:       79000,
-			wantFinalSA:       10000,
-			wantFinalRA:       216000, // 200000 + 16000
-			initialSA:         10000,
-			initialRA:         200000,
+			name:             "MA exceeds BHS (age 60) - overflow to RA",
+			initialMA:        95000,
+			age:              60,
+			wantOverflowToSA: 0,
+			wantOverflowToRA: 16000, // 95000 - 79000
+			wantFinalMA:      79000,
+			wantFinalSA:      10000,
+			wantFinalRA:      216000, // 200000 + 16000
+			initialSA:        10000,
+			initialRA:        200000,
 		},
 	}
 
@@ -111,23 +111,28 @@ func TestRedirectMAOverflowFromBHS(t *testing.T) {
 			// Call the function
 			overflowToSA, overflowToRA := RedirectMAOverflowFromBHS(state, bhs, tt.age)
 
-			// Check overflow amounts
-			if actualOverflowToSA := overflowToSA.ToFloat64(); actualOverflowToSA != tt.wantOverflowToSA {
-				t.Errorf("overflowToSA = %.2f, want %.2f", actualOverflowToSA, tt.wantOverflowToSA)
+			// Check overflow amounts using decimal comparison
+			wantOverflowSA := decimal.NewFromInt64(tt.wantOverflowToSA, 0)
+			wantOverflowRA := decimal.NewFromInt64(tt.wantOverflowToRA, 0)
+			if !overflowToSA.EQ(wantOverflowSA) {
+				t.Errorf("overflowToSA = %s, want %s", overflowToSA.String(), wantOverflowSA.String())
 			}
-			if actualOverflowToRA := overflowToRA.ToFloat64(); actualOverflowToRA != tt.wantOverflowToRA {
-				t.Errorf("overflowToRA = %.2f, want %.2f", actualOverflowToRA, tt.wantOverflowToRA)
+			if !overflowToRA.EQ(wantOverflowRA) {
+				t.Errorf("overflowToRA = %s, want %s", overflowToRA.String(), wantOverflowRA.String())
 			}
 
-			// Check final balances
-			if actualFinalMA := state.MA.ToFloat64(); actualFinalMA != tt.wantFinalMA {
-				t.Errorf("finalMA = %.2f, want %.2f", actualFinalMA, tt.wantFinalMA)
+			// Check final balances using decimal comparison
+			wantFinalMA := decimal.NewFromInt64(tt.wantFinalMA, 0)
+			wantFinalSA := decimal.NewFromInt64(tt.wantFinalSA, 0)
+			wantFinalRA := decimal.NewFromInt64(tt.wantFinalRA, 0)
+			if !state.MA.EQ(wantFinalMA) {
+				t.Errorf("finalMA = %s, want %s", state.MA.String(), wantFinalMA.String())
 			}
-			if actualFinalSA := state.SA.ToFloat64(); actualFinalSA != tt.wantFinalSA {
-				t.Errorf("finalSA = %.2f, want %.2f", actualFinalSA, tt.wantFinalSA)
+			if !state.SA.EQ(wantFinalSA) {
+				t.Errorf("finalSA = %s, want %s", state.SA.String(), wantFinalSA.String())
 			}
-			if actualFinalRA := state.RA.ToFloat64(); actualFinalRA != tt.wantFinalRA {
-				t.Errorf("finalRA = %.2f, want %.2f", actualFinalRA, tt.wantFinalRA)
+			if !state.RA.EQ(wantFinalRA) {
+				t.Errorf("finalRA = %s, want %s", state.RA.String(), wantFinalRA.String())
 			}
 		})
 	}
@@ -166,8 +171,8 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 		maContribution   int64
 		dob              time.Time
 		raFormed         bool
-		wantMAOverflowSA float64
-		wantMAOverflowRA float64
+		wantMAOverflowSA *decimal.Decimal
+		wantMAOverflowRA *decimal.Decimal
 		// Note: Final balances include interest, so we check MA is at or near BHS
 		// (interest can push MA slightly above BHS, which is per CPF policy)
 		wantMACappedAtBHS bool
@@ -180,8 +185,8 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 			maContribution:    500,
 			dob:               dobAge35,
 			raFormed:          false,
-			wantMAOverflowSA:  0,
-			wantMAOverflowRA:  0,
+			wantMAOverflowSA:  decimal.Zero(),
+			wantMAOverflowRA:  decimal.Zero(),
 			wantMACappedAtBHS: false, // MA stays below BHS
 		},
 		{
@@ -195,8 +200,8 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 			maContribution:    1000,
 			dob:               dobAge35,
 			raFormed:          false,
-			wantMAOverflowSA:  761.67, // 1000 - 238.33 (room after interest)
-			wantMAOverflowRA:  0,
+			wantMAOverflowSA:  decimal.MustFromString("761.67"), // 1000 - 238.33 (room after interest)
+			wantMAOverflowRA:  decimal.Zero(),
 			wantMACappedAtBHS: true,
 		},
 		{
@@ -209,8 +214,8 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 			maContribution:    800,
 			dob:               dobAge35,
 			raFormed:          false,
-			wantMAOverflowSA:  800, // entire contribution overflows
-			wantMAOverflowRA:  0,
+			wantMAOverflowSA:  decimal.NewFromInt64(800, 0), // entire contribution overflows
+			wantMAOverflowRA:  decimal.Zero(),
 			wantMACappedAtBHS: true,
 		},
 		{
@@ -224,8 +229,8 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 			maContribution:    2000,
 			dob:               dobAge55,
 			raFormed:          true,
-			wantMAOverflowSA:  0,
-			wantMAOverflowRA:  1260, // 2000 - 740 (room after interest)
+			wantMAOverflowSA:  decimal.Zero(),
+			wantMAOverflowRA:  decimal.NewFromInt64(1260, 0), // 2000 - 740 (room after interest)
 			wantMACappedAtBHS: true,
 		},
 		{
@@ -238,8 +243,8 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 			maContribution:    600,
 			dob:               dobAge55,
 			raFormed:          true,
-			wantMAOverflowSA:  0,
-			wantMAOverflowRA:  600,
+			wantMAOverflowSA:  decimal.Zero(),
+			wantMAOverflowRA:  decimal.NewFromInt64(600, 0),
 			wantMACappedAtBHS: true,
 		},
 	}
@@ -281,11 +286,11 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 			}
 
 			// Check overflow amounts in result - this is the key test
-			if actualOverflowToSA := result.MAOverflowToSA.ToFloat64(); actualOverflowToSA != tt.wantMAOverflowSA {
-				t.Errorf("MAOverflowToSA = %.2f, want %.2f", actualOverflowToSA, tt.wantMAOverflowSA)
+			if !result.MAOverflowToSA.EQ(tt.wantMAOverflowSA) {
+				t.Errorf("MAOverflowToSA = %s, want %s", result.MAOverflowToSA.String(), tt.wantMAOverflowSA.String())
 			}
-			if actualOverflowToRA := result.MAOverflowToRA.ToFloat64(); actualOverflowToRA != tt.wantMAOverflowRA {
-				t.Errorf("MAOverflowToRA = %.2f, want %.2f", actualOverflowToRA, tt.wantMAOverflowRA)
+			if !result.MAOverflowToRA.EQ(tt.wantMAOverflowRA) {
+				t.Errorf("MAOverflowToRA = %s, want %s", result.MAOverflowToRA.String(), tt.wantMAOverflowRA.String())
 			}
 
 			// Verify MA was capped at BHS before interest was applied
@@ -303,20 +308,20 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 			}
 
 			// Verify that overflow was correctly added to SA or RA
-			if tt.wantMAOverflowSA > 0 {
+			if !tt.wantMAOverflowSA.IsZero() {
 				// SA should include the overflow (plus interest)
-				minExpectedSA := float64(tt.initialSA) + tt.wantMAOverflowSA
-				if endState.SA.ToFloat64() < minExpectedSA {
-					t.Errorf("finalSA = %.2f, expected at least %.2f (initial + overflow)",
-						endState.SA.ToFloat64(), minExpectedSA)
+				minExpectedSA := decimal.NewFromInt64(tt.initialSA, 0).Add(tt.wantMAOverflowSA)
+				if endState.SA.LT(minExpectedSA) {
+					t.Errorf("finalSA = %s, expected at least %s (initial + overflow)",
+						endState.SA.String(), minExpectedSA.String())
 				}
 			}
-			if tt.wantMAOverflowRA > 0 {
+			if !tt.wantMAOverflowRA.IsZero() {
 				// RA should include the overflow (plus interest)
-				minExpectedRA := float64(tt.initialRA) + tt.wantMAOverflowRA
-				if endState.RA.ToFloat64() < minExpectedRA {
-					t.Errorf("finalRA = %.2f, expected at least %.2f (initial + overflow)",
-						endState.RA.ToFloat64(), minExpectedRA)
+				minExpectedRA := decimal.NewFromInt64(tt.initialRA, 0).Add(tt.wantMAOverflowRA)
+				if endState.RA.LT(minExpectedRA) {
+					t.Errorf("finalRA = %s, expected at least %s (initial + overflow)",
+						endState.RA.String(), minExpectedRA.String())
 				}
 			}
 		})
@@ -343,8 +348,9 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 	baseYear := assumptions.RetirementSumsBaseYear
 	baseBHS := assumptions.BHSBase
 
-	// Person under 55 (overflow goes to SA)
-	dob := time.Date(baseYear-35, 1, 1, 0, 0, 0, 0, time.UTC)
+	// Test age: person under 55 (so MA overflow goes to SA, not RA)
+	const testAge = 35
+	dob := time.Date(baseYear-testAge, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	// Helper: Calculate projected BHS for any year using 4% annual growth
 	// Uses decimal arithmetic to avoid float precision issues

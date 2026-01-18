@@ -65,7 +65,7 @@ func ApplyMonthlyInterest(state *CPFState, assumptions *Assumptions) *InterestRe
 	state.RA = state.RA.Add(raInterest)
 
 	// MA interest: if MA >= BHS, redirect interest to SA/RA instead of MA
-	if state.MA != nil && bhs != nil && state.MA.Cmp(bhs) >= 0 {
+	if state.MA != nil && bhs != nil && state.MA.GTE(bhs) {
 		// MA at or above BHS - redirect interest to SA (age < 55) or RA (age >= 55)
 		if age < RAFormationAge {
 			state.SA = state.SA.Add(maInterest)
@@ -181,7 +181,7 @@ func CalculateExtraInterest(
 
 	// Calculate extra interest on first $60k
 	qualifyingFor60k := combined
-	if combined.Cmp(ExtraInterestLimit60K) > 0 {
+	if combined.GT(ExtraInterestLimit60K) {
 		qualifyingFor60k = ExtraInterestLimit60K
 	}
 	extraInterest := CalculateMonthlyInterest(qualifyingFor60k, extraFirst60kPct)
@@ -189,7 +189,7 @@ func CalculateExtraInterest(
 	// For members 55+, additional +1% on first $30k
 	if age >= 55 {
 		qualifyingFor30k := combined
-		if combined.Cmp(ExtraInterestLimit30K) > 0 {
+		if combined.GT(ExtraInterestLimit30K) {
 			qualifyingFor30k = ExtraInterestLimit30K
 		}
 		additionalExtra := CalculateMonthlyInterest(qualifyingFor30k, extraFirst30kAbove55Pct)
@@ -216,7 +216,7 @@ func convertToPercentage(rate *decimal.Decimal) *decimal.Decimal {
 	}
 	// If rate is less than 1, it's likely in decimal format (e.g., 0.025 for 2.5%)
 	one := decimal.NewFromInt64(1, 0)
-	if rate.Cmp(one) < 0 {
+	if rate.LT(one) {
 		hundred := decimal.NewFromInt64(100, 0)
 		return rate.Mul(hundred)
 	}
