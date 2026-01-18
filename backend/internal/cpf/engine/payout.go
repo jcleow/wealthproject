@@ -106,7 +106,7 @@ func ApplyMonthlyPayout(state *CPFState) *decimal.Decimal {
 	// Deduct from RA only if RA has balance remaining
 	// CPF LIFE is a lifelong annuity - payouts continue regardless of RA balance
 	if state.RA != nil && !state.RA.IsZero() {
-		if state.RA.Cmp(state.MonthlyPayout) >= 0 {
+		if state.RA.GTE(state.MonthlyPayout) {
 			state.RA = state.RA.Sub(state.MonthlyPayout)
 		} else {
 			// RA is depleted, take whatever is left

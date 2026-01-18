@@ -335,6 +335,13 @@ This approach ensures:
 - if it is a feature do `feat/(scope):`,
 - if it is others do `chore/(scope):`
 
+### Issue Auto-Close
+
+To auto-close issues when PRs merge, include keywords in commit messages or PR descriptions:
+- `Closes #155` or `Fixes #154` - GitHub automatically closes the referenced issue on merge
+- Multiple issues: `Closes #155, closes #157`
+- Use when the commit/PR fully addresses an issue
+
 ### When stuck
 
 - ask a clarifying question, propose a short plan, or open a draft PR with notes

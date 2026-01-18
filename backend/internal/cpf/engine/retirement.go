@@ -120,3 +120,93 @@ func RedirectContributionToRA(
 
 	return saContribution
 }
+
+// redirectMAOverflowByAge routes an overflow amount to SA (age < 55) or RA (age >= 55).
+// Updates both the state balances and the result tracking fields.
+func redirectMAOverflowByAge(
+	state *CPFState,
+	result *MonthlyResult,
+	amount *decimal.Decimal,
+	age int,
+) {
+	if age < RAFormationAge {
+		state.SA = state.SA.Add(amount)
+		result.MAOverflowToSA = result.MAOverflowToSA.Add(amount)
+	} else {
+		state.RA = state.RA.Add(amount)
+		result.MAOverflowToRA = result.MAOverflowToRA.Add(amount)
+	}
+}
+
+// ApplyMAContributionWithBHSCap adds an MA contribution while respecting the BHS cap.
+// If MA is already at or above BHS, the entire contribution overflows.
+// If the contribution would exceed BHS, the excess overflows.
+// Overflow is routed to SA (age < 55) or RA (age >= 55).
+// Returns the amount that was added to MA (contribution minus overflow).
+func ApplyMAContributionWithBHSCap(
+	state *CPFState,
+	result *MonthlyResult,
+	maContrib *decimal.Decimal,
+	bhs *decimal.Decimal,
+	age int,
+) *decimal.Decimal {
+	if maContrib == nil || maContrib.IsZero() {
+		return decimal.Zero()
+	}
+
+	// Case 1: MA already at or above BHS - entire contribution overflows
+	if state.MA.GTE(bhs) {
+		redirectMAOverflowByAge(state, result, maContrib, age)
+		return decimal.Zero()
+	}
+
+	// Case 2: Calculate how much of the contribution overflows beyond BHS
+	remainderToMACap := bhs.Sub(state.MA)
+	overflow := maContrib.Sub(remainderToMACap)
+
+	if overflow.IsNegative() || overflow.IsZero() {
+		// Entire contribution fits in MA
+		state.MA = state.MA.Add(maContrib)
+		return maContrib
+	}
+
+	// Case 3: Contribution exceeds capacity - cap MA at BHS, redirect overflow
+	state.MA = bhs
+	redirectMAOverflowByAge(state, result, overflow, age)
+	return remainderToMACap
+}
+
+// RedirectMAOverflowFromBHS caps MA at BHS and redirects any overflow to SA or RA.
+// Per CPF policy, once MA reaches the Basic Healthcare Sum (BHS), additional
+// contributions that would go to MA are redirected to:
+// - SA (Special Account) for members age < 55
+// - RA (Retirement Account) for members age >= 55
+// Modifies state in place.
+// Returns (overflowToSA, overflowToRA).
+func RedirectMAOverflowFromBHS(
+	state *CPFState,
+	bhs *decimal.Decimal,
+	age int,
+) (*decimal.Decimal, *decimal.Decimal) {
+	// If MA is at or below BHS, no overflow
+	if state.MA == nil || bhs == nil || state.MA.LTE(bhs) {
+		return decimal.Zero(), decimal.Zero()
+	}
+
+	// Calculate overflow amount
+	overflow := state.MA.Sub(bhs)
+
+	// Cap MA at BHS
+	state.MA = bhs
+
+	// Redirect overflow based on age
+	if age < RAFormationAge {
+		// Age < 55: overflow goes to SA
+		state.SA = state.SA.Add(overflow)
+		return overflow, decimal.Zero()
+	}
+
+	// Age >= 55: overflow goes to RA
+	state.RA = state.RA.Add(overflow)
+	return decimal.Zero(), overflow
+}
