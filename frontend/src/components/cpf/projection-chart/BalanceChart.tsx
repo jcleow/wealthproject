@@ -212,7 +212,7 @@ export function BalanceChart({
               fill: '#94a3b8',
               fontSize: 10,
               fontWeight: 500,
-              position: 'insideTop',
+              position: 'top',
             }}
           />
         )}
