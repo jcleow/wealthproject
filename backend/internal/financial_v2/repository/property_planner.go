@@ -4,34 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
+	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/decimal"
 
 	"github.com/jackc/pgx/v5"
 )
-
-// isValidUUID checks if a string is a non-empty, valid UUID format.
-// Returns false for nil, empty strings, whitespace-only strings, or invalid formats.
-func isValidUUID(s *string) bool {
-	if s == nil {
-		return false
-	}
-	trimmed := strings.TrimSpace(*s)
-	if trimmed == "" {
-		return false
-	}
-	// Basic UUID format check: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
-	if len(trimmed) != 36 {
-		return false
-	}
-	// Check hyphens are in correct positions
-	if trimmed[8] != '-' || trimmed[13] != '-' || trimmed[18] != '-' || trimmed[23] != '-' {
-		return false
-	}
-	return true
-}
 
 // PropertyScenario is the header table linking to country-specific details
 type PropertyScenario struct {
@@ -595,7 +574,7 @@ func (s *Store) GetPropertyScenario(ctx context.Context, userID, scenarioID stri
 	}
 
 	// Early return if no valid PropertySGID - no SG-related data to fetch
-	if !isValidUUID(scenario.PropertySGID) {
+	if !common.IsValidUUID(scenario.PropertySGID) {
 		return result, nil
 	}
 
@@ -883,7 +862,7 @@ func (s *Store) UpdatePropertyScenario(ctx context.Context, userID, scenarioID s
 	defer tx.Rollback(ctx)
 
 	// Update SG details if present (validate UUID format to prevent PostgreSQL errors)
-	if input.PropertySG != nil && isValidUUID(existingPropertySGID) {
+	if input.PropertySG != nil && common.IsValidUUID(existingPropertySGID) {
 		if err := s.updatePropertySG(ctx, tx, *existingPropertySGID, input.PropertySG); err != nil {
 			return nil, fmt.Errorf("update sg details: %w", err)
 		}
@@ -1090,7 +1069,7 @@ func (s *Store) DeletePropertyScenario(ctx context.Context, userID, scenarioID s
 	}
 
 	// Delete SG details (not cascaded from scenario deletion)
-	if isValidUUID(propertySGID) {
+	if common.IsValidUUID(propertySGID) {
 		if _, err := tx.Exec(ctx, `DELETE FROM property_sg WHERE id = $1`, *propertySGID); err != nil {
 			return fmt.Errorf("delete sg details: %w", err)
 		}

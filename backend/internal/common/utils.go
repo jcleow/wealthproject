@@ -2,10 +2,32 @@ package common
 
 import (
 	"database/sql"
+	"strings"
 	"time"
 
 	"financial-chat-system/backend/internal/decimal"
 )
+
+// IsValidUUID checks if a string is a non-empty, valid UUID format.
+// Returns false for nil, empty strings, whitespace-only strings, or invalid formats.
+func IsValidUUID(s *string) bool {
+	if s == nil {
+		return false
+	}
+	trimmed := strings.TrimSpace(*s)
+	if trimmed == "" {
+		return false
+	}
+	// Basic UUID format check: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (36 chars with hyphens)
+	if len(trimmed) != 36 {
+		return false
+	}
+	// Check hyphens are in correct positions
+	if trimmed[8] != '-' || trimmed[13] != '-' || trimmed[18] != '-' || trimmed[23] != '-' {
+		return false
+	}
+	return true
+}
 
 // MonthsBetween calculates the number of months between two dates (inclusive)
 func MonthsBetween(start, end time.Time) int {
