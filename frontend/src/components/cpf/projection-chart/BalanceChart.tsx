@@ -173,7 +173,8 @@ export function BalanceChart({
 
         <Tooltip
           content={({ active, payload }) => {
-            if (!active || !payload?.[0]) return null
+            // Hide tooltip while dragging to avoid interference
+            if (isDragging || !active || !payload?.[0]) return null
             return (
               <BalanceTooltipContent
                 data={payload[0].payload}
@@ -195,7 +196,7 @@ export function BalanceChart({
               fill: m.color,
               fontSize: 11,
               fontWeight: 600,
-              position: 'insideTopRight',
+              position: 'top',
             }}
           />
         ))}
