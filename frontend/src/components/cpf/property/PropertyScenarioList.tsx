@@ -127,7 +127,7 @@ export function PropertyScenarioList({
         </h3>
         <button
           type="button"
-          onClick={onOpenPropertyPlanner}
+          onClick={() => onOpenPropertyPlanner?.()}
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
         >
           <Plus className="h-3.5 w-3.5" />

@@ -26,6 +26,7 @@ import {
   CPFLifePayoutDebug,
 } from '@/components/cpf'
 import { CPFPropertyOverview } from '@/components/cpf/property'
+import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import {
   mockCPFProfile,
   mockCPFISInvestments,
@@ -139,8 +140,11 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
   const [activeCalculator, setActiveCalculator] = useState<LearnCalculator>('journey')
   const [activeStrategy, setActiveStrategy] = useState<StrategyId>('contributions')
 
-  // Property Planner modal action
+  // Property Planner modal state and actions
   const openPropertyPlanner = useFeatureModulesStore((state) => state.openPropertyPlanner)
+  const closePropertyPlanner = useFeatureModulesStore((state) => state.closePropertyPlanner)
+  const showPropertyPlanner = useFeatureModulesStore((state) => state.showPropertyPlanner)
+  const propertyScenarioToEdit = useFeatureModulesStore((state) => state.propertyScenarioToEdit)
 
   // Check if we're in routed mode (URL-based navigation)
   const isRoutedMode = pathname?.startsWith('/dashboard/cpf')
@@ -579,6 +583,13 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
 
       {/* Dev-only debug panel for CPF LIFE payout testing */}
       <CPFLifePayoutDebug />
+
+      {/* Property Planner Modal - rendered here for routed CPF pages */}
+      <PropertyPlannerModal
+        isOpen={showPropertyPlanner}
+        onClose={closePropertyPlanner}
+        initialScenarioId={propertyScenarioToEdit ?? undefined}
+      />
     </div>
   )
 }
