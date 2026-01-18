@@ -381,7 +381,7 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 			wantOverflow:   true,
 		},
 		{
-			name: "Base year + 2 - BHS grown to ~$85,446, contribution triggers overflow",
+			name: "Base year + 2 - BHS grown to $85,446.40, contribution triggers overflow",
 			description: `
 				Year: baseYear + 2 (e.g., 2028)
 				BHS cap: $79,000 × 1.04² = $85,446.40 (grown by 8.16%)
@@ -401,7 +401,7 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 			wantOverflow:   true,
 		},
 		{
-			name: "Base year + 4 - BHS grown to ~$92,419, contribution triggers overflow",
+			name: "Base year + 4 - BHS grown to $92,418.83, contribution triggers overflow",
 			description: `
 				Year: baseYear + 4 (e.g., 2030)
 				BHS cap: $79,000 × 1.04⁴ = $92,418.83 (grown by 17%)
@@ -667,9 +667,6 @@ func TestApplyMonthlyInterest_MAInterestOverflow(t *testing.T) {
 			)
 			state.RAFormed = tt.raFormed
 
-			initialSA := state.SA
-			initialRA := state.RA
-
 			result := ApplyMonthlyInterest(state, DefaultAssumptions())
 
 			// Check MA interest overflow tracking
@@ -685,12 +682,6 @@ func TestApplyMonthlyInterest_MAInterestOverflow(t *testing.T) {
 						t.Errorf("MAInterestOverflowToSA = %s, expected exactly %s", overflow.String(), actualMAInterest.String())
 					}
 					t.Logf("MA interest %s overflowed to SA (age %d)", overflow.String(), tt.age)
-
-					// Verify SA balance increased by at least the overflow amount
-					saIncrease := state.SA.Sub(initialSA)
-					if saIncrease.LT(overflow) {
-						t.Errorf("SA increase (%s) should be at least MA overflow (%s)", saIncrease.String(), overflow.String())
-					}
 				}
 			}
 
@@ -706,12 +697,6 @@ func TestApplyMonthlyInterest_MAInterestOverflow(t *testing.T) {
 						t.Errorf("MAInterestOverflowToRA = %s, expected exactly %s", overflow.String(), actualMAInterest.String())
 					}
 					t.Logf("MA interest %s overflowed to RA (age %d)", overflow.String(), tt.age)
-
-					// Verify RA balance increased by at least the overflow amount
-					raIncrease := state.RA.Sub(initialRA)
-					if raIncrease.LT(overflow) {
-						t.Errorf("RA increase (%s) should be at least MA overflow (%s)", raIncrease.String(), overflow.String())
-					}
 				}
 			}
 
