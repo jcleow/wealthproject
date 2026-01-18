@@ -55,9 +55,12 @@ type ProcessMonthOptions struct {
 // ProcessMonth applies all monthly CPF calculations in the correct order:
 // 1. Year boundary YTD reset (if applicable)
 // 2. RA formation check (at age 55)
-// 3. Apply contributions (with SA->RA redirect if age >= 55)
-// 4. Apply interest (base + extra)
+// 3. Apply interest (on opening balance, before contributions)
+// 4. Apply contributions (with SA->RA redirect if age >= 55, MA->SA/RA when >= BHS)
 // 5. CPF LIFE payout check and application (at/after payoutStartAge)
+//
+// Note: Interest is calculated on the opening balance (lowest balance during the month),
+// which means it's applied BEFORE contributions are added.
 //
 // This is the main entry point for both projector and timeline service.
 func ProcessMonth(
@@ -106,7 +109,12 @@ func ProcessMonth(
 		result.RAFormation = raResult
 	}
 
-	// Step 3: Apply contributions (if any)
+	// Step 3: Apply interest (on opening balance, before contributions)
+	// Interest is calculated on the lowest balance during the month (opening balance)
+	interestResult := ApplyMonthlyInterest(state, opts.Assumptions)
+	result.Interest = interestResult
+
+	// Step 4: Apply contributions (if any)
 	if opts.ApplyContributions && len(opts.Contributions) > 0 {
 		for _, contrib := range opts.Contributions {
 			// Add allocations to balances
@@ -142,10 +150,6 @@ func ProcessMonth(
 			}
 		}
 	}
-
-	// Step 4: Apply interest (base + extra)
-	interestResult := ApplyMonthlyInterest(state, opts.Assumptions)
-	result.Interest = interestResult
 
 	// Step 5: CPF LIFE payout
 	if age >= opts.PayoutStartAge {

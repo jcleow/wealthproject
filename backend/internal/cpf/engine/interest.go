@@ -26,10 +26,15 @@ type InterestResult struct {
 	ExtraInterest  *decimal.Decimal // Extra interest amount
 	ExtraInterestTo string          // "sa" or "ra" - where extra interest is credited
 	TotalInterest  *decimal.Decimal // Sum of all interest
+
+	// MA interest overflow when MA >= BHS
+	MAInterestOverflowToSA *decimal.Decimal // MA interest redirected to SA (age < 55)
+	MAInterestOverflowToRA *decimal.Decimal // MA interest redirected to RA (age >= 55)
 }
 
 // ApplyMonthlyInterest applies one month of base + extra interest to the state.
 // Modifies the state in place and returns the interest breakdown.
+// When MA balance is at or above BHS, MA interest overflows to SA (age < 55) or RA (age >= 55).
 func ApplyMonthlyInterest(state *CPFState, assumptions *Assumptions) *InterestResult {
 	if assumptions == nil {
 		assumptions = DefaultAssumptions()
@@ -47,14 +52,38 @@ func ApplyMonthlyInterest(state *CPFState, assumptions *Assumptions) *InterestRe
 	maInterest := CalculateMonthlyInterest(state.MA, maRatePct)
 	raInterest := CalculateMonthlyInterest(state.RA, raRatePct)
 
+	// Get age and BHS for MA interest overflow check
+	age := state.AgeAt(state.AsOfDate)
+	bhs := assumptions.GetBHS(state.AsOfDate.Year())
+
+	// Track MA interest overflow
+	var maInterestOverflowToSA, maInterestOverflowToRA *decimal.Decimal
+
 	// Apply base interest to balances
 	state.OA = state.OA.Add(oaInterest)
 	state.SA = state.SA.Add(saInterest)
-	state.MA = state.MA.Add(maInterest)
 	state.RA = state.RA.Add(raInterest)
 
+	// MA interest: if MA >= BHS, redirect interest to SA/RA instead of MA
+	if state.MA != nil && bhs != nil && state.MA.Cmp(bhs) >= 0 {
+		// MA at or above BHS - redirect interest to SA (age < 55) or RA (age >= 55)
+		if age < RAFormationAge {
+			state.SA = state.SA.Add(maInterest)
+			maInterestOverflowToSA = maInterest
+			maInterestOverflowToRA = decimal.Zero()
+		} else {
+			state.RA = state.RA.Add(maInterest)
+			maInterestOverflowToSA = decimal.Zero()
+			maInterestOverflowToRA = maInterest
+		}
+	} else {
+		// MA below BHS - add interest normally to MA
+		state.MA = state.MA.Add(maInterest)
+		maInterestOverflowToSA = decimal.Zero()
+		maInterestOverflowToRA = decimal.Zero()
+	}
+
 	// Calculate extra interest
-	age := state.AgeAt(state.AsOfDate)
 	extraResult := CalculateExtraInterest(state.OA, state.SA, state.MA, state.RA, age, assumptions)
 
 	// Apply extra interest to appropriate account
@@ -77,13 +106,15 @@ func ApplyMonthlyInterest(state *CPFState, assumptions *Assumptions) *InterestRe
 	}
 
 	return &InterestResult{
-		BaseInterestOA:  oaInterest,
-		BaseInterestSA:  saInterest,
-		BaseInterestMA:  maInterest,
-		BaseInterestRA:  raInterest,
-		ExtraInterest:   extraResult.Amount,
-		ExtraInterestTo: extraResult.CreditTo,
-		TotalInterest:   totalInterest,
+		BaseInterestOA:         oaInterest,
+		BaseInterestSA:         saInterest,
+		BaseInterestMA:         maInterest,
+		BaseInterestRA:         raInterest,
+		ExtraInterest:          extraResult.Amount,
+		ExtraInterestTo:        extraResult.CreditTo,
+		TotalInterest:          totalInterest,
+		MAInterestOverflowToSA: maInterestOverflowToSA,
+		MAInterestOverflowToRA: maInterestOverflowToRA,
 	}
 }
 
