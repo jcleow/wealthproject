@@ -1,6 +1,34 @@
 import type { CPFProjectionYear } from '@/types/cpf'
 import type { CPFBalanceProjectionResponse } from '@/api/financial/cpf'
 import type { PayoutProjectionYear, ChartDataPoint, ThresholdAges } from './types'
+import { CPF_CONSTANTS, CPF_POLICY_YEAR } from '@/lib/cpf-constants'
+
+/** Projected retirement sum thresholds for a given year */
+export interface ProjectedThresholds {
+  brs: number
+  frs: number
+  ers: number
+  bhs: number
+}
+
+/**
+ * Calculate projected retirement sums for a given year based on growth rate.
+ * CPF retirement sums increase annually to account for inflation.
+ */
+export function calculateProjectedThresholds(
+  year: number,
+  frsGrowthRate: number
+): ProjectedThresholds {
+  const yearsFromPolicy = year - CPF_POLICY_YEAR
+  const growthFactor = Math.pow(1 + frsGrowthRate, yearsFromPolicy)
+
+  return {
+    brs: Math.round(CPF_CONSTANTS.BRS * growthFactor),
+    frs: Math.round(CPF_CONSTANTS.FRS * growthFactor),
+    ers: Math.round(CPF_CONSTANTS.ERS * growthFactor),
+    bhs: Math.round(CPF_CONSTANTS.BHS * growthFactor),
+  }
+}
 
 interface RetirementProjection {
   age55Balances: { oa: number; sa: number; ma: number; ra: number }

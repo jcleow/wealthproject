@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useCallback, useRef } from 'react'
 import {
   Area,
   ComposedChart,
@@ -15,11 +15,13 @@ import { ACCOUNT_COLORS } from './types'
 import { BalanceTooltipContent } from './TooltipContent'
 import { RetirementSavingsDot, MADot } from './MilestoneDots'
 import { generateAgeTicks } from './utils'
+import { useChartDrag } from './useChartDrag'
 
-/** Chart margins - must match ComposedChart margin prop */
-const CHART_MARGIN = { top: 40, right: 30, left: 0, bottom: 0 }
-/** Approximate width of Y-axis labels area */
-const Y_AXIS_WIDTH = 50
+/** Chart layout configuration */
+const CHART_LAYOUT = {
+  margin: { top: 40, right: 30, left: 0, bottom: 0 },
+  yAxisWidth: 50,
+} as const
 
 interface BalanceChartProps {
   data: ChartDataPoint[]
@@ -45,69 +47,16 @@ export function BalanceChart({
   const endAge = data[data.length - 1]?.age ?? 100
   const ticks = generateAgeTicks(startAge, endAge)
 
-  // Refs for drag handling
   const containerRef = useRef<HTMLDivElement>(null)
-  const isDraggingRef = useRef(false)
-  const [isDragging, setIsDragging] = useState(false)
 
-  // Calculate age from mouse X position
-  const calculateAgeFromX = useCallback((clientX: number): number | null => {
-    if (!containerRef.current || data.length === 0) return null
-
-    const rect = containerRef.current.getBoundingClientRect()
-    // Account for Y-axis labels on the left and right margin
-    const leftOffset = CHART_MARGIN.left + Y_AXIS_WIDTH
-    const chartWidth = rect.width - leftOffset - CHART_MARGIN.right
-    const relativeX = clientX - rect.left - leftOffset
-
-    // Clamp to chart area
-    const clampedX = Math.max(0, Math.min(chartWidth, relativeX))
-    const ratio = clampedX / chartWidth
-
-    // Map ratio to age range
-    const age = Math.round(startAge + ratio * (endAge - startAge))
-    return Math.max(startAge, Math.min(endAge, age))
-  }, [data.length, startAge, endAge])
-
-  // Mouse event handlers for the wrapper div
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (!onAgeSelect) return
-
-    isDraggingRef.current = true
-    setIsDragging(true)
-
-    const age = calculateAgeFromX(e.clientX)
-    if (age !== null) {
-      onAgeSelect(age)
-    }
-  }, [onAgeSelect, calculateAgeFromX])
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDraggingRef.current || !onAgeSelect) return
-
-    const age = calculateAgeFromX(e.clientX)
-    if (age !== null) {
-      onAgeSelect(age)
-    }
-  }, [onAgeSelect, calculateAgeFromX])
-
-  const handleMouseUp = useCallback(() => {
-    isDraggingRef.current = false
-    setIsDragging(false)
-  }, [])
-
-  // Handle mouse up outside the component
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      if (isDraggingRef.current) {
-        isDraggingRef.current = false
-        setIsDragging(false)
-      }
-    }
-
-    window.addEventListener('mouseup', handleGlobalMouseUp)
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
-  }, [])
+  const { isDragging, handleMouseDown, handleMouseMove, handleMouseUp } = useChartDrag({
+    containerRef,
+    rangeStart: startAge,
+    rangeEnd: endAge,
+    onValueChange: onAgeSelect,
+    enabled: !!onAgeSelect,
+    layout: CHART_LAYOUT,
+  })
 
   // Click handler for Recharts (for tooltip interaction)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -130,7 +79,7 @@ export function BalanceChart({
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={data}
-          margin={CHART_MARGIN}
+          margin={CHART_LAYOUT.margin}
           onClick={handleChartClick}
         >
         <defs>

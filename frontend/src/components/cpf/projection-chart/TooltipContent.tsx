@@ -1,20 +1,7 @@
 import { formatCurrency } from '@/lib/format'
-import { CPF_CONSTANTS, CPF_POLICY_YEAR } from '@/lib/cpf-constants'
 import type { VisibleAccounts, PayoutProjectionYear, PayoutPlan } from './types'
 import { ACCOUNT_COLORS, THRESHOLD_COLORS } from './types'
-
-/** Calculate projected retirement sums for a given year */
-function calculateProjectedThresholds(year: number, frsGrowthRate: number) {
-  const yearsFromPolicy = year - CPF_POLICY_YEAR
-  const growthFactor = Math.pow(1 + frsGrowthRate, yearsFromPolicy)
-
-  return {
-    brs: Math.round(CPF_CONSTANTS.BRS * growthFactor),
-    frs: Math.round(CPF_CONSTANTS.FRS * growthFactor),
-    ers: Math.round(CPF_CONSTANTS.ERS * growthFactor),
-    bhs: Math.round(CPF_CONSTANTS.BHS * growthFactor),
-  }
-}
+import { calculateProjectedThresholds } from './utils'
 
 interface BalanceTooltipProps {
   data: {
