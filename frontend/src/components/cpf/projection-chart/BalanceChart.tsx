@@ -17,7 +17,9 @@ import { RetirementSavingsDot, MADot } from './MilestoneDots'
 import { generateAgeTicks } from './utils'
 
 /** Chart margins - must match ComposedChart margin prop */
-const CHART_MARGIN = { top: 40, right: 30, left: 60, bottom: 20 }
+const CHART_MARGIN = { top: 40, right: 30, left: 0, bottom: 0 }
+/** Approximate width of Y-axis labels area */
+const Y_AXIS_WIDTH = 50
 
 interface BalanceChartProps {
   data: ChartDataPoint[]
@@ -53,8 +55,10 @@ export function BalanceChart({
     if (!containerRef.current || data.length === 0) return null
 
     const rect = containerRef.current.getBoundingClientRect()
-    const chartWidth = rect.width - CHART_MARGIN.left - CHART_MARGIN.right
-    const relativeX = clientX - rect.left - CHART_MARGIN.left
+    // Account for Y-axis labels on the left and right margin
+    const leftOffset = CHART_MARGIN.left + Y_AXIS_WIDTH
+    const chartWidth = rect.width - leftOffset - CHART_MARGIN.right
+    const relativeX = clientX - rect.left - leftOffset
 
     // Clamp to chart area
     const clampedX = Math.max(0, Math.min(chartWidth, relativeX))
