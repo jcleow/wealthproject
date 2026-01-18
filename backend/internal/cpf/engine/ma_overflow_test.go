@@ -310,20 +310,30 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 }
 
 func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
-	// BHS grows at 4% per year from base year (2026)
-	// 2026: $79,000 (base)
-	// 2030: $79,000 * 1.04^4 = $92,436.89
+	// =============================================================================
+	// TEST: Verify that BHS (Basic Healthcare Sum) grows at 4% per year and that
+	// monthly MA contributions are compared against the PROJECTED BHS for that year,
+	// not the base year BHS.
+	//
+	// Example with base year 2026:
+	//   - 2026: BHS = $79,000 (base)
+	//   - 2028: BHS = $79,000 × 1.04² = $85,446.40
+	//   - 2030: BHS = $79,000 × 1.04⁴ = $92,436.89
+	//
+	// This means in 2030, a member can have up to $92,436 in MA before overflow
+	// occurs, NOT the original $79,000 cap.
+	// =============================================================================
 
-	// Person born in 1995 (age 35 in 2030)
-	dob := time.Date(1995, 1, 1, 0, 0, 0, 0, time.UTC)
-
-	// Get base year from assumptions to calculate expected BHS
+	// Get base year and BHS from assumptions (dynamically set to current year)
 	assumptions := DefaultAssumptions()
 	baseYear := assumptions.RetirementSumsBaseYear
 	baseBHS := assumptions.BHSBase.ToFloat64()
 
-	// Calculate expected BHS for each test year
-	// BHS grows at 4% per year: BHS(year) = baseBHS * 1.04^(year - baseYear)
+	// Person under 55 (overflow goes to SA)
+	dob := time.Date(baseYear-35, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// Helper: Calculate projected BHS for any year using 4% annual growth
+	// Formula: BHS(year) = baseBHS × 1.04^(year - baseYear)
 	getBHSForYear := func(year int) float64 {
 		years := max(0, year-baseYear)
 		growth := 1.0
@@ -335,38 +345,91 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 
 	tests := []struct {
 		name           string
+		description    string // Detailed explanation of what this test verifies
 		year           int
 		initialMA      int64
 		maContribution int64
+		wantOverflow   bool
 	}{
 		{
-			name:           "Base year - BHS at base value",
+			name: "Base year - contribution exceeds base BHS, triggers overflow",
+			description: `
+				Year: baseYear (e.g., 2026)
+				BHS cap: $79,000 (base value, no growth applied)
+				Initial MA: $78,500 (BHS - $500)
+				Contribution: $1,000
+
+				After contribution: $78,500 + $1,000 = $79,500
+				Overflow: $79,500 - $79,000 = $500 redirected to SA
+				Final MA: capped at $79,000`,
 			year:           baseYear,
 			initialMA:      int64(baseBHS) - 500,
 			maContribution: 1000,
+			wantOverflow:   true,
 		},
 		{
-			name:           "Base year + 2 - BHS grown by 1.04^2",
+			name: "Base year + 2 - BHS grown to ~$85,446, contribution triggers overflow",
+			description: `
+				Year: baseYear + 2 (e.g., 2028)
+				BHS cap: $79,000 × 1.04² = $85,446.40 (grown by 8.16%)
+				Initial MA: $84,946 (projected BHS - $500)
+				Contribution: $1,000
+
+				After contribution: $84,946 + $1,000 = $85,946
+				Overflow: $85,946 - $85,446 = $500 redirected to SA
+				Final MA: capped at $85,446
+
+				KEY: The overflow check uses the GROWN BHS ($85,446), not base ($79,000)`,
 			year:           baseYear + 2,
 			initialMA:      int64(getBHSForYear(baseYear+2)) - 500,
 			maContribution: 1000,
+			wantOverflow:   true,
 		},
 		{
-			name:           "Base year + 4 - BHS grown by 1.04^4",
+			name: "Base year + 4 - BHS grown to ~$92,437, contribution triggers overflow",
+			description: `
+				Year: baseYear + 4 (e.g., 2030)
+				BHS cap: $79,000 × 1.04⁴ = $92,436.89 (grown by 17%)
+				Initial MA: $91,937 (projected BHS - $500)
+				Contribution: $1,000
+
+				After contribution: $91,937 + $1,000 = $92,937
+				Overflow: $92,937 - $92,437 = $500 redirected to SA
+				Final MA: capped at $92,437
+
+				KEY: Member can hold $13,437 MORE in MA than in base year before overflow`,
 			year:           baseYear + 4,
 			initialMA:      int64(getBHSForYear(baseYear+4)) - 500,
 			maContribution: 1000,
+			wantOverflow:   true,
 		},
 		{
-			name:           "Base year + 4 - MA below grown BHS, no overflow",
+			name: "Base year + 4 - MA below grown BHS threshold, NO overflow",
+			description: `
+				Year: baseYear + 4 (e.g., 2030)
+				BHS cap: $79,000 × 1.04⁴ = $92,436.89
+				Initial MA: $90,437 (projected BHS - $2,000)
+				Contribution: $1,000
+
+				After contribution: $90,437 + $1,000 = $91,437
+				This is BELOW the grown BHS of $92,437
+				Overflow: $0 (no overflow occurs)
+				Final MA: $91,437 (contribution fully absorbed)
+
+				KEY: Without BHS growth, this $91,437 would have overflowed the base $79,000 cap.
+				     But with 4% annual growth, the cap is now $92,437, so no overflow.`,
 			year:           baseYear + 4,
 			initialMA:      int64(getBHSForYear(baseYear+4)) - 2000,
 			maContribution: 1000,
+			wantOverflow:   false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Log the detailed description for clarity when viewing test output
+			t.Logf("Test scenario:%s", tt.description)
+
 			testDate := time.Date(tt.year, 6, 1, 0, 0, 0, 0, time.UTC)
 
 			state := NewCPFState(
@@ -399,38 +462,59 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 				t.Fatalf("ProcessMonth error: %v", err)
 			}
 
-			// Calculate expected BHS and overflow for this year
-			expectedBHS := getBHSForYear(tt.year)
-			totalMA := float64(tt.initialMA) + float64(tt.maContribution)
-			expectedOverflow := totalMA - expectedBHS
+			// Calculate expected BHS for this specific year (with 4% annual growth)
+			projectedBHS := getBHSForYear(tt.year)
+			t.Logf("Year %d: Projected BHS = $%.2f (base $%.2f × 1.04^%d)",
+				tt.year, projectedBHS, baseBHS, tt.year-baseYear)
+
+			// Calculate expected overflow: (initialMA + contribution) - projectedBHS
+			totalMAAfterContribution := float64(tt.initialMA) + float64(tt.maContribution)
+			expectedOverflow := totalMAAfterContribution - projectedBHS
 			if expectedOverflow < 0 {
 				expectedOverflow = 0
 			}
 
-			// Check overflow amount (allow tolerance for decimal precision)
 			actualOverflow := result.MAOverflowToSA.ToFloat64()
-			tolerance := 1.0 // $1 tolerance for rounding
-			if actualOverflow < expectedOverflow-tolerance || actualOverflow > expectedOverflow+tolerance {
-				t.Errorf("MAOverflowToSA = %.2f, want ~%.2f (BHS for %d = %.2f)",
-					actualOverflow, expectedOverflow, tt.year, expectedBHS)
+			t.Logf("Initial MA: $%d + Contribution: $%d = $%.2f → Overflow to SA: $%.2f",
+				tt.initialMA, tt.maContribution, totalMAAfterContribution, actualOverflow)
+
+			// Verify overflow occurred/didn't occur as expected
+			if tt.wantOverflow {
+				if actualOverflow <= 0 {
+					t.Errorf("Expected overflow but got none. MA contribution should have exceeded projected BHS of $%.2f", projectedBHS)
+				}
+				// Check overflow amount matches expected (with $1 tolerance for rounding)
+				tolerance := 1.0
+				if actualOverflow < expectedOverflow-tolerance || actualOverflow > expectedOverflow+tolerance {
+					t.Errorf("MAOverflowToSA = $%.2f, want ~$%.2f", actualOverflow, expectedOverflow)
+				}
+			} else {
+				if actualOverflow > 0 {
+					t.Errorf("Expected NO overflow but got $%.2f. Total MA ($%.2f) should be below projected BHS ($%.2f)",
+						actualOverflow, totalMAAfterContribution, projectedBHS)
+				}
 			}
 
-			// Verify MA is capped at BHS for that year (if overflow occurred)
-			if expectedOverflow > 0 {
+			// Verify MA is capped at projected BHS (if overflow occurred)
+			if tt.wantOverflow {
 				endMA := result.EndOfMonthState.MA.ToFloat64()
-				// MA should be near BHS (plus interest which is ~0.33%/month)
-				maxExpectedMA := expectedBHS * 1.005
+				// MA should be near projected BHS (plus up to 0.5% monthly interest)
+				maxExpectedMA := projectedBHS * 1.005
 				if endMA > maxExpectedMA {
-					t.Errorf("finalMA = %.2f, expected near BHS %.2f", endMA, expectedBHS)
+					t.Errorf("Final MA = $%.2f, should be capped near projected BHS $%.2f", endMA, projectedBHS)
 				}
+				t.Logf("Final MA: $%.2f (capped at projected BHS)", endMA)
 			}
 
-			// Key assertion: verify BHS is growing across years
+			// KEY ASSERTION: Verify BHS is actually growing across years
 			if tt.year > baseYear {
-				if expectedBHS <= baseBHS {
-					t.Errorf("BHS for %d (%.2f) should be greater than base BHS (%.2f)",
-						tt.year, expectedBHS, baseBHS)
+				if projectedBHS <= baseBHS {
+					t.Errorf("CRITICAL: BHS for year %d ($%.2f) should be GREATER than base BHS ($%.2f). Growth not applied!",
+						tt.year, projectedBHS, baseBHS)
 				}
+				growthPercent := ((projectedBHS / baseBHS) - 1) * 100
+				t.Logf("BHS growth verification: $%.2f is %.1f%% above base $%.2f ✓",
+					projectedBHS, growthPercent, baseBHS)
 			}
 		})
 	}
