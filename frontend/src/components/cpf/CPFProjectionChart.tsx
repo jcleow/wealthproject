@@ -182,6 +182,7 @@ export function CPFProjectionChart({
               milestones={milestones}
               selectedAge={selectedAge}
               onAgeSelect={setSelectedAge}
+              frsGrowthRate={assumptions.frsGrowthRate}
             />
           ) : (
             <PayoutChart

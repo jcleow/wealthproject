@@ -23,6 +23,8 @@ interface BalanceChartProps {
   milestones: Milestone[]
   selectedAge?: number
   onAgeSelect?: (age: number) => void
+  /** FRS annual growth rate for threshold projections */
+  frsGrowthRate?: number
 }
 
 export function BalanceChart({
@@ -32,6 +34,7 @@ export function BalanceChart({
   milestones,
   selectedAge,
   onAgeSelect,
+  frsGrowthRate = 0.035,
 }: BalanceChartProps) {
   const startAge = data[0]?.age ?? 0
   const endAge = data[data.length - 1]?.age ?? 100
@@ -128,7 +131,13 @@ export function BalanceChart({
         <Tooltip
           content={({ active, payload }) => {
             if (!active || !payload?.[0]) return null
-            return <BalanceTooltipContent data={payload[0].payload} visibleAccounts={visibleAccounts} />
+            return (
+              <BalanceTooltipContent
+                data={payload[0].payload}
+                visibleAccounts={visibleAccounts}
+                frsGrowthRate={frsGrowthRate}
+              />
+            )
           }}
         />
 
