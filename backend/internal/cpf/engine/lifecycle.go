@@ -140,15 +140,15 @@ func ProcessMonth(
 						result.MAOverflowToRA = result.MAOverflowToRA.Add(maContrib)
 					}
 				} else {
-					// Calculate room available in MA before hitting BHS
-					room := bhs.Sub(state.MA)
-					if maContrib.Cmp(room) <= 0 {
+					// Calculate remainderToMACap available in MA before hitting BHS
+					remainderToMACap := bhs.Sub(state.MA)
+					if maContrib.Cmp(remainderToMACap) <= 0 {
 						// Entire contribution fits in MA
 						state.MA = state.MA.Add(maContrib)
 					} else {
 						// Split: fill MA to BHS, overflow rest
 						state.MA = bhs
-						overflow := maContrib.Sub(room)
+						overflow := maContrib.Sub(remainderToMACap)
 						if age < 55 {
 							state.SA = state.SA.Add(overflow)
 							result.MAOverflowToSA = result.MAOverflowToSA.Add(overflow)

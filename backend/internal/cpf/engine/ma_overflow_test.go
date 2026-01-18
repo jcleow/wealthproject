@@ -112,39 +112,47 @@ func TestRedirectMAOverflowFromBHS(t *testing.T) {
 			overflowToSA, overflowToRA := RedirectMAOverflowFromBHS(state, bhs, tt.age)
 
 			// Check overflow amounts
-			if got := overflowToSA.ToFloat64(); got != tt.wantOverflowToSA {
-				t.Errorf("overflowToSA = %.2f, want %.2f", got, tt.wantOverflowToSA)
+			if actualOverflowToSA := overflowToSA.ToFloat64(); actualOverflowToSA != tt.wantOverflowToSA {
+				t.Errorf("overflowToSA = %.2f, want %.2f", actualOverflowToSA, tt.wantOverflowToSA)
 			}
-			if got := overflowToRA.ToFloat64(); got != tt.wantOverflowToRA {
-				t.Errorf("overflowToRA = %.2f, want %.2f", got, tt.wantOverflowToRA)
+			if actualOverflowToRA := overflowToRA.ToFloat64(); actualOverflowToRA != tt.wantOverflowToRA {
+				t.Errorf("overflowToRA = %.2f, want %.2f", actualOverflowToRA, tt.wantOverflowToRA)
 			}
 
 			// Check final balances
-			if got := state.MA.ToFloat64(); got != tt.wantFinalMA {
-				t.Errorf("finalMA = %.2f, want %.2f", got, tt.wantFinalMA)
+			if actualFinalMA := state.MA.ToFloat64(); actualFinalMA != tt.wantFinalMA {
+				t.Errorf("finalMA = %.2f, want %.2f", actualFinalMA, tt.wantFinalMA)
 			}
-			if got := state.SA.ToFloat64(); got != tt.wantFinalSA {
-				t.Errorf("finalSA = %.2f, want %.2f", got, tt.wantFinalSA)
+			if actualFinalSA := state.SA.ToFloat64(); actualFinalSA != tt.wantFinalSA {
+				t.Errorf("finalSA = %.2f, want %.2f", actualFinalSA, tt.wantFinalSA)
 			}
-			if got := state.RA.ToFloat64(); got != tt.wantFinalRA {
-				t.Errorf("finalRA = %.2f, want %.2f", got, tt.wantFinalRA)
+			if actualFinalRA := state.RA.ToFloat64(); actualFinalRA != tt.wantFinalRA {
+				t.Errorf("finalRA = %.2f, want %.2f", actualFinalRA, tt.wantFinalRA)
 			}
 		})
 	}
 }
 
 func TestProcessMonth_MAOverflow(t *testing.T) {
-	// Test date in 2026 (base year for assumptions)
-	testDate := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	// Use dynamic base year from assumptions to avoid test failures when year changes
+	assumptions := DefaultAssumptions()
+	baseYear := assumptions.RetirementSumsBaseYear
+	baseBHS := assumptions.BHSBase.ToFloat64()
 
-	// Person born in 1991 (age 35 in 2026)
-	dobAge35 := time.Date(1991, 1, 1, 0, 0, 0, 0, time.UTC)
+	// Test date uses the base year from assumptions
+	testDate := time.Date(baseYear, 6, 1, 0, 0, 0, 0, time.UTC)
 
-	// Person born in 1971 (age 55 in 2026)
-	dobAge55 := time.Date(1971, 1, 1, 0, 0, 0, 0, time.UTC)
+	// Person age 35 in base year
+	dobAge35 := time.Date(baseYear-35, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	// BHS for 2026: $79,000
-	bhs := 79000.0
+	// Person age 55 in base year
+	dobAge55 := time.Date(baseYear-55, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	// BHS for base year (dynamically from assumptions)
+	bhs := baseBHS
+
+	// Use BHS-relative values so tests work regardless of base year
+	bhsInt := int64(bhs)
 
 	tests := []struct {
 		name             string
@@ -162,7 +170,7 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 	}{
 		{
 			name:              "Contribution below BHS cap - no overflow",
-			initialMA:         70000,
+			initialMA:         bhsInt - 9000, // well below BHS
 			initialSA:         50000,
 			initialRA:         0,
 			maContribution:    500,
@@ -174,19 +182,19 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 		},
 		{
 			name:              "Contribution causes MA to exceed BHS (age < 55) - partial overflow to SA",
-			initialMA:         78500,
+			initialMA:         bhsInt - 500, // 500 below BHS
 			initialSA:         50000,
 			initialRA:         0,
-			maContribution:    1000,
+			maContribution:    1000, // will exceed BHS by 500
 			dob:               dobAge35,
 			raFormed:          false,
-			wantMAOverflowSA:  500, // 78500 + 1000 - 79000
+			wantMAOverflowSA:  500, // (BHS-500) + 1000 - BHS = 500
 			wantMAOverflowRA:  0,
 			wantMACappedAtBHS: true,
 		},
 		{
 			name:              "MA already at BHS - full contribution overflows to SA (age < 55)",
-			initialMA:         79000, // already at BHS
+			initialMA:         bhsInt, // already at BHS
 			initialSA:         50000,
 			initialRA:         0,
 			maContribution:    800,
@@ -198,19 +206,19 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 		},
 		{
 			name:              "Contribution causes MA to exceed BHS (age 55) - overflow to RA",
-			initialMA:         78000,
+			initialMA:         bhsInt - 1000, // 1000 below BHS
 			initialSA:         0,
 			initialRA:         200000,
-			maContribution:    2000,
+			maContribution:    2000, // will exceed BHS by 1000
 			dob:               dobAge55,
 			raFormed:          true,
 			wantMAOverflowSA:  0,
-			wantMAOverflowRA:  1000, // 78000 + 2000 - 79000
+			wantMAOverflowRA:  1000, // (BHS-1000) + 2000 - BHS = 1000
 			wantMACappedAtBHS: true,
 		},
 		{
 			name:              "MA already at BHS - full contribution overflows to RA (age 55)",
-			initialMA:         79000,
+			initialMA:         bhsInt, // already at BHS
 			initialSA:         0,
 			initialRA:         200000,
 			maContribution:    600,
@@ -259,11 +267,11 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 			}
 
 			// Check overflow amounts in result - this is the key test
-			if got := result.MAOverflowToSA.ToFloat64(); got != tt.wantMAOverflowSA {
-				t.Errorf("MAOverflowToSA = %.2f, want %.2f", got, tt.wantMAOverflowSA)
+			if actualOverflowToSA := result.MAOverflowToSA.ToFloat64(); actualOverflowToSA != tt.wantMAOverflowSA {
+				t.Errorf("MAOverflowToSA = %.2f, want %.2f", actualOverflowToSA, tt.wantMAOverflowSA)
 			}
-			if got := result.MAOverflowToRA.ToFloat64(); got != tt.wantMAOverflowRA {
-				t.Errorf("MAOverflowToRA = %.2f, want %.2f", got, tt.wantMAOverflowRA)
+			if actualOverflowToRA := result.MAOverflowToRA.ToFloat64(); actualOverflowToRA != tt.wantMAOverflowRA {
+				t.Errorf("MAOverflowToRA = %.2f, want %.2f", actualOverflowToRA, tt.wantMAOverflowRA)
 			}
 
 			// Verify MA was capped at BHS before interest was applied
@@ -317,12 +325,9 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 	// Calculate expected BHS for each test year
 	// BHS grows at 4% per year: BHS(year) = baseBHS * 1.04^(year - baseYear)
 	getBHSForYear := func(year int) float64 {
-		years := year - baseYear
-		if years < 0 {
-			years = 0
-		}
+		years := max(0, year-baseYear)
 		growth := 1.0
-		for i := 0; i < years; i++ {
+		for range years {
 			growth *= 1.04
 		}
 		return baseBHS * growth
@@ -403,11 +408,11 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 			}
 
 			// Check overflow amount (allow tolerance for decimal precision)
-			gotOverflow := result.MAOverflowToSA.ToFloat64()
+			actualOverflow := result.MAOverflowToSA.ToFloat64()
 			tolerance := 1.0 // $1 tolerance for rounding
-			if gotOverflow < expectedOverflow-tolerance || gotOverflow > expectedOverflow+tolerance {
+			if actualOverflow < expectedOverflow-tolerance || actualOverflow > expectedOverflow+tolerance {
 				t.Errorf("MAOverflowToSA = %.2f, want ~%.2f (BHS for %d = %.2f)",
-					gotOverflow, expectedOverflow, tt.year, expectedBHS)
+					actualOverflow, expectedOverflow, tt.year, expectedBHS)
 			}
 
 			// Verify MA is capped at BHS for that year (if overflow occurred)
