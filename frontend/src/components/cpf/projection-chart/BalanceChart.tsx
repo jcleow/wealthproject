@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react'
 import {
   Area,
   ComposedChart,
@@ -13,13 +14,26 @@ import type { ChartDataPoint, VisibleAccounts, ThresholdAges, Milestone } from '
 import { ACCOUNT_COLORS } from './types'
 import { BalanceTooltipContent } from './TooltipContent'
 import { RetirementSavingsDot, MADot } from './MilestoneDots'
-import { generateAgeTicks } from './utils'
+import { generateAgeTicks, type RetirementSumBase } from './utils'
+import { useChartDrag } from './useChartDrag'
+
+/** Chart layout configuration */
+const CHART_LAYOUT = {
+  margin: { top: 40, right: 30, left: 0, bottom: 0 },
+  yAxisWidth: 50,
+} as const
 
 interface BalanceChartProps {
   data: ChartDataPoint[]
   visibleAccounts: VisibleAccounts
   thresholdAges: ThresholdAges
   milestones: Milestone[]
+  selectedAge?: number
+  onAgeSelect?: (age: number) => void
+  /** FRS annual growth rate for threshold projections */
+  frsGrowthRate?: number
+  /** Base retirement sum values from API (optional, falls back to hardcoded constants) */
+  retirementSumBase?: RetirementSumBase
 }
 
 export function BalanceChart({
@@ -27,14 +41,50 @@ export function BalanceChart({
   visibleAccounts,
   thresholdAges,
   milestones,
+  selectedAge,
+  onAgeSelect,
+  frsGrowthRate = 0.035,
+  retirementSumBase,
 }: BalanceChartProps) {
   const startAge = data[0]?.age ?? 0
   const endAge = data[data.length - 1]?.age ?? 100
   const ticks = generateAgeTicks(startAge, endAge)
 
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const { isDragging, handleMouseDown, handleMouseMove, handleMouseUp } = useChartDrag({
+    containerRef,
+    rangeStart: startAge,
+    rangeEnd: endAge,
+    onValueChange: onAgeSelect,
+    enabled: !!onAgeSelect,
+    layout: CHART_LAYOUT,
+  })
+
+  // Click handler for Recharts (for tooltip interaction)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleChartClick = useCallback((chartData: any) => {
+    if (chartData?.activePayload?.[0]?.payload && onAgeSelect) {
+      onAgeSelect(chartData.activePayload[0].payload.age)
+    }
+  }, [onAgeSelect])
+
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 40, right: 30, left: 0, bottom: 0 }}>
+    <div
+      ref={containerRef}
+      className="h-full w-full"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      style={{ cursor: isDragging ? 'grabbing' : 'crosshair' }}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart
+          data={data}
+          margin={CHART_LAYOUT.margin}
+          onClick={handleChartClick}
+        >
         <defs>
           <linearGradient id="oaGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor={ACCOUNT_COLORS.oa} stopOpacity={0.3} />
@@ -75,8 +125,16 @@ export function BalanceChart({
 
         <Tooltip
           content={({ active, payload }) => {
-            if (!active || !payload?.[0]) return null
-            return <BalanceTooltipContent data={payload[0].payload} visibleAccounts={visibleAccounts} />
+            // Hide tooltip while dragging to avoid interference
+            if (isDragging || !active || !payload?.[0]) return null
+            return (
+              <BalanceTooltipContent
+                data={payload[0].payload}
+                visibleAccounts={visibleAccounts}
+                frsGrowthRate={frsGrowthRate}
+                retirementSumBase={retirementSumBase}
+              />
+            )
           }}
         />
 
@@ -91,10 +149,26 @@ export function BalanceChart({
               fill: m.color,
               fontSize: 11,
               fontWeight: 600,
-              position: 'insideTopRight',
+              position: 'insideTop',
             }}
           />
         ))}
+
+        {/* Selected age indicator line */}
+        {selectedAge !== undefined && (
+          <ReferenceLine
+            x={selectedAge}
+            stroke="rgba(148, 163, 184, 0.6)"
+            strokeWidth={1.5}
+            label={{
+              value: `Age ${selectedAge}`,
+              fill: '#94a3b8',
+              fontSize: 10,
+              fontWeight: 500,
+              position: 'top',
+            }}
+          />
+        )}
 
         {visibleAccounts.oa && (
           <Area
@@ -156,6 +230,7 @@ export function BalanceChart({
         )}
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   )
 }
 

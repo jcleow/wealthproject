@@ -180,9 +180,11 @@ function apiToFrontendScenario(apiScenario: PropertyScenarioFull): PropertyScena
     monthlyCpfOa: 0,
     grants,
     borrower1IncomeId: propertySG.borrower1IncomeId || '',
+    borrower1CpfAccountId: propertySG.borrower1CpfAccountId || null,
     borrower1OaBalance: parseFloat(apiScenario.computed?.projectedBorrower1OA ?? '0'),
     borrower1LiabilityIds: [],
     borrower2IncomeId: propertySG.borrower2IncomeId || null,
+    borrower2CpfAccountId: propertySG.borrower2CpfAccountId || null,
     borrower2OaBalance: parseFloat(apiScenario.computed?.projectedBorrower2OA ?? '0'),
     borrower2LiabilityIds: [],
     // Per-borrower CPF OA tracking (fallback to legacy totals for borrower 1)
@@ -261,13 +263,19 @@ function isValidUUID(value: string | null | undefined): boolean {
 function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInput {
   const { propertyType: apiType, propertySubtype } = mapPropertyTypeToApi(scenario.propertyType)
 
-  // Only pass income IDs if they are valid UUIDs (filter out placeholder values like 'income-1')
+  // Only pass income/CPF account IDs if they are valid UUIDs (filter out placeholder values)
   // Use || undefined to ensure null values become undefined (API expects string | undefined)
   const borrower1IncomeId = isValidUUID(scenario.inputs.borrower1IncomeId)
     ? scenario.inputs.borrower1IncomeId
     : undefined
   const borrower2IncomeId = isValidUUID(scenario.inputs.borrower2IncomeId)
     ? (scenario.inputs.borrower2IncomeId || undefined)
+    : undefined
+  const borrower1CpfAccountId = isValidUUID(scenario.inputs.borrower1CpfAccountId)
+    ? (scenario.inputs.borrower1CpfAccountId || undefined)
+    : undefined
+  const borrower2CpfAccountId = isValidUUID(scenario.inputs.borrower2CpfAccountId)
+    ? (scenario.inputs.borrower2CpfAccountId || undefined)
     : undefined
 
   return {
@@ -288,7 +296,9 @@ function frontendToApiCreateInput(scenario: PropertyScenario): CreateScenarioInp
       downpaymentCash: String(scenario.inputs.downpaymentCash),
       borrowerType: scenario.inputs.borrowerType,
       borrower1IncomeId,
+      borrower1CpfAccountId,
       borrower2IncomeId,
+      borrower2CpfAccountId,
       // Per-borrower CPF OA tracking
       borrower1DownpaymentCpfOa: String(scenario.inputs.borrower1DownpaymentCpfOa),
       borrower2DownpaymentCpfOa: String(scenario.inputs.borrower2DownpaymentCpfOa),

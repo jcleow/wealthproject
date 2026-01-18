@@ -74,11 +74,11 @@ function PropertyScenarioCard({
           )} />
         </div>
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
-          {/* Name + Badges */}
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-medium text-white truncate">{sg.name}</span>
+        {/* Content - Grid with name and grouped badges */}
+        <div className="flex-1 min-w-0 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 items-center">
+          {/* Row 1: Name + Badges (grouped) */}
+          <span className="text-sm font-medium text-white truncate">{sg.name}</span>
+          <div className="flex gap-1.5">
             <span className={cn("px-1.5 py-0.5 rounded text-xs font-medium", propertyTypeColor)}>
               {propertyTypeLabel}
             </span>
@@ -92,13 +92,11 @@ function PropertyScenarioCard({
             </span>
           </div>
 
-          {/* CPF Used */}
-          <div className="grid grid-cols-4 items-center">
-            <span className="text-xs text-gray-500 col-start-1">CPF Used</span>
-            <span className="text-xs font-medium text-white font-mono tabular-nums col-start-3">
-              {formatCurrency(totalCpfUsed)}
-            </span>
-          </div>
+          {/* Row 2: CPF Used + Value */}
+          <span className="text-xs text-gray-500">CPF Used</span>
+          <span className="text-xs font-medium text-white font-mono tabular-nums">
+            {formatCurrency(totalCpfUsed)}
+          </span>
         </div>
 
         {/* Selection indicator */}

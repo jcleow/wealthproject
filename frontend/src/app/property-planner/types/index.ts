@@ -99,9 +99,11 @@ export interface MortgageInputs {
   grants: GrantItem[]
   // Borrower selection fields
   borrower1IncomeId: string
+  borrower1CpfAccountId: string | null // CPF account linked to borrower 1 (for person name lookup)
   borrower1OaBalance: number
   borrower1LiabilityIds: string[] // IDs of liabilities assigned to borrower 1
   borrower2IncomeId: string | null
+  borrower2CpfAccountId: string | null // CPF account linked to borrower 2 (for person name lookup)
   borrower2OaBalance: number
   borrower2LiabilityIds: string[] // IDs of liabilities assigned to borrower 2
   // Per-borrower CPF OA tracking

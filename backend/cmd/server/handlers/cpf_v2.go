@@ -11,6 +11,7 @@ import (
 
 	"financial-chat-system/backend/internal/common"
 	"financial-chat-system/backend/internal/cpf/assumptions"
+	"financial-chat-system/backend/internal/cpf/config"
 	"financial-chat-system/backend/internal/cpf/engine"
 	"financial-chat-system/backend/internal/cpf/payout"
 	"financial-chat-system/backend/internal/cpf/retirement"
@@ -78,6 +79,57 @@ func (h *CPFV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, accounts)
+}
+
+// GET /api/v2/cpf/config
+// HandleGetConfig returns CPF configuration for a specific year or current year.
+// @Summary Get CPF configuration (v2)
+// @Description Returns CPF policy configuration including retirement sums, interest rates, contribution rates
+// @Tags CPF V2
+// @Produce json
+// @Param year query int false "Configuration year (defaults to current year)"
+// @Success 200 {object} config.CPFConfiguration
+// @Failure 400 {object} map[string]interface{}
+// @Failure 404 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /v2/cpf/config [get]
+func (h *CPFV2Handler) HandleGetConfig(w http.ResponseWriter, r *http.Request) {
+	yearStr := r.URL.Query().Get("year")
+
+	var cfg *config.CPFConfiguration
+	var err error
+
+	if yearStr != "" {
+		var year int
+		if _, parseErr := fmt.Sscanf(yearStr, "%d", &year); parseErr != nil {
+			badRequest(w, fmt.Errorf("invalid year parameter: %s", yearStr))
+			return
+		}
+		cfg, err = config.GetByYear(year)
+	} else {
+		cfg, err = config.GetCurrentYear()
+	}
+
+	if err != nil {
+		log.Printf("cpf.GetConfig error: %v", err)
+		notFound(w)
+		return
+	}
+
+	writeJSON(w, cfg)
+}
+
+// GET /api/v2/cpf/config/years
+// HandleListConfigYears returns all available CPF configuration years.
+// @Summary List CPF configuration years (v2)
+// @Description Returns all years for which CPF configuration data is available
+// @Tags CPF V2
+// @Produce json
+// @Success 200 {object} map[string][]int
+// @Router /v2/cpf/config/years [get]
+func (h *CPFV2Handler) HandleListConfigYears(w http.ResponseWriter, r *http.Request) {
+	years := config.ListYears()
+	writeJSON(w, map[string][]int{"years": years})
 }
 
 // cpfV2CreateInput is the JSON input struct for CPF v2 create.

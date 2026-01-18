@@ -1,6 +1,59 @@
 import type { CPFProjectionYear } from '@/types/cpf'
 import type { CPFBalanceProjectionResponse } from '@/api/financial/cpf'
 import type { PayoutProjectionYear, ChartDataPoint, ThresholdAges } from './types'
+import { CPF_CONSTANTS, CPF_POLICY_YEAR } from '@/lib/cpf-constants'
+
+/** Projected retirement sum thresholds for a given year */
+export interface ProjectedThresholds {
+  brs: number
+  frs: number
+  ers: number
+  bhs: number
+}
+
+/** Base retirement sum values used for projection calculations */
+export interface RetirementSumBase {
+  brs: number
+  frs: number
+  ers: number
+  bhs: number
+  /** The year these base values are effective (used as starting point for growth) */
+  policyYear: number
+}
+
+/** Default base values from hardcoded constants (fallback) */
+const DEFAULT_RETIREMENT_SUM_BASE: RetirementSumBase = {
+  brs: CPF_CONSTANTS.BRS,
+  frs: CPF_CONSTANTS.FRS,
+  ers: CPF_CONSTANTS.ERS,
+  bhs: CPF_CONSTANTS.BHS,
+  policyYear: CPF_POLICY_YEAR,
+}
+
+/**
+ * Calculate projected retirement sums for a given year based on growth rate.
+ * CPF retirement sums increase annually to account for inflation.
+ *
+ * @param year - The target year to project thresholds for
+ * @param frsGrowthRate - Annual growth rate (e.g., 0.035 for 3.5%)
+ * @param baseValues - Optional base values from API; falls back to hardcoded constants
+ */
+export function calculateProjectedThresholds(
+  year: number,
+  frsGrowthRate: number,
+  baseValues?: RetirementSumBase
+): ProjectedThresholds {
+  const base = baseValues ?? DEFAULT_RETIREMENT_SUM_BASE
+  const yearsFromPolicy = year - base.policyYear
+  const growthFactor = Math.pow(1 + frsGrowthRate, yearsFromPolicy)
+
+  return {
+    brs: Math.round(base.brs * growthFactor),
+    frs: Math.round(base.frs * growthFactor),
+    ers: Math.round(base.ers * growthFactor),
+    bhs: Math.round(base.bhs * growthFactor),
+  }
+}
 
 interface RetirementProjection {
   age55Balances: { oa: number; sa: number; ma: number; ra: number }

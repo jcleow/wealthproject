@@ -4,12 +4,13 @@ import { useMemo, useState } from 'react'
 import type { CPFProfile, CPFAssumptions } from '@/types/cpf'
 import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 import { CPFAssumptionsPanel } from './CPFAssumptionsPanel'
-import { useCpfBalanceProjectionQuery } from '@/hooks/queries/useCpfQuery'
+import { useCpfBalanceProjectionQuery, useCpfConfigQuery } from '@/hooks/queries/useCpfQuery'
 import {
   type ChartView,
   type AccountKey,
   type VisibleAccounts,
   type Milestone,
+  type RetirementSumBase,
   transformProjectionData,
   transformChartData,
   calculateThresholdAges,
@@ -27,11 +28,24 @@ import {
 interface CPFProjectionChartProps {
   profile: CPFProfile
   className?: string
+  /** Currently selected age (controlled by parent slider) */
+  selectedAge?: number
+  /** Callback when age is changed via chart interaction */
+  onAgeChange?: (age: number) => void
 }
 
-export function CPFProjectionChart({ profile, className }: CPFProjectionChartProps) {
+export function CPFProjectionChart({
+  profile,
+  className,
+  selectedAge: externalSelectedAge,
+  onAgeChange,
+}: CPFProjectionChartProps) {
   const [assumptions, setAssumptions] = useState<CPFAssumptions>(DEFAULT_CPF_ASSUMPTIONS)
   const [chartView, setChartView] = useState<ChartView>('balance')
+
+  // Use external selectedAge if provided, otherwise fall back to profile.age
+  const selectedAge = externalSelectedAge ?? profile.age
+  const setSelectedAge = onAgeChange ?? (() => {})
   const [visibleAccounts, setVisibleAccounts] = useState<VisibleAccounts>({
     oa: true,
     sa: true,
@@ -53,6 +67,21 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
     retirementAge: assumptions.retirementAge,
     payoutStartAge: assumptions.payoutStartAge,
   })
+
+  // Fetch CPF config for retirement sum base values (avoids hardcoding)
+  const { data: cpfConfig } = useCpfConfigQuery()
+
+  // Derive retirement sum base from API config (for threshold calculations)
+  const retirementSumBase = useMemo<RetirementSumBase | undefined>(() => {
+    if (!cpfConfig?.config?.retirementSums) return undefined
+    return {
+      brs: cpfConfig.config.retirementSums.brs,
+      frs: cpfConfig.config.retirementSums.frs,
+      ers: cpfConfig.config.retirementSums.ers,
+      bhs: cpfConfig.config.bhs,
+      policyYear: cpfConfig.year,
+    }
+  }, [cpfConfig])
 
   const { projection, retirement } = useMemo(() => {
     if (!apiResponse) return { projection: null, retirement: null }
@@ -133,7 +162,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <BalanceAtAgeCard
-          displayAge={profile.age}
+          displayAge={selectedAge}
           projection={projection}
           currentAge={profile.age}
           currentBalances={profile.balances}
@@ -167,6 +196,10 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
               visibleAccounts={visibleAccounts}
               thresholdAges={thresholdAges}
               milestones={milestones}
+              selectedAge={selectedAge}
+              onAgeSelect={setSelectedAge}
+              frsGrowthRate={assumptions.frsGrowthRate}
+              retirementSumBase={retirementSumBase}
             />
           ) : (
             <PayoutChart
