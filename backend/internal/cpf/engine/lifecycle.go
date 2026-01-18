@@ -132,30 +132,19 @@ func ProcessMonth(
 
 				if state.MA.Cmp(bhs) >= 0 {
 					// MA already at or above BHS - entire contribution overflows
-					if age < 55 {
-						state.SA = state.SA.Add(maContrib)
-						result.MAOverflowToSA = result.MAOverflowToSA.Add(maContrib)
-					} else {
-						state.RA = state.RA.Add(maContrib)
-						result.MAOverflowToRA = result.MAOverflowToRA.Add(maContrib)
-					}
+					redirectMAOverflowByAge(state, result, maContrib, age)
 				} else {
-					// Calculate remainderToMACap available in MA before hitting BHS
+					// Calculate how much of the contribution overflows beyond BHS
 					remainderToMACap := bhs.Sub(state.MA)
-					if maContrib.Cmp(remainderToMACap) <= 0 {
+					overflow := maContrib.Sub(remainderToMACap)
+
+					if !overflow.IsNegative() && !overflow.IsZero() {
+						// Contribution exceeds capacity: cap MA at BHS, redirect overflow
+						state.MA = bhs
+						redirectMAOverflowByAge(state, result, overflow, age)
+					} else {
 						// Entire contribution fits in MA
 						state.MA = state.MA.Add(maContrib)
-					} else {
-						// Split: fill MA to BHS, overflow rest
-						state.MA = bhs
-						overflow := maContrib.Sub(remainderToMACap)
-						if age < 55 {
-							state.SA = state.SA.Add(overflow)
-							result.MAOverflowToSA = result.MAOverflowToSA.Add(overflow)
-						} else {
-							state.RA = state.RA.Add(overflow)
-							result.MAOverflowToRA = result.MAOverflowToRA.Add(overflow)
-						}
 					}
 				}
 				result.TotalContributions = result.TotalContributions.Add(maContrib)

@@ -121,6 +121,23 @@ func RedirectContributionToRA(
 	return saContribution
 }
 
+// redirectMAOverflowByAge routes an overflow amount to SA (age < 55) or RA (age >= 55).
+// Updates both the state balances and the result tracking fields.
+func redirectMAOverflowByAge(
+	state *CPFState,
+	result *MonthlyResult,
+	amount *decimal.Decimal,
+	age int,
+) {
+	if age < RAFormationAge {
+		state.SA = state.SA.Add(amount)
+		result.MAOverflowToSA = result.MAOverflowToSA.Add(amount)
+	} else {
+		state.RA = state.RA.Add(amount)
+		result.MAOverflowToRA = result.MAOverflowToRA.Add(amount)
+	}
+}
+
 // RedirectMAOverflowFromBHS caps MA at BHS and redirects any overflow to SA or RA.
 // Per CPF policy, once MA reaches the Basic Healthcare Sum (BHS), additional
 // contributions that would go to MA are redirected to:
