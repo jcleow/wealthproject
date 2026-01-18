@@ -650,11 +650,11 @@ func (s *Store) getPropertySG(ctx context.Context, id string) (*PropertySG, erro
 			sg.borrower_type, sg.borrower1_income_id, sg.borrower1_cpf_account_id,
 			sg.borrower2_income_id, sg.borrower2_cpf_account_id,
 			-- Borrower 1 person info (via CPF account -> person)
-			COALESCE(b1_cpf.person_id, '') as b1_person_id,
-			COALESCE(b1_person.name, 'Borrower 1') as b1_person_name,
+			COALESCE(b1_cpf.person_id::text, '') as b1_person_id,
+			COALESCE(b1_person.name, '') as b1_person_name,
 			-- Borrower 2 person info (via CPF account -> person)
-			COALESCE(b2_cpf.person_id, '') as b2_person_id,
-			COALESCE(b2_person.name, 'Borrower 2') as b2_person_name,
+			COALESCE(b2_cpf.person_id::text, '') as b2_person_id,
+			COALESCE(b2_person.name, '') as b2_person_name,
 			sg.other_debt, sg.property_count,
 			sg.bto_launch_date, sg.bto_key_collection_date,
 			sg.sale_expected_date, sg.sale_expected_price,

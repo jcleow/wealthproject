@@ -112,7 +112,7 @@ func TestComputeUsageFromScenario_EmptyPersonName_UsesEmptyString(t *testing.T) 
 			BorrowerType:              "single",
 			Borrower1CpfAccountID:     &b1CpfAccountID,
 			Borrower1PersonID:         "", // Empty - person record may be missing
-			Borrower1PersonName:       "", // Empty - COALESCE fallback not tested here
+			Borrower1PersonName:       "", // Empty - will be empty string from COALESCE
 			Borrower1DownpaymentCpfOa: *decimal.MustFromString("50000"),
 			Borrower1MonthlyCpfOa:     *decimal.MustFromString("1000"),
 			CreatedAt:                 time.Now(),
@@ -151,10 +151,10 @@ func TestComputeUsageFromScenario_NoCpfAccountLinked(t *testing.T) {
 			BorrowerType:              "joint",
 			Borrower1CpfAccountID:     nil, // Not linked
 			Borrower2CpfAccountID:     nil, // Not linked
-			Borrower1PersonID:         "",  // Empty
-			Borrower1PersonName:       "",  // Empty
-			Borrower2PersonID:         "",  // Empty
-			Borrower2PersonName:       "",  // Empty
+			Borrower1PersonID:         "", // Empty
+			Borrower1PersonName:       "", // Empty
+			Borrower2PersonID:         "", // Empty
+			Borrower2PersonName:       "", // Empty
 			Borrower1DownpaymentCpfOa: *decimal.MustFromString("50000"),
 			Borrower2DownpaymentCpfOa: *decimal.MustFromString("35000"),
 			Borrower1MonthlyCpfOa:     *decimal.MustFromString("1590"),
