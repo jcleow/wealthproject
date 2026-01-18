@@ -98,12 +98,12 @@ export async function getCPFConfig(params?: { year?: number; date?: string }): P
   if (params?.year) searchParams.set('year', params.year.toString())
   if (params?.date) searchParams.set('date', params.date)
   const url = `/cpf/config${searchParams.toString() ? `?${searchParams}` : ''}`
-  const data = await apiClient.get<any>(url)
+  const data = await apiClient.get<any>(url, undefined, { baseUrl: '/api/v2' })
   return toCPFConfiguration(data)
 }
 
 export async function listCPFConfigYears(): Promise<number[]> {
-  const data = await apiClient.get<{ years: number[] }>('/cpf/config/years')
+  const data = await apiClient.get<{ years: number[] }>('/cpf/config/years', undefined, { baseUrl: '/api/v2' })
   return data.years
 }
 

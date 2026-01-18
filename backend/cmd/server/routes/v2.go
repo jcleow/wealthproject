@@ -210,6 +210,11 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 
 	// CPF account v2 endpoints (versioned update/delete/stop)
 	cpfHandler := handlers.NewCPFV2Handler(deps.FinStore, deps.CPFAssumptionsRepo, deps.TimelineService)
+
+	// CPF configuration endpoints (no auth required - public policy data)
+	router.HandleFunc("/cpf/config", cpfHandler.HandleGetConfig).Methods("GET")
+	router.HandleFunc("/cpf/config/years", cpfHandler.HandleListConfigYears).Methods("GET")
+
 	router.HandleFunc("/cpf/accounts", cpfHandler.HandleList).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleGet).Methods("GET")
 	router.HandleFunc("/cpf/account", cpfHandler.HandleCreate).Methods("POST")
