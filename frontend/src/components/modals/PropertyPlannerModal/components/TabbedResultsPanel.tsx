@@ -401,7 +401,7 @@ export function TabbedResultsPanel({
                   <span className="text-slate-300">-{formatCurrency(cpfPrincipalUsed)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-slate-500">+ Accrued Interest</span>
+                  <span className="text-slate-500">Accrued Interest</span>
                   <span className="text-slate-400">-{formatCurrency(cpfAccruedInterest)}</span>
                 </div>
                 {ssdApplicable && (
