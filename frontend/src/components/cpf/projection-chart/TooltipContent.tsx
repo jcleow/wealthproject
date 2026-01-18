@@ -1,7 +1,7 @@
 import { formatCurrency } from '@/lib/format'
 import type { VisibleAccounts, PayoutProjectionYear, PayoutPlan } from './types'
 import { ACCOUNT_COLORS, THRESHOLD_COLORS } from './types'
-import { calculateProjectedThresholds } from './utils'
+import { calculateProjectedThresholds, type RetirementSumBase } from './utils'
 
 interface BalanceTooltipProps {
   data: {
@@ -19,10 +19,17 @@ interface BalanceTooltipProps {
   visibleAccounts: VisibleAccounts
   /** FRS annual growth rate (default 3.5%) */
   frsGrowthRate?: number
+  /** Base retirement sum values from API (optional, falls back to hardcoded constants) */
+  retirementSumBase?: RetirementSumBase
 }
 
-export function BalanceTooltipContent({ data, visibleAccounts, frsGrowthRate = 0.035 }: BalanceTooltipProps) {
-  const thresholds = calculateProjectedThresholds(data.year, frsGrowthRate)
+export function BalanceTooltipContent({
+  data,
+  visibleAccounts,
+  frsGrowthRate = 0.035,
+  retirementSumBase,
+}: BalanceTooltipProps) {
+  const thresholds = calculateProjectedThresholds(data.year, frsGrowthRate, retirementSumBase)
 
   // Calculate retirement savings (OA + SA before 55, RA after 55)
   const retirementSavings = data.retirementSavings ?? (data.age < 55 ? (data.oa + (data.sa ?? 0)) : null)

@@ -4,12 +4,13 @@ import { useMemo, useState } from 'react'
 import type { CPFProfile, CPFAssumptions } from '@/types/cpf'
 import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 import { CPFAssumptionsPanel } from './CPFAssumptionsPanel'
-import { useCpfBalanceProjectionQuery } from '@/hooks/queries/useCpfQuery'
+import { useCpfBalanceProjectionQuery, useCpfConfigQuery } from '@/hooks/queries/useCpfQuery'
 import {
   type ChartView,
   type AccountKey,
   type VisibleAccounts,
   type Milestone,
+  type RetirementSumBase,
   transformProjectionData,
   transformChartData,
   calculateThresholdAges,
@@ -66,6 +67,21 @@ export function CPFProjectionChart({
     retirementAge: assumptions.retirementAge,
     payoutStartAge: assumptions.payoutStartAge,
   })
+
+  // Fetch CPF config for retirement sum base values (avoids hardcoding)
+  const { data: cpfConfig } = useCpfConfigQuery()
+
+  // Derive retirement sum base from API config (for threshold calculations)
+  const retirementSumBase = useMemo<RetirementSumBase | undefined>(() => {
+    if (!cpfConfig?.config?.retirementSums) return undefined
+    return {
+      brs: cpfConfig.config.retirementSums.brs,
+      frs: cpfConfig.config.retirementSums.frs,
+      ers: cpfConfig.config.retirementSums.ers,
+      bhs: cpfConfig.config.bhs,
+      policyYear: cpfConfig.year,
+    }
+  }, [cpfConfig])
 
   const { projection, retirement } = useMemo(() => {
     if (!apiResponse) return { projection: null, retirement: null }
@@ -183,6 +199,7 @@ export function CPFProjectionChart({
               selectedAge={selectedAge}
               onAgeSelect={setSelectedAge}
               frsGrowthRate={assumptions.frsGrowthRate}
+              retirementSumBase={retirementSumBase}
             />
           ) : (
             <PayoutChart

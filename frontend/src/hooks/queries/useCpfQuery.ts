@@ -9,6 +9,7 @@ import type {
 
 export const CPF_QUERY_KEY = ['cpf'] as const
 export const CPF_ACCOUNTS_QUERY_KEY = ['cpf', 'accounts'] as const
+export const CPF_CONFIG_QUERY_KEY = (year?: number) => ['cpf', 'config', year] as const
 export const CPF_ASSUMPTIONS_QUERY_KEY = (cpfAccountId: string) => ['cpf', 'assumptions', cpfAccountId] as const
 export const CPF_HOUSING_USAGE_QUERY_KEY = (scenarioId: string) => ['cpf', 'housing-usage', scenarioId] as const
 
@@ -23,6 +24,19 @@ export function useCpfAccountsQuery() {
   return useQuery({
     queryKey: CPF_ACCOUNTS_QUERY_KEY,
     queryFn: cpfApi.listCPFAccounts,
+  })
+}
+
+/**
+ * Query hook for fetching CPF configuration (retirement sums, interest rates, etc.)
+ * Can optionally specify a year to get historical configuration.
+ * Defaults to current year if not specified.
+ */
+export function useCpfConfigQuery(year?: number) {
+  return useQuery({
+    queryKey: CPF_CONFIG_QUERY_KEY(year),
+    queryFn: () => cpfApi.getCPFConfig(year ? { year } : undefined),
+    staleTime: 24 * 60 * 60 * 1000, // 24 hours - config rarely changes
   })
 }
 

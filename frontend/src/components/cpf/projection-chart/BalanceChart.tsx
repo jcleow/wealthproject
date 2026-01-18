@@ -14,7 +14,7 @@ import type { ChartDataPoint, VisibleAccounts, ThresholdAges, Milestone } from '
 import { ACCOUNT_COLORS } from './types'
 import { BalanceTooltipContent } from './TooltipContent'
 import { RetirementSavingsDot, MADot } from './MilestoneDots'
-import { generateAgeTicks } from './utils'
+import { generateAgeTicks, type RetirementSumBase } from './utils'
 import { useChartDrag } from './useChartDrag'
 
 /** Chart layout configuration */
@@ -32,6 +32,8 @@ interface BalanceChartProps {
   onAgeSelect?: (age: number) => void
   /** FRS annual growth rate for threshold projections */
   frsGrowthRate?: number
+  /** Base retirement sum values from API (optional, falls back to hardcoded constants) */
+  retirementSumBase?: RetirementSumBase
 }
 
 export function BalanceChart({
@@ -42,6 +44,7 @@ export function BalanceChart({
   selectedAge,
   onAgeSelect,
   frsGrowthRate = 0.035,
+  retirementSumBase,
 }: BalanceChartProps) {
   const startAge = data[0]?.age ?? 0
   const endAge = data[data.length - 1]?.age ?? 100
@@ -129,6 +132,7 @@ export function BalanceChart({
                 data={payload[0].payload}
                 visibleAccounts={visibleAccounts}
                 frsGrowthRate={frsGrowthRate}
+                retirementSumBase={retirementSumBase}
               />
             )
           }}
