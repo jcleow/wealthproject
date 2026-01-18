@@ -125,29 +125,11 @@ func ProcessMonth(
 				}
 			}
 			if contrib.Allocation.MA != nil {
-				// Check BHS cap BEFORE adding MA contribution
+				// Apply MA contribution with BHS cap check
 				// Per CPF policy: once MA reaches BHS, excess overflows to SA (age<55) or RA (age>=55)
 				bhs := opts.Assumptions.GetBHS(date.Year())
-				maContrib := contrib.Allocation.MA
-
-				if state.MA.Cmp(bhs) >= 0 {
-					// MA already at or above BHS - entire contribution overflows
-					redirectMAOverflowByAge(state, result, maContrib, age)
-				} else {
-					// Calculate how much of the contribution overflows beyond BHS
-					remainderToMACap := bhs.Sub(state.MA)
-					overflow := maContrib.Sub(remainderToMACap)
-
-					if !overflow.IsNegative() && !overflow.IsZero() {
-						// Contribution exceeds capacity: cap MA at BHS, redirect overflow
-						state.MA = bhs
-						redirectMAOverflowByAge(state, result, overflow, age)
-					} else {
-						// Entire contribution fits in MA
-						state.MA = state.MA.Add(maContrib)
-					}
-				}
-				result.TotalContributions = result.TotalContributions.Add(maContrib)
+				ApplyMAContributionWithBHSCap(state, result, contrib.Allocation.MA, bhs, age)
+				result.TotalContributions = result.TotalContributions.Add(contrib.Allocation.MA)
 			}
 			if contrib.Allocation.RA != nil {
 				state.RA = state.RA.Add(contrib.Allocation.RA)

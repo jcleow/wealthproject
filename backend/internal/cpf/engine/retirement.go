@@ -138,6 +138,44 @@ func redirectMAOverflowByAge(
 	}
 }
 
+// ApplyMAContributionWithBHSCap adds an MA contribution while respecting the BHS cap.
+// If MA is already at or above BHS, the entire contribution overflows.
+// If the contribution would exceed BHS, the excess overflows.
+// Overflow is routed to SA (age < 55) or RA (age >= 55).
+// Returns the amount that was added to MA (contribution minus overflow).
+func ApplyMAContributionWithBHSCap(
+	state *CPFState,
+	result *MonthlyResult,
+	maContrib *decimal.Decimal,
+	bhs *decimal.Decimal,
+	age int,
+) *decimal.Decimal {
+	if maContrib == nil || maContrib.IsZero() {
+		return decimal.Zero()
+	}
+
+	// Case 1: MA already at or above BHS - entire contribution overflows
+	if state.MA.Cmp(bhs) >= 0 {
+		redirectMAOverflowByAge(state, result, maContrib, age)
+		return decimal.Zero()
+	}
+
+	// Case 2: Calculate how much of the contribution overflows beyond BHS
+	remainderToMACap := bhs.Sub(state.MA)
+	overflow := maContrib.Sub(remainderToMACap)
+
+	if overflow.IsNegative() || overflow.IsZero() {
+		// Entire contribution fits in MA
+		state.MA = state.MA.Add(maContrib)
+		return maContrib
+	}
+
+	// Case 3: Contribution exceeds capacity - cap MA at BHS, redirect overflow
+	state.MA = bhs
+	redirectMAOverflowByAge(state, result, overflow, age)
+	return remainderToMACap
+}
+
 // RedirectMAOverflowFromBHS caps MA at BHS and redirects any overflow to SA or RA.
 // Per CPF policy, once MA reaches the Basic Healthcare Sum (BHS), additional
 // contributions that would go to MA are redirected to:

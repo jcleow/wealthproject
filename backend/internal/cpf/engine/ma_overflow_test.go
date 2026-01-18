@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"math"
 	"testing"
 	"time"
 
@@ -328,28 +327,29 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 	// Get base year and BHS from assumptions (dynamically set to current year)
 	assumptions := DefaultAssumptions()
 	baseYear := assumptions.RetirementSumsBaseYear
-	baseBHS := assumptions.BHSBase.ToFloat64()
+	baseBHS := assumptions.BHSBase
 
 	// Person under 55 (overflow goes to SA)
 	dob := time.Date(baseYear-35, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	// Helper: Calculate projected BHS for any year using 4% annual growth
+	// Uses decimal arithmetic to avoid float precision issues
 	// Formula: BHS(year) = baseBHS × 1.04^(year - baseYear)
-	getBHSForYear := func(year int) float64 {
-		years := max(0, year-baseYear)
-		growth := 1.0
-		for range years {
-			growth *= 1.04
-		}
-		return baseBHS * growth
+	getBHSForYear := func(year int) *decimal.Decimal {
+		return assumptions.GetBHS(year)
+	}
+
+	// Helper to create initial MA as BHS minus offset (using decimal)
+	bhsMinus := func(year int, offset int64) *decimal.Decimal {
+		return getBHSForYear(year).Sub(decimal.NewFromInt64(offset, 0))
 	}
 
 	tests := []struct {
 		name           string
 		description    string // Detailed explanation of what this test verifies
 		year           int
-		initialMA      int64
-		maContribution int64
+		initialMA      *decimal.Decimal
+		maContribution *decimal.Decimal
 		wantOverflow   bool
 	}{
 		{
@@ -364,8 +364,8 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 				Overflow: $79,500 - $79,000 = $500 redirected to SA
 				Final MA: capped at $79,000`,
 			year:           baseYear,
-			initialMA:      int64(baseBHS) - 500,
-			maContribution: 1000,
+			initialMA:      bhsMinus(baseYear, 500),
+			maContribution: decimal.NewFromInt64(1000, 0),
 			wantOverflow:   true,
 		},
 		{
@@ -382,46 +382,46 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 
 				KEY: The overflow check uses the GROWN BHS ($85,446), not base ($79,000)`,
 			year:           baseYear + 2,
-			initialMA:      int64(getBHSForYear(baseYear+2)) - 500,
-			maContribution: 1000,
+			initialMA:      bhsMinus(baseYear+2, 500),
+			maContribution: decimal.NewFromInt64(1000, 0),
 			wantOverflow:   true,
 		},
 		{
 			name: "Base year + 4 - BHS grown to ~$92,437, contribution triggers overflow",
 			description: `
 				Year: baseYear + 4 (e.g., 2030)
-				BHS cap: $79,000 × 1.04⁴ = $92,436.89 (grown by 17%)
-				Initial MA: $91,937 (projected BHS - $500)
+				BHS cap: $79,000 × 1.04⁴ = $92,418.83 (grown by 17%)
+				Initial MA: $91,918 (projected BHS - $500)
 				Contribution: $1,000
 
-				After contribution: $91,937 + $1,000 = $92,937
-				Overflow: $92,937 - $92,437 = $500 redirected to SA
-				Final MA: capped at $92,437
+				After contribution: $91,918 + $1,000 = $92,918
+				Overflow: $92,918 - $92,418 = $500 redirected to SA
+				Final MA: capped at $92,418
 
-				KEY: Member can hold $13,437 MORE in MA than in base year before overflow`,
+				KEY: Member can hold $13,418 MORE in MA than in base year before overflow`,
 			year:           baseYear + 4,
-			initialMA:      int64(getBHSForYear(baseYear+4)) - 500,
-			maContribution: 1000,
+			initialMA:      bhsMinus(baseYear+4, 500),
+			maContribution: decimal.NewFromInt64(1000, 0),
 			wantOverflow:   true,
 		},
 		{
 			name: "Base year + 4 - MA below grown BHS threshold, NO overflow",
 			description: `
 				Year: baseYear + 4 (e.g., 2030)
-				BHS cap: $79,000 × 1.04⁴ = $92,436.89
-				Initial MA: $90,437 (projected BHS - $2,000)
+				BHS cap: $79,000 × 1.04⁴ = $92,418.83
+				Initial MA: $90,418 (projected BHS - $2,000)
 				Contribution: $1,000
 
-				After contribution: $90,437 + $1,000 = $91,437
-				This is BELOW the grown BHS of $92,437
+				After contribution: $90,418 + $1,000 = $91,418
+				This is BELOW the grown BHS of $92,418
 				Overflow: $0 (no overflow occurs)
-				Final MA: $91,437 (contribution fully absorbed)
+				Final MA: $91,418 (contribution fully absorbed)
 
-				KEY: Without BHS growth, this $91,437 would have overflowed the base $79,000 cap.
-				     But with 4% annual growth, the cap is now $92,437, so no overflow.`,
+				KEY: Without BHS growth, this $91,418 would have overflowed the base $79,000 cap.
+				     But with 4% annual growth, the cap is now $92,418, so no overflow.`,
 			year:           baseYear + 4,
-			initialMA:      int64(getBHSForYear(baseYear+4)) - 2000,
-			maContribution: 1000,
+			initialMA:      bhsMinus(baseYear+4, 2000),
+			maContribution: decimal.NewFromInt64(1000, 0),
 			wantOverflow:   false,
 		},
 	}
@@ -436,7 +436,7 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 			state := NewCPFState(
 				decimal.NewFromInt64(100000, 0), // OA
 				decimal.NewFromInt64(50000, 0),  // SA
-				decimal.NewFromInt64(tt.initialMA, 0),
+				tt.initialMA,
 				decimal.Zero(), // RA
 				dob,
 				"male",
@@ -448,7 +448,7 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 				Allocation: contribution.AccountAllocation{
 					OA: decimal.Zero(),
 					SA: decimal.Zero(),
-					MA: decimal.NewFromInt64(tt.maContribution, 0),
+					MA: tt.maContribution,
 					RA: decimal.Zero(),
 				},
 			}
@@ -466,58 +466,59 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 			// Calculate expected BHS for this specific year (with 4% annual growth)
 			projectedBHS := getBHSForYear(tt.year)
 			t.Logf("Year %d: Projected BHS = $%.2f (base $%.2f × 1.04^%d)",
-				tt.year, projectedBHS, baseBHS, tt.year-baseYear)
+				tt.year, projectedBHS.ToFloat64(), baseBHS.ToFloat64(), tt.year-baseYear)
 
-			// Calculate expected overflow: (initialMA + contribution) - projectedBHS
-			totalMAAfterContribution := float64(tt.initialMA) + float64(tt.maContribution)
-			expectedOverflow := totalMAAfterContribution - projectedBHS
-			if expectedOverflow < 0 {
-				expectedOverflow = 0
+			// Calculate expected overflow using decimal: (initialMA + contribution) - projectedBHS
+			totalMAAfterContribution := tt.initialMA.Add(tt.maContribution)
+			expectedOverflow := totalMAAfterContribution.Sub(projectedBHS)
+			if expectedOverflow.IsNegative() {
+				expectedOverflow = decimal.Zero()
 			}
 
-			actualOverflow := result.MAOverflowToSA.ToFloat64()
-			t.Logf("Initial MA: $%d + Contribution: $%d = $%.2f → Overflow to SA: $%.2f",
-				tt.initialMA, tt.maContribution, totalMAAfterContribution, actualOverflow)
+			actualOverflow := result.MAOverflowToSA
+			t.Logf("Initial MA: $%.2f + Contribution: $%.2f = $%.2f → Overflow to SA: $%.2f",
+				tt.initialMA.ToFloat64(), tt.maContribution.ToFloat64(),
+				totalMAAfterContribution.ToFloat64(), actualOverflow.ToFloat64())
 
 			// Verify overflow occurred/didn't occur as expected
 			if tt.wantOverflow {
-				if actualOverflow <= 0 {
-					t.Errorf("Expected overflow but got none. MA contribution should have exceeded projected BHS of $%.2f", projectedBHS)
+				if actualOverflow.IsZero() {
+					t.Errorf("Expected overflow but got none. MA contribution should have exceeded projected BHS of $%.2f",
+						projectedBHS.ToFloat64())
 				}
-				// Check overflow amount matches expected (compare cents with rounding to avoid float precision issues)
-				actualCents := int64(math.Round(actualOverflow * 100))
-				expectedCents := int64(math.Round(expectedOverflow * 100))
-				if actualCents != expectedCents {
-					t.Errorf("MAOverflowToSA = $%.2f, want $%.2f", actualOverflow, expectedOverflow)
+				// Check overflow amount matches expected exactly using decimal comparison
+				if actualOverflow.Cmp(expectedOverflow) != 0 {
+					t.Errorf("MAOverflowToSA = $%.2f, want $%.2f",
+						actualOverflow.ToFloat64(), expectedOverflow.ToFloat64())
 				}
 			} else {
-				if actualOverflow > 0 {
+				if !actualOverflow.IsZero() {
 					t.Errorf("Expected NO overflow but got $%.2f. Total MA ($%.2f) should be below projected BHS ($%.2f)",
-						actualOverflow, totalMAAfterContribution, projectedBHS)
+						actualOverflow.ToFloat64(), totalMAAfterContribution.ToFloat64(), projectedBHS.ToFloat64())
 				}
 			}
 
 			// Verify MA is capped at projected BHS (if overflow occurred)
 			// Note: Final MA includes interest accrued after BHS cap was applied
 			if tt.wantOverflow {
-				endMA := result.EndOfMonthState.MA.ToFloat64()
+				endMA := result.EndOfMonthState.MA
 				// MA should be at projected BHS plus any interest earned this month
-				// Interest is applied after contributions, so MA = BHS + (BHS * monthlyRate)
-				if endMA < projectedBHS {
-					t.Errorf("Final MA = $%.2f, should be at least projected BHS $%.2f", endMA, projectedBHS)
+				if endMA.Cmp(projectedBHS) < 0 {
+					t.Errorf("Final MA = $%.2f, should be at least projected BHS $%.2f",
+						endMA.ToFloat64(), projectedBHS.ToFloat64())
 				}
-				t.Logf("Final MA: $%.2f (BHS + interest)", endMA)
+				t.Logf("Final MA: $%.2f (BHS + interest)", endMA.ToFloat64())
 			}
 
 			// KEY ASSERTION: Verify BHS is actually growing across years
 			if tt.year > baseYear {
-				if projectedBHS <= baseBHS {
+				if projectedBHS.Cmp(baseBHS) <= 0 {
 					t.Errorf("CRITICAL: BHS for year %d ($%.2f) should be GREATER than base BHS ($%.2f). Growth not applied!",
-						tt.year, projectedBHS, baseBHS)
+						tt.year, projectedBHS.ToFloat64(), baseBHS.ToFloat64())
 				}
-				growthPercent := ((projectedBHS / baseBHS) - 1) * 100
+				growthPercent := (projectedBHS.ToFloat64()/baseBHS.ToFloat64() - 1) * 100
 				t.Logf("BHS growth verification: $%.2f is %.1f%% above base $%.2f ✓",
-					projectedBHS, growthPercent, baseBHS)
+					projectedBHS.ToFloat64(), growthPercent, baseBHS.ToFloat64())
 			}
 		})
 	}
