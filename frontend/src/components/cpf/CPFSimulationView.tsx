@@ -402,7 +402,13 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
           </div>
         )}
 
-        {activeTab === 'projection' && <CPFProjectionChart profile={profile} />}
+        {activeTab === 'projection' && (
+          <CPFProjectionChart
+            profile={profile}
+            selectedAge={simulatedAge}
+            onAgeChange={setSimulatedAge}
+          />
+        )}
 
         {activeTab === 'strategies' && (
           <div className="space-y-4">

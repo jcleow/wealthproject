@@ -1,3 +1,4 @@
+import { useState, useCallback, useRef } from 'react'
 import {
   Area,
   ComposedChart,
@@ -20,6 +21,8 @@ interface BalanceChartProps {
   visibleAccounts: VisibleAccounts
   thresholdAges: ThresholdAges
   milestones: Milestone[]
+  selectedAge?: number
+  onAgeSelect?: (age: number) => void
 }
 
 export function BalanceChart({
@@ -27,14 +30,63 @@ export function BalanceChart({
   visibleAccounts,
   thresholdAges,
   milestones,
+  selectedAge,
+  onAgeSelect,
 }: BalanceChartProps) {
   const startAge = data[0]?.age ?? 0
   const endAge = data[data.length - 1]?.age ?? 100
   const ticks = generateAgeTicks(startAge, endAge)
 
+  const [isDragging, setIsDragging] = useState(false)
+  const lastAgeRef = useRef<number | null>(null)
+
+  // Handle mouse events for dragging
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleMouseDown = useCallback((chartData: any) => {
+    if (chartData?.activePayload?.[0]?.payload && onAgeSelect) {
+      setIsDragging(true)
+      const age = chartData.activePayload[0].payload.age
+      lastAgeRef.current = age
+      onAgeSelect(age)
+    }
+  }, [onAgeSelect])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleMouseMove = useCallback((chartData: any) => {
+    if (isDragging && chartData?.activePayload?.[0]?.payload && onAgeSelect) {
+      const age = chartData.activePayload[0].payload.age
+      // Only update if age changed to avoid excessive re-renders
+      if (age !== lastAgeRef.current) {
+        lastAgeRef.current = age
+        onAgeSelect(age)
+      }
+    }
+  }, [isDragging, onAgeSelect])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // Also handle click for single tap selection
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleChartClick = useCallback((chartData: any) => {
+    if (chartData?.activePayload?.[0]?.payload && onAgeSelect) {
+      onAgeSelect(chartData.activePayload[0].payload.age)
+    }
+  }, [onAgeSelect])
+
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={data} margin={{ top: 40, right: 30, left: 0, bottom: 0 }}>
+      <ComposedChart
+        data={data}
+        margin={{ top: 40, right: 30, left: 0, bottom: 0 }}
+        onClick={handleChartClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
+      >
         <defs>
           <linearGradient id="oaGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor={ACCOUNT_COLORS.oa} stopOpacity={0.3} />
@@ -95,6 +147,22 @@ export function BalanceChart({
             }}
           />
         ))}
+
+        {/* Selected age indicator line */}
+        {selectedAge !== undefined && (
+          <ReferenceLine
+            x={selectedAge}
+            stroke="rgba(148, 163, 184, 0.6)"
+            strokeWidth={1.5}
+            label={{
+              value: `Age ${selectedAge}`,
+              fill: '#94a3b8',
+              fontSize: 10,
+              fontWeight: 500,
+              position: 'top',
+            }}
+          />
+        )}
 
         {visibleAccounts.oa && (
           <Area

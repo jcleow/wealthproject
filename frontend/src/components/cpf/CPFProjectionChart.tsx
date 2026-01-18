@@ -27,11 +27,24 @@ import {
 interface CPFProjectionChartProps {
   profile: CPFProfile
   className?: string
+  /** Currently selected age (controlled by parent slider) */
+  selectedAge?: number
+  /** Callback when age is changed via chart interaction */
+  onAgeChange?: (age: number) => void
 }
 
-export function CPFProjectionChart({ profile, className }: CPFProjectionChartProps) {
+export function CPFProjectionChart({
+  profile,
+  className,
+  selectedAge: externalSelectedAge,
+  onAgeChange,
+}: CPFProjectionChartProps) {
   const [assumptions, setAssumptions] = useState<CPFAssumptions>(DEFAULT_CPF_ASSUMPTIONS)
   const [chartView, setChartView] = useState<ChartView>('balance')
+
+  // Use external selectedAge if provided, otherwise fall back to profile.age
+  const selectedAge = externalSelectedAge ?? profile.age
+  const setSelectedAge = onAgeChange ?? (() => {})
   const [visibleAccounts, setVisibleAccounts] = useState<VisibleAccounts>({
     oa: true,
     sa: true,
@@ -133,7 +146,7 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <BalanceAtAgeCard
-          displayAge={profile.age}
+          displayAge={selectedAge}
           projection={projection}
           currentAge={profile.age}
           currentBalances={profile.balances}
@@ -167,6 +180,8 @@ export function CPFProjectionChart({ profile, className }: CPFProjectionChartPro
               visibleAccounts={visibleAccounts}
               thresholdAges={thresholdAges}
               milestones={milestones}
+              selectedAge={selectedAge}
+              onAgeSelect={setSelectedAge}
             />
           ) : (
             <PayoutChart
