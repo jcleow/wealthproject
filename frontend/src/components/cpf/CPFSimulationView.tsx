@@ -553,7 +553,7 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
             </>
           ) : (
             <>
-              Using your CPF data. Simulated age: {simulatedAge}. Verify with{' '}
+            Always verify with{' '}
               <a
                 href={EXTERNAL_LINKS.cpf.home.url}
                 target="_blank"

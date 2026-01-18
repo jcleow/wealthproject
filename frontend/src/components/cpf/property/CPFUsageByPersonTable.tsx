@@ -219,7 +219,7 @@ export function CPFUsageByPersonTable({
         </div>
         <div className={cn('grid', gridCols)}>
           <div className="px-3 pb-3">
-            <span className="text-sm text-amber-400">+ Accrued Interest</span>
+            <span className="text-sm text-amber-400">Accrued Interest</span>
           </div>
           <div className="px-3 pb-3 text-right">
             <span className="text-sm text-amber-400 font-mono tabular-nums">
