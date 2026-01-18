@@ -354,7 +354,8 @@ function RefundSection({ gridCols, borrower1, borrower2 }: SectionBaseProps) {
  * Housing grants are split 50/50 between joint owners (shown in each person's column)
  */
 export function CPFPropertyContributionByPersonTable({
-  title,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  title: _title,
   borrower1,
   borrower2,
   holdingMonths,
