@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import {
   Area,
   ComposedChart,
@@ -15,6 +15,9 @@ import { ACCOUNT_COLORS } from './types'
 import { BalanceTooltipContent } from './TooltipContent'
 import { RetirementSavingsDot, MADot } from './MilestoneDots'
 import { generateAgeTicks } from './utils'
+
+/** Chart margins - must match ComposedChart margin prop */
+const CHART_MARGIN = { top: 40, right: 30, left: 60, bottom: 20 }
 
 interface BalanceChartProps {
   data: ChartDataPoint[]
@@ -40,37 +43,69 @@ export function BalanceChart({
   const endAge = data[data.length - 1]?.age ?? 100
   const ticks = generateAgeTicks(startAge, endAge)
 
+  // Refs for drag handling
+  const containerRef = useRef<HTMLDivElement>(null)
+  const isDraggingRef = useRef(false)
   const [isDragging, setIsDragging] = useState(false)
-  const lastAgeRef = useRef<number | null>(null)
 
-  // Handle mouse events for dragging
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleMouseDown = useCallback((chartData: any) => {
-    if (chartData?.activePayload?.[0]?.payload && onAgeSelect) {
-      setIsDragging(true)
-      const age = chartData.activePayload[0].payload.age
-      lastAgeRef.current = age
+  // Calculate age from mouse X position
+  const calculateAgeFromX = useCallback((clientX: number): number | null => {
+    if (!containerRef.current || data.length === 0) return null
+
+    const rect = containerRef.current.getBoundingClientRect()
+    const chartWidth = rect.width - CHART_MARGIN.left - CHART_MARGIN.right
+    const relativeX = clientX - rect.left - CHART_MARGIN.left
+
+    // Clamp to chart area
+    const clampedX = Math.max(0, Math.min(chartWidth, relativeX))
+    const ratio = clampedX / chartWidth
+
+    // Map ratio to age range
+    const age = Math.round(startAge + ratio * (endAge - startAge))
+    return Math.max(startAge, Math.min(endAge, age))
+  }, [data.length, startAge, endAge])
+
+  // Mouse event handlers for the wrapper div
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!onAgeSelect) return
+
+    isDraggingRef.current = true
+    setIsDragging(true)
+
+    const age = calculateAgeFromX(e.clientX)
+    if (age !== null) {
       onAgeSelect(age)
     }
-  }, [onAgeSelect])
+  }, [onAgeSelect, calculateAgeFromX])
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleMouseMove = useCallback((chartData: any) => {
-    if (isDragging && chartData?.activePayload?.[0]?.payload && onAgeSelect) {
-      const age = chartData.activePayload[0].payload.age
-      // Only update if age changed to avoid excessive re-renders
-      if (age !== lastAgeRef.current) {
-        lastAgeRef.current = age
-        onAgeSelect(age)
-      }
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDraggingRef.current || !onAgeSelect) return
+
+    const age = calculateAgeFromX(e.clientX)
+    if (age !== null) {
+      onAgeSelect(age)
     }
-  }, [isDragging, onAgeSelect])
+  }, [onAgeSelect, calculateAgeFromX])
 
   const handleMouseUp = useCallback(() => {
+    isDraggingRef.current = false
     setIsDragging(false)
   }, [])
 
-  // Also handle click for single tap selection
+  // Handle mouse up outside the component
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false
+        setIsDragging(false)
+      }
+    }
+
+    window.addEventListener('mouseup', handleGlobalMouseUp)
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp)
+  }, [])
+
+  // Click handler for Recharts (for tooltip interaction)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleChartClick = useCallback((chartData: any) => {
     if (chartData?.activePayload?.[0]?.payload && onAgeSelect) {
@@ -79,17 +114,21 @@ export function BalanceChart({
   }, [onAgeSelect])
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart
-        data={data}
-        margin={{ top: 40, right: 30, left: 0, bottom: 0 }}
-        onClick={handleChartClick}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        style={{ cursor: isDragging ? 'grabbing' : 'pointer' }}
-      >
+    <div
+      ref={containerRef}
+      className="h-full w-full"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      style={{ cursor: isDragging ? 'grabbing' : 'crosshair' }}
+    >
+      <ResponsiveContainer width="100%" height="100%">
+        <ComposedChart
+          data={data}
+          margin={CHART_MARGIN}
+          onClick={handleChartClick}
+        >
         <defs>
           <linearGradient id="oaGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor={ACCOUNT_COLORS.oa} stopOpacity={0.3} />
@@ -233,6 +272,7 @@ export function BalanceChart({
         )}
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   )
 }
 
