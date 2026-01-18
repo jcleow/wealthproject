@@ -38,6 +38,7 @@ import {
   computeAgeFromDob,
   formatAccountLabel,
 } from '@/lib/cpf-utils'
+import { useFeatureModulesStore } from '@/stores/featureModulesStore'
 
 type TabId = 'overview' | 'projection' | 'strategies' | 'property' | 'learn'
 
@@ -137,6 +138,9 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
   const [activeTab, setActiveTab] = useState<TabId>(initialTab)
   const [activeCalculator, setActiveCalculator] = useState<LearnCalculator>('journey')
   const [activeStrategy, setActiveStrategy] = useState<StrategyId>('contributions')
+
+  // Property Planner modal action
+  const openPropertyPlanner = useFeatureModulesStore((state) => state.openPropertyPlanner)
 
   // Check if we're in routed mode (URL-based navigation)
   const isRoutedMode = pathname?.startsWith('/dashboard/cpf')
@@ -511,7 +515,7 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
           </div>
         )}
 
-        {activeTab === 'property' && <CPFPropertyOverview />}
+        {activeTab === 'property' && <CPFPropertyOverview onOpenPropertyPlanner={openPropertyPlanner} />}
 
         {activeTab === 'learn' && (
           <div className="space-y-4">
