@@ -6,7 +6,7 @@ import { formatCurrency } from '@/lib/format'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
 import type { CPFBorrowerUsage } from '@/api/financial/cpf'
-import { CPFUsageByPersonTable } from './CPFUsageByPersonTable'
+import { CPFPropertyContributionByPersonTable } from './CPFPropertyContributionByPersonTable'
 import { useCpfHousingUsageQuery } from '@/hooks/queries/useCpfQuery'
 
 interface PropertyCPFDetailProps {
@@ -65,16 +65,7 @@ export function PropertyCPFDetail({
       <div className="px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-medium text-white">{sg.name}</h3>
-              <button
-                type="button"
-                onClick={onEditInPropertyPlanner}
-                className="p-1 rounded text-gray-500 hover:text-white transition"
-              >
-                <Edit3 className="h-3 w-3" />
-              </button>
-            </div>
+            <h3 className="text-sm font-medium text-white">{sg.name}</h3>
             <p className="text-xs text-gray-400 mt-0.5">
               {formatCurrency(parseFloat(sg.propertyPrice))} • {holdingYears} year holding
             </p>
@@ -87,10 +78,20 @@ export function PropertyCPFDetail({
         {/* Per-Person CPF Usage - Tabular Layout */}
         {borrower1 && (
           <div>
-            <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-              CPF Usage by Person
-            </h4>
-            <CPFUsageByPersonTable
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                CPF Contribution by Person
+              </h4>
+              <button
+                type="button"
+                onClick={onEditInPropertyPlanner}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium text-emerald-400 hover:bg-emerald-500/10 transition"
+              >
+                <Edit3 className="h-3.5 w-3.5" />
+                Edit
+              </button>
+            </div>
+            <CPFPropertyContributionByPersonTable
               borrower1={borrower1}
               borrower2={borrower2}
               holdingMonths={holdingMonths}

@@ -284,7 +284,7 @@ function RefundSection({ gridCols, borrower1, borrower2 }: SectionBaseProps) {
   return (
     <div className={cn('grid', gridCols)}>
       <div className="p-3">
-        <span className="text-xs text-gray-400">Refund upon sale</span>
+        <span className="text-sm text-gray-300">Refund upon sale</span>
       </div>
       <div className="p-3 text-right">
         <span className="text-sm text-white font-mono tabular-nums">
@@ -307,10 +307,10 @@ function RefundSection({ gridCols, borrower1, borrower2 }: SectionBaseProps) {
 // ============================================
 
 /**
- * CPFUsageByPersonTable - Reusable tabular display of CPF usage by person
+ * CPFPropertyContributionByPersonTable - Reusable tabular display of CPF usage by person
  * Used in both PropertyCPFDetail and CPFTabContent for consistency
  */
-export function CPFUsageByPersonTable({
+export function CPFPropertyContributionByPersonTable({
   borrower1,
   borrower2,
   holdingMonths,

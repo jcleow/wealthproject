@@ -5,7 +5,7 @@ import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFAccount } from '@/types/cpf'
 import type { CPFBorrowerUsage } from '@/api/financial/cpf'
 
-import { CPFUsageByPersonTable } from '@/components/cpf/property'
+import { CPFPropertyContributionByPersonTable } from '@/components/cpf/property'
 import { SaleImpactSection } from './SaleImpactSection'
 import { useCpfHousingUsageQuery } from '@/hooks/queries/useCpfQuery'
 
@@ -127,7 +127,7 @@ export function CPFTabContent({ scenario, cpfAccounts: _cpfAccounts }: CPFTabCon
           <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
             CPF Usage by Person
           </h3>
-          <CPFUsageByPersonTable
+          <CPFPropertyContributionByPersonTable
             borrower1={borrower1}
             borrower2={borrower2}
             holdingMonths={holdingMonths}
