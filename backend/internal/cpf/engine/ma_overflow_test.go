@@ -142,22 +142,26 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 	// Use dynamic base year from assumptions to avoid test failures when year changes
 	assumptions := DefaultAssumptions()
 	baseYear := assumptions.RetirementSumsBaseYear
-	baseBHS := assumptions.BHSBase.ToFloat64()
+	baseBHS := assumptions.BHSBase
 
 	// Test date uses the base year from assumptions
 	testDate := time.Date(baseYear, 6, 1, 0, 0, 0, 0, time.UTC)
 
+	// Named constants for test ages (CPF policy ages)
+	const ageUnder55 = 35
+	const ageAt55 = 55
+
 	// Person age 35 in base year
-	dobAge35 := time.Date(baseYear-35, 1, 1, 0, 0, 0, 0, time.UTC)
+	dobAge35 := time.Date(baseYear-ageUnder55, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	// Person age 55 in base year
-	dobAge55 := time.Date(baseYear-55, 1, 1, 0, 0, 0, 0, time.UTC)
+	dobAge55 := time.Date(baseYear-ageAt55, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	// BHS for base year (dynamically from assumptions)
+	// BHS for base year (dynamically from assumptions) - use decimal throughout
 	bhs := baseBHS
 
 	// Use BHS-relative values so tests work regardless of base year
-	bhsInt := int64(bhs)
+	bhsInt := bhs.ToCents() / 100 // Convert to int64 for test struct fields
 
 	// Monthly MA interest rate: 4% / 12 = 0.333%
 	// Interest is applied BEFORE contributions (on opening balance)
@@ -293,17 +297,14 @@ func TestProcessMonth_MAOverflow(t *testing.T) {
 				t.Errorf("MAOverflowToRA = %s, want %s", result.MAOverflowToRA.String(), tt.wantMAOverflowRA.String())
 			}
 
-			// Verify MA was capped at BHS before interest was applied
-			// Final MA will be slightly higher due to interest, but overflow should have happened
+			// Verify MA was capped at BHS
+			// After overflow handling, MA should be exactly at BHS (contributions that exceed BHS are redirected)
 			endState := result.EndOfMonthState
-			finalMA := endState.MA.ToFloat64()
 
 			if tt.wantMACappedAtBHS {
-				// MA should be BHS + monthly interest (4%/12 ≈ 0.333%)
-				// Allow up to 0.5% above BHS for interest
-				maxExpectedMA := bhs * 1.005
-				if finalMA > maxExpectedMA {
-					t.Errorf("finalMA = %.2f, expected to be capped near BHS (%.2f) + interest", finalMA, bhs)
+				// MA should be exactly at BHS after overflow handling
+				if !endState.MA.EQ(bhs) {
+					t.Errorf("finalMA = %s, expected exactly BHS = %s", endState.MA.String(), bhs.String())
 				}
 			}
 
@@ -415,7 +416,7 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 			wantOverflow:   true,
 		},
 		{
-			name: "Base year + 4 - BHS grown to ~$92,437, contribution triggers overflow",
+			name: "Base year + 4 - BHS grown to ~$92,419, contribution triggers overflow",
 			description: `
 				Year: baseYear + 4 (e.g., 2030)
 				BHS cap: $79,000 × 1.04⁴ = $92,418.83 (grown by 17%)
@@ -509,12 +510,12 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 			maAfterInterest := tt.initialMA.Add(monthlyInterest)
 
 			var expectedOverflow *decimal.Decimal
-			if maAfterInterest.Cmp(projectedBHS) >= 0 {
+			if maAfterInterest.GTE(projectedBHS) {
 				// MA already at/above BHS after interest - full contribution overflows
 				expectedOverflow = tt.maContribution
 			} else {
-				room := projectedBHS.Sub(maAfterInterest)
-				expectedOverflow = tt.maContribution.Sub(room)
+				remainderToMACap := projectedBHS.Sub(maAfterInterest)
+				expectedOverflow = tt.maContribution.Sub(remainderToMACap)
 				if expectedOverflow.IsNegative() {
 					expectedOverflow = decimal.Zero()
 				}
@@ -530,43 +531,42 @@ func TestProcessMonth_MAOverflow_BHSGrowthAcrossYears(t *testing.T) {
 			// Verify overflow occurred/didn't occur as expected
 			if tt.wantOverflow {
 				if actualOverflow.IsZero() {
-					t.Errorf("Expected overflow but got none. MA contribution should have exceeded projected BHS of $%.2f",
-						projectedBHS.ToFloat64())
+					t.Errorf("Expected overflow but got none. MA contribution should have exceeded projected BHS of %s",
+						projectedBHS.String())
 				}
-				// Check overflow amount matches expected exactly using decimal comparison
-				if actualOverflow.Cmp(expectedOverflow) != 0 {
-					t.Errorf("MAOverflowToSA = $%.2f, want $%.2f",
-						actualOverflow.ToFloat64(), expectedOverflow.ToFloat64())
+				// Check overflow amount matches expected exactly - no tolerance allowed
+				if !actualOverflow.EQ(expectedOverflow) {
+					t.Errorf("MAOverflowToSA = %s, want exactly %s",
+						actualOverflow.String(), expectedOverflow.String())
 				}
 			} else {
 				if !actualOverflow.IsZero() {
 					totalAfterContrib := maAfterInterest.Add(tt.maContribution)
-					t.Errorf("Expected NO overflow but got $%.2f. Total MA ($%.2f) should be below projected BHS ($%.2f)",
-						actualOverflow.ToFloat64(), totalAfterContrib.ToFloat64(), projectedBHS.ToFloat64())
+					t.Errorf("Expected NO overflow but got %s. Total MA (%s) should be below projected BHS (%s)",
+						actualOverflow.String(), totalAfterContrib.String(), projectedBHS.String())
 				}
 			}
 
-			// Verify MA is capped at projected BHS (if overflow occurred)
-			// Note: Final MA includes interest accrued after BHS cap was applied
+			// Verify MA is capped exactly at projected BHS (if overflow occurred)
+			// Overflow handling caps MA at BHS - no tolerance allowed
 			if tt.wantOverflow {
 				endMA := result.EndOfMonthState.MA
-				// MA should be at projected BHS plus any interest earned this month
-				if endMA.Cmp(projectedBHS) < 0 {
-					t.Errorf("Final MA = $%.2f, should be at least projected BHS $%.2f",
-						endMA.ToFloat64(), projectedBHS.ToFloat64())
+				// MA should be exactly at projected BHS after overflow handling
+				if !endMA.EQ(projectedBHS) {
+					t.Errorf("Final MA = %s, should be exactly projected BHS %s",
+						endMA.String(), projectedBHS.String())
 				}
-				t.Logf("Final MA: $%.2f (BHS + interest)", endMA.ToFloat64())
+				t.Logf("Final MA: %s (capped at BHS)", endMA.String())
 			}
 
 			// KEY ASSERTION: Verify BHS is actually growing across years
 			if tt.year > baseYear {
-				if projectedBHS.Cmp(baseBHS) <= 0 {
-					t.Errorf("CRITICAL: BHS for year %d ($%.2f) should be GREATER than base BHS ($%.2f). Growth not applied!",
-						tt.year, projectedBHS.ToFloat64(), baseBHS.ToFloat64())
+				if projectedBHS.LTE(baseBHS) {
+					t.Errorf("CRITICAL: BHS for year %d (%s) should be GREATER than base BHS (%s). Growth not applied!",
+						tt.year, projectedBHS.String(), baseBHS.String())
 				}
-				growthPercent := (projectedBHS.ToFloat64()/baseBHS.ToFloat64() - 1) * 100
-				t.Logf("BHS growth verification: $%.2f is %.1f%% above base $%.2f ✓",
-					projectedBHS.ToFloat64(), growthPercent, baseBHS.ToFloat64())
+				t.Logf("BHS growth verification: %s > base %s ✓",
+					projectedBHS.String(), baseBHS.String())
 			}
 		})
 	}
@@ -609,11 +609,11 @@ func TestApplyMonthlyInterest_MAInterestOverflow(t *testing.T) {
 	baseYear := assumptions.RetirementSumsBaseYear
 	baseBHS := assumptions.GetBHS(baseYear)
 
-	// Monthly interest for MA at BHS: 79000 × 0.04 / 12 ≈ 263.33
-	expectedInterest := baseBHS.ToFloat64() * 0.04 / 12
+	// MA interest rate: 4% annual (used for calculating expected interest)
+	maRatePct := decimal.NewFromInt64(4, 0)
 
-	// BHS values for test cases
-	bhsInt := int64(baseBHS.ToFloat64())
+	// BHS value for test cases - use ToCents for accurate int64 conversion
+	bhsInt := baseBHS.ToCents() / 100
 
 	tests := []struct {
 		name                   string
@@ -682,8 +682,8 @@ func TestApplyMonthlyInterest_MAInterestOverflow(t *testing.T) {
 			)
 			state.RAFormed = tt.raFormed
 
-			initialSA := state.SA.ToFloat64()
-			initialRA := state.RA.ToFloat64()
+			initialSA := state.SA
+			initialRA := state.RA
 
 			result := ApplyMonthlyInterest(state, DefaultAssumptions())
 
@@ -692,19 +692,19 @@ func TestApplyMonthlyInterest_MAInterestOverflow(t *testing.T) {
 				if result.MAInterestOverflowToSA == nil || result.MAInterestOverflowToSA.IsZero() {
 					t.Errorf("Expected MA interest overflow to SA, but got none")
 				} else {
-					overflow := result.MAInterestOverflowToSA.ToFloat64()
-					// Should be approximately equal to the MA interest
-					if overflow < expectedInterest*0.9 || overflow > expectedInterest*1.1 {
-						t.Errorf("MAInterestOverflowToSA = %.2f, expected ~%.2f", overflow, expectedInterest)
+					overflow := result.MAInterestOverflowToSA
+					// Calculate expected interest for actual MA balance (may differ from BHS)
+					actualMAInterest := CalculateMonthlyInterest(decimal.NewFromInt64(tt.initialMA, 0), maRatePct)
+					// Interest overflow should match the calculated MA interest exactly
+					if !overflow.EQ(actualMAInterest) {
+						t.Errorf("MAInterestOverflowToSA = %s, expected exactly %s", overflow.String(), actualMAInterest.String())
 					}
-					t.Logf("MA interest $%.2f overflowed to SA (age %d)", overflow, tt.age)
+					t.Logf("MA interest %s overflowed to SA (age %d)", overflow.String(), tt.age)
 
-					// Verify SA balance increased by the interest
-					newSA := state.SA.ToFloat64()
-					saIncrease := newSA - initialSA
-					// SA should have increased by: SA interest + MA interest overflow + extra interest (if any)
-					if saIncrease < overflow {
-						t.Errorf("SA increase (%.2f) should be at least MA overflow (%.2f)", saIncrease, overflow)
+					// Verify SA balance increased by at least the overflow amount
+					saIncrease := state.SA.Sub(initialSA)
+					if saIncrease.LT(overflow) {
+						t.Errorf("SA increase (%s) should be at least MA overflow (%s)", saIncrease.String(), overflow.String())
 					}
 				}
 			}
@@ -713,18 +713,19 @@ func TestApplyMonthlyInterest_MAInterestOverflow(t *testing.T) {
 				if result.MAInterestOverflowToRA == nil || result.MAInterestOverflowToRA.IsZero() {
 					t.Errorf("Expected MA interest overflow to RA, but got none")
 				} else {
-					overflow := result.MAInterestOverflowToRA.ToFloat64()
-					if overflow < expectedInterest*0.9 || overflow > expectedInterest*1.3 {
-						// Note: 1.3 multiplier because higher MA balances earn slightly more interest
-						t.Errorf("MAInterestOverflowToRA = %.2f, expected ~%.2f", overflow, expectedInterest)
+					overflow := result.MAInterestOverflowToRA
+					// Calculate expected interest for actual MA balance
+					actualMAInterest := CalculateMonthlyInterest(decimal.NewFromInt64(tt.initialMA, 0), maRatePct)
+					// Interest overflow should match the calculated MA interest exactly
+					if !overflow.EQ(actualMAInterest) {
+						t.Errorf("MAInterestOverflowToRA = %s, expected exactly %s", overflow.String(), actualMAInterest.String())
 					}
-					t.Logf("MA interest $%.2f overflowed to RA (age %d)", overflow, tt.age)
+					t.Logf("MA interest %s overflowed to RA (age %d)", overflow.String(), tt.age)
 
-					// Verify RA balance increased
-					newRA := state.RA.ToFloat64()
-					raIncrease := newRA - initialRA
-					if raIncrease < overflow {
-						t.Errorf("RA increase (%.2f) should be at least MA overflow (%.2f)", raIncrease, overflow)
+					// Verify RA balance increased by at least the overflow amount
+					raIncrease := state.RA.Sub(initialRA)
+					if raIncrease.LT(overflow) {
+						t.Errorf("RA increase (%s) should be at least MA overflow (%s)", raIncrease.String(), overflow.String())
 					}
 				}
 			}
@@ -732,12 +733,12 @@ func TestApplyMonthlyInterest_MAInterestOverflow(t *testing.T) {
 			// If no overflow expected, verify the fields are zero
 			if !tt.wantInterestOverflowSA && !tt.wantInterestOverflowRA {
 				if result.MAInterestOverflowToSA != nil && !result.MAInterestOverflowToSA.IsZero() {
-					t.Errorf("Expected no MA interest overflow, but got SA overflow: %.2f",
-						result.MAInterestOverflowToSA.ToFloat64())
+					t.Errorf("Expected no MA interest overflow, but got SA overflow: %s",
+						result.MAInterestOverflowToSA.String())
 				}
 				if result.MAInterestOverflowToRA != nil && !result.MAInterestOverflowToRA.IsZero() {
-					t.Errorf("Expected no MA interest overflow, but got RA overflow: %.2f",
-						result.MAInterestOverflowToRA.ToFloat64())
+					t.Errorf("Expected no MA interest overflow, but got RA overflow: %s",
+						result.MAInterestOverflowToRA.String())
 				}
 			}
 		})

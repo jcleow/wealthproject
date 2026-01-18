@@ -110,7 +110,10 @@ func ProcessMonth(
 	}
 
 	// Step 3: Apply interest (on opening balance, before contributions)
-	// Interest is calculated on the lowest balance during the month (opening balance)
+	// ASSUMPTION: CPF calculates interest on the lowest balance during the month.
+	// In practice, this is typically the opening balance (balance before any credits).
+	// Our implementation uses the opening balance as a simplification.
+	// A more granular implementation could track daily balances to find the true minimum.
 	interestResult := ApplyMonthlyInterest(state, opts.Assumptions)
 	result.Interest = interestResult
 
