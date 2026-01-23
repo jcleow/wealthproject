@@ -1,6 +1,7 @@
 "use client"
 
 import { Building2, X, ArrowLeft, ExternalLink } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { IconPicker } from '@/components/modals/ScenarioEventModal/components/IconPicker'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import { propertyOptions } from '../constants'
@@ -10,21 +11,30 @@ import type { HeaderState } from '../PropertyPlannerView'
 interface PropertyPlannerModalHeaderProps {
   headerState: HeaderState | null
   onClose: () => void
+  isMonet?: boolean
 }
 
-export function PropertyPlannerModalHeader({ headerState, onClose }: PropertyPlannerModalHeaderProps) {
+export function PropertyPlannerModalHeader({ headerState, onClose, isMonet = false }: PropertyPlannerModalHeaderProps) {
   return (
-    <div className="flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-white/[0.06]">
+    <div className={cn(
+      "flex-shrink-0 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b",
+      isMonet ? "border-[var(--monet-lavender)]/10" : "border-white/[0.06]"
+    )}>
       <div className="flex items-center justify-between gap-3">
         {headerState ? (
-          <EditModeHeader headerState={headerState} />
+          <EditModeHeader headerState={headerState} isMonet={isMonet} />
         ) : (
-          <ListModeHeader />
+          <ListModeHeader isMonet={isMonet} />
         )}
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-lg hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors flex-shrink-0"
+          className={cn(
+            "p-1.5 rounded-lg transition-colors flex-shrink-0",
+            isMonet
+              ? "hover:bg-[var(--monet-lavender)]/10 text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)]"
+              : "hover:bg-white/[0.08] text-slate-400 hover:text-white"
+          )}
           aria-label="Close modal"
         >
           <X className="w-5 h-5" />
@@ -42,7 +52,7 @@ export function PropertyPlannerModalHeader({ headerState, onClose }: PropertyPla
  * - Jump to date button
  * - Property type dropdown
  */
-function EditModeHeader({ headerState }: { headerState: HeaderState }) {
+function EditModeHeader({ headerState, isMonet }: { headerState: HeaderState; isMonet: boolean }) {
   const handleJumpToDate = () => {
     if (!headerState.onJumpToDate || !headerState.loanStartMonth) return
 
@@ -60,7 +70,12 @@ function EditModeHeader({ headerState }: { headerState: HeaderState }) {
       <button
         type="button"
         onClick={headerState.onBack}
-        className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06] transition-all flex-shrink-0"
+        className={cn(
+          "p-2 rounded-xl border transition-all flex-shrink-0",
+          isMonet
+            ? "bg-[var(--monet-lavender)]/5 border-[var(--monet-lavender)]/15 text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)] hover:bg-[var(--monet-lavender)]/10"
+            : "bg-white/[0.03] border-white/[0.06] text-slate-400 hover:text-white hover:bg-white/[0.06]"
+        )}
       >
         <ArrowLeft className="w-5 h-5" />
       </button>
@@ -79,7 +94,12 @@ function EditModeHeader({ headerState }: { headerState: HeaderState }) {
           type="text"
           value={headerState.name}
           onChange={(e) => headerState.onNameChange(e.target.value)}
-          className="text-lg sm:text-xl font-semibold text-white tracking-tight bg-transparent border-none outline-none focus:ring-0 placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05] rounded-lg px-2 py-1 -ml-2 transition-colors min-w-0 flex-1"
+          className={cn(
+            "text-lg sm:text-xl font-semibold tracking-tight bg-transparent border-none outline-none focus:ring-0 rounded-lg px-2 py-1 -ml-2 transition-colors min-w-0 flex-1",
+            isMonet
+              ? "text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)] hover:bg-[var(--monet-lavender)]/5 focus:bg-[var(--monet-lavender)]/10"
+              : "text-white placeholder:text-slate-600 hover:bg-white/[0.03] focus:bg-white/[0.05]"
+          )}
           placeholder="Scenario name"
         />
 
@@ -87,7 +107,12 @@ function EditModeHeader({ headerState }: { headerState: HeaderState }) {
           <button
             type="button"
             onClick={handleJumpToDate}
-            className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-slate-400 hover:text-blue-400 hover:border-blue-500/40 hover:bg-white/[0.05] transition-all flex-shrink-0"
+            className={cn(
+              "p-2 rounded-xl border transition-all flex-shrink-0",
+              isMonet
+                ? "bg-[var(--monet-lavender)]/5 border-[var(--monet-lavender)]/15 text-[var(--monet-text-muted)] hover:text-blue-500 hover:border-blue-500/40 hover:bg-blue-500/5"
+                : "bg-white/[0.03] border-white/[0.06] text-slate-400 hover:text-blue-400 hover:border-blue-500/40 hover:bg-white/[0.05]"
+            )}
             title="Jump to purchase date on timeline"
           >
             <ExternalLink className="w-4 h-4" />
@@ -111,15 +136,26 @@ function EditModeHeader({ headerState }: { headerState: HeaderState }) {
 /**
  * List mode header: Shows generic property scenarios title
  */
-function ListModeHeader() {
+function ListModeHeader({ isMonet }: { isMonet: boolean }) {
   return (
     <div className="flex items-center gap-2.5 sm:gap-3">
-      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br from-violet-500/20 to-violet-600/5 border border-violet-500/20 flex items-center justify-center flex-shrink-0">
+      <div className={cn(
+        "w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gradient-to-br border flex items-center justify-center flex-shrink-0",
+        isMonet
+          ? "from-violet-500/15 to-violet-600/5 border-violet-500/15"
+          : "from-violet-500/20 to-violet-600/5 border-violet-500/20"
+      )}>
         <Building2 className="w-4 h-4 sm:w-5 sm:h-5 text-violet-400" />
       </div>
       <div className="min-w-0">
-        <h2 className="text-base sm:text-lg font-semibold text-white tracking-tight">Property Scenarios</h2>
-        <p className="text-xs sm:text-sm text-slate-500 truncate">Create and compare different property purchase scenarios</p>
+        <h2 className={cn(
+          "text-base sm:text-lg font-semibold tracking-tight",
+          isMonet ? "text-[var(--monet-text-primary)]" : "text-white"
+        )}>Property Scenarios</h2>
+        <p className={cn(
+          "text-xs sm:text-sm truncate",
+          isMonet ? "text-[var(--monet-text-muted)]" : "text-slate-500"
+        )}>Create and compare different property purchase scenarios</p>
       </div>
     </div>
   )

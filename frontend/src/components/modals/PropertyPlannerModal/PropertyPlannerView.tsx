@@ -432,9 +432,11 @@ interface PropertyPlannerViewProps {
   onHeaderStateChange?: (state: HeaderState | null) => void
   /** Callback to jump to a specific date on the timeline */
   onJumpToDate?: (year: number, month: number) => void
+  /** Whether Monet theme is active */
+  isMonet?: boolean
 }
 
-export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateChange, onHeaderStateChange, onJumpToDate }: PropertyPlannerViewProps) {
+export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateChange, onHeaderStateChange, onJumpToDate, isMonet = false }: PropertyPlannerViewProps) {
   // API hooks
   const { data: apiScenarios, isLoading } = usePropertyPlannerV2ScenariosQuery()
   const createMutation = useCreatePropertyPlannerV2ScenarioMutation()
@@ -683,6 +685,7 @@ export function PropertyPlannerView({ onClose, initialScenarioId, onFooterStateC
               onAddScenario={handleAddScenario}
               isEmbedded={isEmbedded}
               isLoading={isLoading}
+              isMonet={isMonet}
             />
           ) : (
             <ScenarioDetailView
