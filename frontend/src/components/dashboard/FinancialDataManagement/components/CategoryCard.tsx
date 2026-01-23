@@ -5,6 +5,7 @@ import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
 import type { IncomeAllocation } from '@/api/financial/incomes'
+import { useColorScheme } from '@/stores'
 import { categoryConfig } from '../config'
 import { getItemId, sortItems } from '../utils'
 import { parseDecimal } from '../converters'
@@ -140,6 +141,10 @@ export function CategoryCard({
   compact = false,
   onCollapseChange,
 }: CategoryCardProps) {
+  // Theme
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
+
   // Start collapsed in compact mode (side-by-side layout)
   const [isCollapsed, setIsCollapsed] = useState(compact)
 
@@ -232,8 +237,12 @@ export function CategoryCard({
 
   return (
     <div className={clsx(
-      'flex flex-col overflow-hidden w-full min-w-0 rounded-2xl border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60 transition-all',
-      !isCollapsed ? 'h-full' : ''
+      'flex flex-col overflow-hidden w-full min-w-0 rounded-2xl border transition-all',
+      isMonet
+        ? 'border-slate-200 bg-white shadow-sm hover:shadow-md'
+        : 'border-white/[0.08] hover:border-white/[0.12] bg-[#0a0a0a]/60',
+      // Only use h-full in non-compact mode when expanded (for 2-col grid alignment)
+      !isCollapsed && !compact ? 'h-full' : ''
     )}>
       <CategoryCardHeader
         category={category}
@@ -245,18 +254,22 @@ export function CategoryCard({
         onAddCpf={onAddCpf}
         isCollapsed={isCollapsed}
         onToggleCollapse={handleToggleCollapse}
+        total={categoryTotal}
       />
 
-      {/* Collapsible content */}
+      {/* Collapsible content - Stitch style: no separate total section, items directly */}
       <div className={clsx(
         'flex flex-col transition-all duration-200 overflow-hidden',
         isCollapsed ? 'h-0' : 'flex-1'
       )}>
-        <CategoryCardTotal
-          category={category}
-          total={categoryTotal}
-          showMonthlyData={showMonthlyData}
-        />
+        {/* Hide the large total section - Stitch shows total in header subtitle */}
+        {false && (
+          <CategoryCardTotal
+            category={category}
+            total={categoryTotal}
+            showMonthlyData={showMonthlyData}
+          />
+        )}
 
         {/* List Items */}
         <div className="scrollbar-hide flex-1 overflow-y-auto px-3 py-2">

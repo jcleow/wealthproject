@@ -18,8 +18,15 @@ export type CategoryConfig = {
   emptyDescription: string
   icon: LucideIcon
   accent: string
+  // Icon styling for dark mode
+  iconBg: string
+  iconColor: string
+  // Icon styling for light mode (Monet)
+  iconBgLight: string
+  iconColorLight: string
   gradientBg: string
   textColor: string
+  textColorLight: string
   progressColor: string
   singular: string
   plural: string

@@ -893,7 +893,7 @@ export function FinancialDataManagement({
     <>
       <div
         id="financial-data-section"
-        className="flex flex-col bg-transparent text-white h-full"
+        className={clsx('flex flex-col bg-transparent text-white', !compact && 'h-full')}
         onClick={(e) => {
           if (selectedItemId && (e.target as HTMLElement).closest('[data-line-item]') === null) {
             setSelectedItemId(null)
@@ -918,10 +918,9 @@ export function FinancialDataManagement({
 
         {/* Cashflow cards - always visible */}
         <div className={clsx(
-          'flex-1 overflow-auto',
-          compact ? 'px-4 py-4' : 'px-6 py-6'
+          compact ? 'px-4 py-4' : 'flex-1 overflow-auto px-6 py-6'
         )}>
-            <div className={clsx('flex h-full flex-col', compact ? 'gap-4' : 'gap-6')}>
+            <div className={clsx('flex flex-col', compact ? 'gap-4' : 'gap-6')}>
               {/* Summary cards at top - side by side */}
               <SummaryCards
                 netWorth={getNetWorthForYear()}
