@@ -61,6 +61,72 @@
   --chart-5: 340 75% 55%;
 }
 
+/* ============================================
+   MONET THEME - Impressionist-inspired palette
+   Soft pastels, dreamy gradients, painterly textures
+   ============================================ */
+.monet {
+  /* Backgrounds - warm cream to pale blue */
+  --monet-bg-cream: #FAF8F5;
+  --monet-bg-pale-blue: #F0F4F8;
+  --monet-bg-warm-white: #FFFEF9;
+
+  /* Primary - Wisteria/Lavender (from his garden paintings) */
+  --monet-lavender: #9B8BB4;
+  --monet-lavender-light: #C4B8D9;
+  --monet-lavender-dark: #7A6B94;
+
+  /* Accent - Coral Rose (water lily pinks) */
+  --monet-coral: #E8A898;
+  --monet-coral-light: #F5D4CC;
+  --monet-coral-dark: #D4847A;
+
+  /* Success - Sage Green (lily pads, gardens) */
+  --monet-sage: #7FB285;
+  --monet-sage-light: #B5D4B8;
+  --monet-sage-dark: #5A8A5E;
+
+  /* Gold - Sunlight on water */
+  --monet-gold: #D4C5A9;
+  --monet-gold-light: #EDE6D8;
+  --monet-gold-dark: #B8A87D;
+
+  /* Text */
+  --monet-text-primary: #3D3D3D;
+  --monet-text-secondary: #6B6B6B;
+  --monet-text-muted: #9B9B9B;
+
+  /* Shadows */
+  --monet-shadow-soft: rgba(155, 139, 180, 0.12);
+  --monet-shadow-medium: rgba(155, 139, 180, 0.18);
+
+  /* Override base tokens for Monet theme */
+  --background: 40 33% 97%;
+  --foreground: 0 0% 24%;
+  --card: 40 33% 97%;
+  --card-foreground: 0 0% 24%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 24%;
+  --primary: 263 17% 62%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 263 27% 90%;
+  --secondary-foreground: 263 17% 45%;
+  --muted: 210 22% 96%;
+  --muted-foreground: 0 0% 42%;
+  --accent: 263 27% 90%;
+  --accent-foreground: 263 17% 45%;
+  --destructive: 9 62% 75%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 263 20% 85%;
+  --input: 263 20% 85%;
+  --ring: 263 17% 62%;
+  --chart-1: 263 17% 62%;
+  --chart-2: 136 26% 60%;
+  --chart-3: 9 62% 75%;
+  --chart-4: 43 32% 75%;
+  --chart-5: 263 27% 80%;
+}
+
 @layer base {
   body {
     @apply bg-background text-foreground;
