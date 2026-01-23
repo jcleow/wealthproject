@@ -21,14 +21,21 @@ export function SummaryCards({
   const isMonet = colorScheme === 'monet'
 
   return (
-    <div className="grid grid-cols-2 gap-3">
-      <NetWorthCard netWorth={netWorth} isMonet={isMonet} />
-      <SavingsCard
-        annualSavings={annualSavings}
-        hasV2Data={hasV2Data}
-        timelineMonthV2={timelineMonthV2}
-        isMonet={isMonet}
-      />
+    <div className={clsx(
+      "rounded-2xl border p-3",
+      isMonet
+        ? "border-slate-200 bg-white shadow-sm"
+        : "border-white/[0.08] bg-[#0a0a0a]/40"
+    )}>
+      <div className="grid grid-cols-2 gap-3">
+        <NetWorthCard netWorth={netWorth} isMonet={isMonet} />
+        <SavingsCard
+          annualSavings={annualSavings}
+          hasV2Data={hasV2Data}
+          timelineMonthV2={timelineMonthV2}
+          isMonet={isMonet}
+        />
+      </div>
     </div>
   )
 }
