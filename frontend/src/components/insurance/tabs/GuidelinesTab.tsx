@@ -15,6 +15,7 @@ import {
   Clock,
   Briefcase,
   Sparkles,
+  Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
@@ -26,7 +27,6 @@ import {
   useGuidelineTargets,
   useHasConfiguredGuidelines,
   useSelectedPersonId,
-  useIsEditingGuidelines,
   useQuestionnaireAnswers,
   useQuestionnaireRecommendations,
 } from '@/stores/coverageGuidelinesStore'
@@ -39,7 +39,6 @@ import {
 import { PersonSelector } from '@/components/ui/PersonSelector'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
-import { CoverageDashboard } from '@/components/insurance/CoverageDashboard'
 import { CoverageLayersInline } from '@/components/insurance/CoverageLayers'
 import { useQuestionnaireAutoPopulate } from '@/hooks/useQuestionnaireAutoPopulate'
 import type { Frequency } from '@/types/financial'
@@ -2361,10 +2360,10 @@ function WizardStep3Summary({ onComplete, onBack }: WizardStep3Props) {
 // ============================================================================
 
 interface ConfiguredGuidelinesViewProps {
-  onDone?: () => void
+  onAddPolicy?: () => void
 }
 
-function ConfiguredGuidelinesView({ onDone }: ConfiguredGuidelinesViewProps) {
+function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps) {
   const colorScheme = useColorScheme()
   const monetWizard = getInsuranceTheme(colorScheme)
 
@@ -2401,7 +2400,7 @@ function ConfiguredGuidelinesView({ onDone }: ConfiguredGuidelinesViewProps) {
                 fontFamily: "'Cormorant Garamond', Georgia, serif",
               }}
             >
-              Edit Coverage Targets
+              My Coverage Targets
             </h2>
           </div>
           <div className="flex items-center gap-3">
@@ -2414,18 +2413,18 @@ function ConfiguredGuidelinesView({ onDone }: ConfiguredGuidelinesViewProps) {
               <RotateCcw className="h-3.5 w-3.5" />
               Reset
             </button>
-            {onDone && (
+            {onAddPolicy && (
               <button
                 type="button"
-                onClick={onDone}
+                onClick={onAddPolicy}
                 className="flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-medium uppercase tracking-wider text-white transition-all duration-300 hover:translate-y-[-1px]"
                 style={{
                   background: monetWizard.sage,
                   boxShadow: `0 4px 20px ${monetWizard.sage}40`,
                 }}
               >
-                <Check className="h-3.5 w-3.5" />
-                Done
+                <Plus className="h-3.5 w-3.5" />
+                Add Policy
               </button>
             )}
           </div>
@@ -2635,27 +2634,12 @@ interface GuidelinesTabProps {
 
 export function GuidelinesTab({ onNavigateToPolicy }: GuidelinesTabProps) {
   const hasConfigured = useHasConfiguredGuidelines()
-  const isEditing = useIsEditingGuidelines()
-  const { markAsConfigured, setIsEditing } = useGuidelinesActions()
+  const { markAsConfigured } = useGuidelinesActions()
   const [wizardStep, setWizardStep] = useState(1)
 
-  // If configured and not editing, show the dashboard
-  if (hasConfigured && !isEditing) {
-    return (
-      <CoverageDashboard
-        onEditTargets={() => setIsEditing(true)}
-        onAddPolicy={onNavigateToPolicy}
-      />
-    )
-  }
-
-  // If configured but editing, show the edit view
-  if (hasConfigured && isEditing) {
-    return (
-      <ConfiguredGuidelinesView
-        onDone={() => setIsEditing(false)}
-      />
-    )
+  // If configured, show the editable guidelines view directly
+  if (hasConfigured) {
+    return <ConfiguredGuidelinesView onAddPolicy={onNavigateToPolicy} />
   }
 
   // Wizard flow for first-time setup
