@@ -1,26 +1,43 @@
 'use client'
 
 import { useState } from 'react'
-import { FileText, Plus } from 'lucide-react'
+import { Plus, Shield } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
+import { useColorScheme } from '@/stores'
+import { getInsuranceTheme } from '@/lib/insurance-theme'
 
 export function PoliciesTab() {
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const colorScheme = useColorScheme()
+  const monetColors = getInsuranceTheme(colorScheme)
+  const isMonet = colorScheme === 'monet'
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-white">Your Policies</h2>
-          <p className="text-sm text-slate-400">
+          <h2
+            className="text-xl font-semibold"
+            style={{
+              color: monetColors.textPrimary,
+              fontFamily: "'Cormorant Garamond', Georgia, serif",
+            }}
+          >
+            Your Policies
+          </h2>
+          <p className="text-sm mt-1" style={{ color: monetColors.textSecondary }}>
             Manage all your insurance policies in one place
           </p>
         </div>
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-500/20 transition-all hover:shadow-emerald-500/30"
+          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:scale-105"
+          style={{
+            background: `linear-gradient(135deg, ${monetColors.lavender}, ${monetColors.lavenderDark})`,
+            boxShadow: `0 4px 16px ${monetColors.shadowSoft}`,
+          }}
         >
           <Plus className="h-4 w-4" />
           Add Policy
@@ -28,23 +45,58 @@ export function PoliciesTab() {
       </div>
 
       {/* Empty State */}
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-white/[0.06] bg-white/[0.02] py-16">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.03]">
-          <FileText className="h-8 w-8 text-slate-500" />
+      <div
+        className="flex flex-col items-center justify-center rounded-2xl py-16 backdrop-blur-sm"
+        style={{
+          background: monetColors.cardBg,
+          border: `1px solid ${monetColors.cardBorder}`,
+          boxShadow: `0 4px 20px ${monetColors.shadowSoft}`,
+        }}
+      >
+        <div
+          className="flex h-20 w-20 items-center justify-center rounded-2xl"
+          style={{
+            background: `linear-gradient(135deg, ${monetColors.lavenderLight}40, ${monetColors.cardBg})`,
+            border: `1px solid ${monetColors.lavenderLight}60`,
+          }}
+        >
+          <Shield className="h-10 w-10" style={{ color: monetColors.lavender }} />
         </div>
-        <h3 className="mt-4 text-lg font-medium text-white">No policies yet</h3>
-        <p className="mt-1 text-sm text-slate-400">
-          Add your insurance policies to track coverage and analyze gaps
+        <h3
+          className="mt-5 text-lg font-semibold"
+          style={{
+            color: monetColors.textPrimary,
+            fontFamily: isMonet ? "'Cormorant Garamond', Georgia, serif" : 'inherit',
+          }}
+        >
+          No policies yet
+        </h3>
+        <p className="mt-2 text-sm max-w-xs text-center" style={{ color: monetColors.textSecondary }}>
+          Add your insurance policies to track coverage and analyze gaps in your protection
         </p>
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="mt-6 flex items-center gap-2 rounded-xl border border-white/[0.1] bg-white/[0.03] px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-white/[0.05]"
+          className="mt-6 flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-medium transition-all duration-200 hover:scale-105"
+          style={{
+            background: monetColors.cardBgHover,
+            border: `1px solid ${monetColors.lavender}40`,
+            color: monetColors.lavenderDark,
+            boxShadow: `0 2px 12px ${monetColors.shadowSoft}`,
+          }}
         >
           <Plus className="h-4 w-4" />
           Add Your First Policy
         </button>
       </div>
+
+      {/* Future: Policy List would go here */}
+      {/* Each policy card would use the Monet glass card pattern:
+          - background: 'rgba(255, 255, 255, 0.6)'
+          - border: '1px solid rgba(155, 139, 180, 0.15)'
+          - boxShadow: monetColors.shadowSoft
+          - rounded-2xl with hover scale effect
+      */}
 
       {/* Add Policy Modal */}
       <AddPolicyModal

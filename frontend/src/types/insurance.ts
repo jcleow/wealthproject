@@ -980,6 +980,447 @@ export const defaultSGAssumptions: SGMedicalCostAssumptions = {
 }
 
 // ============================================================================
+// USER-CONFIGURABLE COVERAGE GUIDELINES
+// "Captain of Your Ship" - users define their own coverage targets
+// ============================================================================
+
+/**
+ * Coverage type identifier for user guidelines
+ * Maps to display icons:
+ * - hospitalization: 🏥
+ * - life_tpd: 😇 (guardian angel)
+ * - critical_illness: 🩺
+ * - personal_accident: 🚗
+ */
+export type GuidelineCoverageType =
+  | 'hospitalization'
+  | 'life_tpd'
+  | 'critical_illness'
+  | 'personal_accident'
+
+/**
+ * Configuration for a single coverage guideline
+ */
+export interface CoverageGuidelineConfig {
+  type: GuidelineCoverageType
+  /** Multiplier of annual income (e.g., 10 = 10× income) */
+  incomeMultiplier: number
+  /** Whether this coverage is required or optional */
+  isRequired: boolean
+  /** Whether the user has enabled this guideline */
+  isEnabled: boolean
+  /** Custom notes from the user */
+  notes?: string
+}
+
+/**
+ * Hospitalization-specific guideline (not income-based)
+ */
+export interface HospitalizationGuideline {
+  type: 'hospitalization'
+  /** Must have ISP upgrade from MediShield Life */
+  requiresIspUpgrade: boolean
+  /** Preferred ward class */
+  preferredWardClass: WardClass
+  /** Whether rider is recommended */
+  recommendsRider: boolean
+  isEnabled: boolean
+  notes?: string
+}
+
+/**
+ * Preset configuration levels
+ */
+export type GuidelinesPreset = 'lean' | 'standard' | 'comprehensive' | 'custom'
+
+/**
+ * User's complete coverage guidelines configuration
+ */
+export interface UserCoverageGuidelines {
+  /** User's annual income (base for calculations) */
+  annualIncome: number
+
+  /** Maximum premium as percentage of income (e.g., 0.10 = 10%) */
+  maxPremiumPercentage: number
+
+  /** Selected preset or 'custom' if manually configured */
+  preset: GuidelinesPreset
+
+  /** Individual coverage configurations */
+  coverages: {
+    hospitalization: HospitalizationGuideline
+    life_tpd: CoverageGuidelineConfig
+    critical_illness: CoverageGuidelineConfig
+    personal_accident: CoverageGuidelineConfig
+  }
+
+  /** When these guidelines were last updated */
+  updatedAt: string
+}
+
+/**
+ * Preset multiplier configurations
+ */
+export const guidelinesPresets: Record<
+  Exclude<GuidelinesPreset, 'custom'>,
+  {
+    label: string
+    description: string
+    life_tpd: number
+    critical_illness: number
+    personal_accident: number
+    maxPremiumPercentage: number
+  }
+> = {
+  lean: {
+    label: 'Lean',
+    description: 'Basic protection with lower premiums',
+    life_tpd: 5,
+    critical_illness: 3,
+    personal_accident: 3,
+    maxPremiumPercentage: 0.05,
+  },
+  standard: {
+    label: 'Standard',
+    description: 'Balanced coverage for most situations',
+    life_tpd: 10,
+    critical_illness: 5,
+    personal_accident: 5,
+    maxPremiumPercentage: 0.1,
+  },
+  comprehensive: {
+    label: 'Comprehensive',
+    description: 'Maximum protection for peace of mind',
+    life_tpd: 15,
+    critical_illness: 7,
+    personal_accident: 10,
+    maxPremiumPercentage: 0.15,
+  },
+}
+
+/**
+ * Coverage type display configuration
+ */
+export const guidelineCoverageConfig: Record<
+  GuidelineCoverageType,
+  {
+    label: string
+    shortLabel: string
+    emoji: string
+    color: string
+    description: string
+    defaultMultiplier: number
+    isRequired: boolean
+  }
+> = {
+  hospitalization: {
+    label: 'Hospitalization',
+    shortLabel: 'Hospital',
+    emoji: '🏥',
+    color: 'emerald',
+    description: 'Must upgrade from MediShield Life to ISP',
+    defaultMultiplier: 0, // Not income-based
+    isRequired: true,
+  },
+  life_tpd: {
+    label: 'Life / TPD',
+    shortLabel: 'Life',
+    emoji: '😇',
+    color: 'blue',
+    description: 'Death and Total Permanent Disability coverage',
+    defaultMultiplier: 10,
+    isRequired: true,
+  },
+  critical_illness: {
+    label: 'Critical Illness',
+    shortLabel: 'CI',
+    emoji: '🩺',
+    color: 'purple',
+    description: 'Lump-sum payout on diagnosis of major illness',
+    defaultMultiplier: 5,
+    isRequired: true,
+  },
+  personal_accident: {
+    label: 'Personal Accident',
+    shortLabel: 'PA',
+    emoji: '🚗',
+    color: 'amber',
+    description: 'Coverage for accidental injuries',
+    defaultMultiplier: 5,
+    isRequired: false,
+  },
+}
+
+/**
+ * Helper to create default guidelines
+ */
+export function createDefaultGuidelines(
+  annualIncome: number = 60000
+): UserCoverageGuidelines {
+  return {
+    annualIncome,
+    maxPremiumPercentage: 0.1,
+    preset: 'standard',
+    coverages: {
+      hospitalization: {
+        type: 'hospitalization',
+        requiresIspUpgrade: true,
+        preferredWardClass: 'B1',
+        recommendsRider: true,
+        isEnabled: true,
+      },
+      life_tpd: {
+        type: 'life_tpd',
+        incomeMultiplier: 10,
+        isRequired: true,
+        isEnabled: true,
+      },
+      critical_illness: {
+        type: 'critical_illness',
+        incomeMultiplier: 5,
+        isRequired: true,
+        isEnabled: true,
+      },
+      personal_accident: {
+        type: 'personal_accident',
+        incomeMultiplier: 5,
+        isRequired: false,
+        isEnabled: true,
+      },
+    },
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+/**
+ * Calculate target coverage amounts from guidelines
+ */
+export function calculateGuidelineTargets(guidelines: UserCoverageGuidelines): {
+  life_tpd: number
+  critical_illness: number
+  personal_accident: number
+  maxAnnualPremium: number
+} {
+  const { annualIncome, maxPremiumPercentage, coverages } = guidelines
+
+  return {
+    life_tpd: coverages.life_tpd.isEnabled
+      ? annualIncome * coverages.life_tpd.incomeMultiplier
+      : 0,
+    critical_illness: coverages.critical_illness.isEnabled
+      ? annualIncome * coverages.critical_illness.incomeMultiplier
+      : 0,
+    personal_accident: coverages.personal_accident.isEnabled
+      ? annualIncome * coverages.personal_accident.incomeMultiplier
+      : 0,
+    maxAnnualPremium: annualIncome * maxPremiumPercentage,
+  }
+}
+
+// ============================================================================
+// COVERAGE STATUS & PROTECTION SCORE
+// ============================================================================
+
+/**
+ * Status for a single coverage category
+ */
+export interface CoverageCategoryStatus {
+  category: GuidelineCoverageType
+  label: string
+  target: number
+  current: number
+  gap: number
+  percentage: number // 0-100, capped at 100
+  status: 'covered' | 'partial' | 'gap' | 'disabled'
+}
+
+/**
+ * Overall coverage status for a person (used by dashboard)
+ */
+export interface PersonCoverageStatus {
+  personId: string
+  personName: string
+  annualIncome: number
+  categories: CoverageCategoryStatus[]
+  protectionScore: number // 0-100
+  gapCount: number
+  totalMonthlyPremium: number
+  totalAnnualPremium: number
+  premiumBudget: number
+  premiumPercentageUsed: number
+}
+
+/**
+ * Category weights for protection score calculation
+ * Life/TPD is weighted highest as it protects dependents
+ */
+const PROTECTION_SCORE_WEIGHTS: Record<GuidelineCoverageType, number> = {
+  hospitalization: 0.25,
+  life_tpd: 0.35,
+  critical_illness: 0.25,
+  personal_accident: 0.15,
+}
+
+/**
+ * Calculate protection score from coverage status
+ * Returns weighted average of coverage percentages (0-100)
+ */
+export function calculateProtectionScore(
+  guidelines: UserCoverageGuidelines,
+  currentCoverage: {
+    hospitalization: boolean // true if has valid ISP
+    life_tpd: number
+    critical_illness: number
+    personal_accident: number
+  }
+): number {
+  const targets = calculateGuidelineTargets(guidelines)
+  const { coverages } = guidelines
+
+  let totalWeight = 0
+  let weightedScore = 0
+
+  // Hospitalization: binary (covered or not)
+  if (coverages.hospitalization.isEnabled) {
+    const score = currentCoverage.hospitalization ? 100 : 0
+    weightedScore += score * PROTECTION_SCORE_WEIGHTS.hospitalization
+    totalWeight += PROTECTION_SCORE_WEIGHTS.hospitalization
+  }
+
+  // Life/TPD
+  if (coverages.life_tpd.isEnabled && targets.life_tpd > 0) {
+    const score = Math.min(100, (currentCoverage.life_tpd / targets.life_tpd) * 100)
+    weightedScore += score * PROTECTION_SCORE_WEIGHTS.life_tpd
+    totalWeight += PROTECTION_SCORE_WEIGHTS.life_tpd
+  }
+
+  // Critical Illness
+  if (coverages.critical_illness.isEnabled && targets.critical_illness > 0) {
+    const score = Math.min(100, (currentCoverage.critical_illness / targets.critical_illness) * 100)
+    weightedScore += score * PROTECTION_SCORE_WEIGHTS.critical_illness
+    totalWeight += PROTECTION_SCORE_WEIGHTS.critical_illness
+  }
+
+  // Personal Accident
+  if (coverages.personal_accident.isEnabled && targets.personal_accident > 0) {
+    const score = Math.min(100, (currentCoverage.personal_accident / targets.personal_accident) * 100)
+    weightedScore += score * PROTECTION_SCORE_WEIGHTS.personal_accident
+    totalWeight += PROTECTION_SCORE_WEIGHTS.personal_accident
+  }
+
+  // Return weighted average, or 0 if no categories enabled
+  return totalWeight > 0 ? Math.round(weightedScore / totalWeight) : 0
+}
+
+/**
+ * Build full coverage status for dashboard display
+ */
+export function buildCoverageStatus(
+  guidelines: UserCoverageGuidelines,
+  personId: string,
+  personName: string,
+  currentCoverage: {
+    hospitalization: boolean
+    life_tpd: number
+    critical_illness: number
+    personal_accident: number
+  },
+  premiumData: {
+    monthlyPremium: number
+    annualPremium: number
+  }
+): PersonCoverageStatus {
+  const targets = calculateGuidelineTargets(guidelines)
+  const { coverages, annualIncome } = guidelines
+
+  const categories: CoverageCategoryStatus[] = []
+
+  // Hospitalization (binary)
+  if (coverages.hospitalization.isEnabled) {
+    categories.push({
+      category: 'hospitalization',
+      label: `Ward ${coverages.hospitalization.preferredWardClass}${coverages.hospitalization.recommendsRider ? ' + Rider' : ''}`,
+      target: 0, // Not applicable for hospitalization
+      current: 0,
+      gap: 0,
+      percentage: currentCoverage.hospitalization ? 100 : 0,
+      status: currentCoverage.hospitalization ? 'covered' : 'gap',
+    })
+  }
+
+  // Life/TPD
+  if (coverages.life_tpd.isEnabled) {
+    const target = targets.life_tpd
+    const current = currentCoverage.life_tpd
+    const gap = Math.max(0, target - current)
+    const percentage = target > 0 ? Math.min(100, (current / target) * 100) : 0
+    categories.push({
+      category: 'life_tpd',
+      label: 'Life / TPD',
+      target,
+      current,
+      gap,
+      percentage: Math.round(percentage),
+      status: percentage >= 100 ? 'covered' : percentage > 0 ? 'partial' : 'gap',
+    })
+  }
+
+  // Critical Illness
+  if (coverages.critical_illness.isEnabled) {
+    const target = targets.critical_illness
+    const current = currentCoverage.critical_illness
+    const gap = Math.max(0, target - current)
+    const percentage = target > 0 ? Math.min(100, (current / target) * 100) : 0
+    categories.push({
+      category: 'critical_illness',
+      label: 'Critical Illness',
+      target,
+      current,
+      gap,
+      percentage: Math.round(percentage),
+      status: percentage >= 100 ? 'covered' : percentage > 0 ? 'partial' : 'gap',
+    })
+  }
+
+  // Personal Accident
+  if (coverages.personal_accident.isEnabled) {
+    const target = targets.personal_accident
+    const current = currentCoverage.personal_accident
+    const gap = Math.max(0, target - current)
+    const percentage = target > 0 ? Math.min(100, (current / target) * 100) : 0
+    categories.push({
+      category: 'personal_accident',
+      label: 'Personal Accident',
+      target,
+      current,
+      gap,
+      percentage: Math.round(percentage),
+      status: percentage >= 100 ? 'covered' : percentage > 0 ? 'partial' : 'gap',
+    })
+  }
+
+  const protectionScore = calculateProtectionScore(guidelines, currentCoverage)
+  const gapCount = categories.filter((c) => c.status === 'gap' || c.status === 'partial').length
+  const premiumBudget = targets.maxAnnualPremium
+  const premiumPercentageUsed = premiumBudget > 0
+    ? Math.round((premiumData.annualPremium / premiumBudget) * 100)
+    : 0
+
+  return {
+    personId,
+    personName,
+    annualIncome,
+    categories,
+    protectionScore,
+    gapCount,
+    totalMonthlyPremium: premiumData.monthlyPremium,
+    totalAnnualPremium: premiumData.annualPremium,
+    premiumBudget,
+    premiumPercentageUsed,
+  }
+}
+
+// ============================================================================
 // DEPRECATION NOTICE
 // ============================================================================
 
@@ -992,3 +1433,40 @@ export interface ProtectionScoreDeprecated extends ProtectionScore {
   /** @deprecated */
   overall: number
 }
+
+// ============================================================================
+// COVERAGE CONTROL POINTS
+// User-defined anchor points for coverage projections over time
+// Inspired by Projection Lab's control points feature
+// ============================================================================
+
+/**
+ * A user-defined anchor point for coverage at a specific age.
+ * Values that are null will use the auto-calculated recommendation.
+ */
+export interface CoverageControlPoint {
+  id: string
+  personId: string
+  age: number
+
+  /** Life/TPD coverage amount. Null = use auto-calculated. */
+  lifeTpd: number | null
+  /** Critical Illness coverage amount. Null = use auto-calculated. */
+  criticalIllness: number | null
+  /** Personal Accident coverage amount. Null = use auto-calculated. */
+  personalAccident: number | null
+
+  /** Optional user note explaining this control point */
+  reason?: string
+
+  createdAt: string
+  updatedAt: string
+}
+
+/**
+ * Interpolation mode between control points
+ * - linear: Straight line between points
+ * - smooth: Curved interpolation (bezier-style)
+ * - step: Jump directly at point age (no interpolation)
+ */
+export type InterpolationMode = 'linear' | 'smooth' | 'step'

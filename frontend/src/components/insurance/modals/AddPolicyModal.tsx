@@ -4,10 +4,11 @@ import { useState } from 'react'
 import { X, Shield, Stethoscope, HeartHandshake, Heart, Accessibility, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Modal } from '@/components/ui/Modal'
-import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
+import { useColorScheme } from '@/stores'
+import { getInsuranceTheme } from '@/lib/insurance-theme'
 
 /**
- * AddPolicyModal - Modal for adding insurance policies
+ * AddPolicyModal - Modal for adding insurance policies (Monet-styled)
  *
  * Flow:
  * 1. Select policy category (Life, Health, CI, LTC, PA)
@@ -16,12 +17,25 @@ import { CustomDropdown } from '@/components/modals/ScenarioEventModal/component
  * 4. Toggle coverage items
  */
 
+// =============================================================================
+// Category Accent Colors (static - used for category icons)
+// =============================================================================
+
+const accentColors = {
+  lavender: '#9B8BB4',
+  sage: '#7FB285',
+  coralRose: '#E8A898',
+  sunlightGold: '#D4C5A9',
+  blue: '#7BA3C9',
+}
+
 type PolicyCategory = 'life' | 'health' | 'critical_illness' | 'long_term_care' | 'personal_accident'
 
 interface PolicyCategoryOption {
   id: PolicyCategory
   label: string
   icon: typeof Shield
+  color: string
   types: PolicyTypeOption[]
 }
 
@@ -42,6 +56,7 @@ const policyCategories: PolicyCategoryOption[] = [
     id: 'life',
     label: 'Life Protection',
     icon: Shield,
+    color: accentColors.lavender,
     types: [
       {
         value: 'term_life',
@@ -75,6 +90,7 @@ const policyCategories: PolicyCategoryOption[] = [
     id: 'health',
     label: 'Health Products',
     icon: Stethoscope,
+    color: accentColors.sage,
     types: [
       {
         value: 'isp',
@@ -100,6 +116,7 @@ const policyCategories: PolicyCategoryOption[] = [
     id: 'critical_illness',
     label: 'Critical Illness',
     icon: HeartHandshake,
+    color: accentColors.coralRose,
     types: [
       {
         value: 'early_ci',
@@ -130,6 +147,7 @@ const policyCategories: PolicyCategoryOption[] = [
     id: 'long_term_care',
     label: 'Long-Term Care',
     icon: Heart,
+    color: accentColors.sunlightGold,
     types: [
       {
         value: 'careshield',
@@ -152,6 +170,7 @@ const policyCategories: PolicyCategoryOption[] = [
     id: 'personal_accident',
     label: 'Personal Accident',
     icon: Accessibility,
+    color: '#6B8BB4', // Soft blue
     types: [
       {
         value: 'pa',
@@ -198,6 +217,10 @@ interface PolicyFormData {
 }
 
 export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps) {
+  const colorScheme = useColorScheme()
+  const monetColors = getInsuranceTheme(colorScheme)
+  const isMonet = colorScheme === 'monet'
+
   const [selectedCategory, setSelectedCategory] = useState<PolicyCategory | null>(null)
   const [selectedType, setSelectedType] = useState<string>('')
   const [provider, setProvider] = useState<string>('aia')
@@ -284,28 +307,70 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
     return parseInt(num).toLocaleString()
   }
 
+  // Input style
+  const inputStyle: React.CSSProperties = {
+    background: monetColors.inputBg,
+    border: `1px solid ${monetColors.cardBorder}`,
+    color: monetColors.textPrimary,
+  }
+
+  const inputClassName = "w-full px-3 py-2.5 rounded-xl text-sm focus:outline-none transition-all"
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      overlayClassName="bg-black/60"
-      className="w-full max-w-lg mx-4 rounded-2xl border border-white/[0.08] bg-[#0a0a0a]"
+      overlayClassName="bg-black/40 backdrop-blur-sm"
+      className="w-full max-w-lg mx-4 rounded-2xl overflow-hidden"
     >
+      <div
+        style={{
+          background: isMonet
+            ? `linear-gradient(135deg, #FAF8F5 0%, #F0F4F8 50%, #FFFEF9 100%)`
+            : 'rgba(17, 17, 17, 0.95)',
+          border: `1px solid ${monetColors.cardBorder}`,
+          borderRadius: '1rem',
+          boxShadow: `0 25px 50px -12px ${monetColors.shadowMedium}`,
+        }}
+      >
       {/* Header */}
-      <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
+      <div
+        className="flex items-center justify-between p-5"
+        style={{ borderBottom: `1px solid ${monetColors.cardBorder}` }}
+      >
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-purple-500/20">
-            <Shield className="h-5 w-5 text-purple-400" />
+          <div
+            className="flex items-center justify-center h-11 w-11 rounded-xl"
+            style={{
+              background: `linear-gradient(135deg, ${monetColors.lavender}, ${monetColors.lavenderDark})`,
+              boxShadow: `0 4px 12px ${monetColors.shadowSoft}`,
+            }}
+          >
+            <Shield className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">Add Policy</h2>
-            <p className="text-xs text-slate-500">Add an insurance policy to your portfolio</p>
+            <h2
+              className="text-lg font-semibold"
+              style={{
+                color: monetColors.textPrimary,
+                fontFamily: "'Cormorant Garamond', Georgia, serif",
+              }}
+            >
+              Add Policy
+            </h2>
+            <p className="text-xs" style={{ color: monetColors.textMuted }}>
+              Add an insurance policy to your portfolio
+            </p>
           </div>
         </div>
         <button
           type="button"
           onClick={handleClose}
-          className="flex items-center justify-center h-8 w-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors"
+          className="flex items-center justify-center h-9 w-9 rounded-xl transition-all hover:scale-105"
+          style={{
+            background: monetColors.surfaceBg,
+            color: monetColors.textSecondary,
+          }}
         >
           <X className="h-4 w-4" />
         </button>
@@ -315,7 +380,12 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
       <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
         {/* Step 1: Category Selection */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-3">Policy Category</label>
+          <label
+            className="block text-sm font-medium mb-3"
+            style={{ color: monetColors.textSecondary }}
+          >
+            Policy Category
+          </label>
           <div className="grid grid-cols-5 gap-2">
             {policyCategories.map((category) => {
               const Icon = category.icon
@@ -325,15 +395,25 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
                   key={category.id}
                   type="button"
                   onClick={() => handleCategorySelect(category.id)}
-                  className={cn(
-                    'flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all',
-                    isSelected
-                      ? 'bg-purple-500/15 border-purple-500/40 text-purple-400'
-                      : 'bg-white/[0.02] border-white/[0.06] text-slate-400 hover:bg-white/[0.04] hover:border-white/[0.1]'
-                  )}
+                  className="flex flex-col items-center justify-center gap-2 p-3 rounded-xl transition-all duration-200 hover:scale-105"
+                  style={{
+                    background: isSelected
+                      ? `linear-gradient(135deg, ${category.color}20, ${category.color}10)`
+                      : monetColors.surfaceBg,
+                    border: `1px solid ${isSelected ? `${category.color}60` : monetColors.cardBorder}`,
+                    boxShadow: isSelected ? `0 4px 12px ${category.color}20` : 'none',
+                  }}
                 >
-                  <Icon className="h-7 w-7" />
-                  <span className="text-xs font-medium text-center leading-tight">{category.label}</span>
+                  <Icon
+                    className="h-6 w-6"
+                    style={{ color: isSelected ? category.color : monetColors.textMuted }}
+                  />
+                  <span
+                    className="text-[10px] font-medium text-center leading-tight"
+                    style={{ color: isSelected ? monetColors.textPrimary : monetColors.textMuted }}
+                  >
+                    {category.label}
+                  </span>
                 </button>
               )
             })}
@@ -343,14 +423,35 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
         {/* Step 2: Policy Type (only show if more than one option) */}
         {selectedCategoryData && selectedCategoryData.types.length > 1 && (
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Policy Type</label>
-            <CustomDropdown
-              value={selectedType}
-              onChange={handleTypeSelect}
-              options={selectedCategoryData.types.map((t) => ({ value: t.value, label: t.label }))}
-              minWidth="100%"
-              className="w-full"
-            />
+            <label
+              className="block text-sm font-medium mb-2"
+              style={{ color: monetColors.textSecondary }}
+            >
+              Policy Type
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {selectedCategoryData.types.map((type) => {
+                const isSelected = selectedType === type.value
+                return (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => handleTypeSelect(type.value)}
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
+                    style={{
+                      background: isSelected
+                        ? `linear-gradient(135deg, ${selectedCategoryData.color}, ${selectedCategoryData.color}CC)`
+                        : monetColors.cardBg,
+                      color: isSelected ? 'white' : monetColors.textSecondary,
+                      border: `1px solid ${isSelected ? 'transparent' : monetColors.cardBorder}`,
+                      boxShadow: isSelected ? `0 2px 8px ${selectedCategoryData.color}30` : 'none',
+                    }}
+                  >
+                    {type.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         )}
 
@@ -360,23 +461,44 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
             {/* Provider & Name */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Provider</label>
-                <CustomDropdown
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: monetColors.textSecondary }}
+                >
+                  Provider
+                </label>
+                <select
                   value={provider}
-                  onChange={setProvider}
-                  options={providerOptions}
-                  minWidth="100%"
-                  className="w-full"
-                />
+                  onChange={(e) => setProvider(e.target.value)}
+                  className={inputClassName}
+                  style={{
+                    ...inputStyle,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {providerOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Policy Name</label>
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: monetColors.textSecondary }}
+                >
+                  Policy Name
+                </label>
                 <input
                   type="text"
                   value={policyName}
                   onChange={(e) => setPolicyName(e.target.value)}
                   placeholder="e.g., AIA Term Plus"
-                  className="w-full px-3 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-purple-500/40"
+                  className={inputClassName}
+                  style={{
+                    ...inputStyle,
+                  }}
                 />
               </div>
             </div>
@@ -384,28 +506,50 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
             {/* Sum Assured & Premium */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Sum Assured</label>
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: monetColors.textSecondary }}
+                >
+                  Sum Assured
+                </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                  <span
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-sm"
+                    style={{ color: monetColors.textMuted }}
+                  >
+                    $
+                  </span>
                   <input
                     type="text"
                     value={formatCurrency(sumAssured)}
                     onChange={(e) => setSumAssured(e.target.value.replace(/[^\d]/g, ''))}
                     placeholder="100,000"
-                    className="w-full pl-7 pr-3 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-purple-500/40"
+                    className={cn(inputClassName, 'pl-7')}
+                    style={inputStyle}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Monthly Premium</label>
+                <label
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: monetColors.textSecondary }}
+                >
+                  Monthly Premium
+                </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                  <span
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-sm"
+                    style={{ color: monetColors.textMuted }}
+                  >
+                    $
+                  </span>
                   <input
                     type="text"
                     value={formatCurrency(monthlyPremium)}
                     onChange={(e) => setMonthlyPremium(e.target.value.replace(/[^\d]/g, ''))}
                     placeholder="150"
-                    className="w-full pl-7 pr-3 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-purple-500/40"
+                    className={cn(inputClassName, 'pl-7')}
+                    style={inputStyle}
                   />
                 </div>
               </div>
@@ -414,7 +558,12 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
             {/* Coverage Items */}
             {selectedTypeData && (
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-3">Coverage</label>
+                <label
+                  className="block text-sm font-medium mb-3"
+                  style={{ color: monetColors.textSecondary }}
+                >
+                  Coverage
+                </label>
                 <div className="space-y-2">
                   {selectedTypeData.coverageItems.map((item) => {
                     const isEnabled = coverage[item.id] ?? item.defaultEnabled
@@ -423,21 +572,26 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
                         key={item.id}
                         type="button"
                         onClick={() => toggleCoverage(item.id)}
-                        className={cn(
-                          'w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all',
-                          isEnabled
-                            ? 'bg-emerald-500/10 border-emerald-500/30'
-                            : 'bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]'
-                        )}
+                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200"
+                        style={{
+                          background: isEnabled
+                            ? `${monetColors.sage}15`
+                            : monetColors.surfaceBg,
+                          border: `1px solid ${isEnabled ? `${monetColors.sage}40` : monetColors.cardBorder}`,
+                        }}
                       >
-                        <span className={cn('text-sm', isEnabled ? 'text-white' : 'text-slate-400')}>
+                        <span
+                          className="text-sm"
+                          style={{ color: isEnabled ? monetColors.textPrimary : monetColors.textMuted }}
+                        >
                           {item.label}
                         </span>
                         <div
-                          className={cn(
-                            'h-5 w-5 rounded-md flex items-center justify-center transition-all',
-                            isEnabled ? 'bg-emerald-500' : 'bg-white/[0.06] border border-white/[0.1]'
-                          )}
+                          className="h-5 w-5 rounded-md flex items-center justify-center transition-all"
+                          style={{
+                            background: isEnabled ? monetColors.sage : monetColors.cardBg,
+                            border: isEnabled ? 'none' : `1px solid ${monetColors.cardBorder}`,
+                          }}
                         >
                           {isEnabled && <Check className="h-3 w-3 text-white" />}
                         </div>
@@ -450,13 +604,19 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
 
             {/* Notes */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">Notes (optional)</label>
+              <label
+                className="block text-sm font-medium mb-2"
+                style={{ color: monetColors.textSecondary }}
+              >
+                Notes (optional)
+              </label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Additional details about this policy..."
                 rows={2}
-                className="w-full px-3 py-2 rounded-lg border border-white/[0.08] bg-white/[0.03] text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-purple-500/40 resize-none"
+                className={cn(inputClassName, 'resize-none')}
+                style={inputStyle}
               />
             </div>
           </>
@@ -464,11 +624,15 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between p-5 border-t border-white/[0.06]">
+      <div
+        className="flex items-center justify-between p-5"
+        style={{ borderTop: `1px solid ${monetColors.cardBorder}` }}
+      >
         <button
           type="button"
           onClick={handleClose}
-          className="px-4 py-2 text-sm text-slate-400 hover:text-white transition-colors"
+          className="px-4 py-2 text-sm transition-colors"
+          style={{ color: monetColors.textMuted }}
         >
           Cancel
         </button>
@@ -477,14 +641,22 @@ export function AddPolicyModal({ isOpen, onClose, onSave }: AddPolicyModalProps)
           onClick={handleSave}
           disabled={!selectedCategory || !selectedType}
           className={cn(
-            'px-5 py-2 rounded-lg text-sm font-medium transition-all',
-            selectedCategory && selectedType
-              ? 'bg-purple-500 hover:bg-purple-600 text-white'
-              : 'bg-white/[0.05] text-slate-500 cursor-not-allowed'
+            'px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+            selectedCategory && selectedType ? 'hover:scale-105' : 'opacity-50 cursor-not-allowed'
           )}
+          style={{
+            background:
+              selectedCategory && selectedType
+                ? `linear-gradient(135deg, ${monetColors.lavender}, ${monetColors.lavenderDark})`
+                : 'rgba(155, 139, 180, 0.2)',
+            color: selectedCategory && selectedType ? 'white' : monetColors.textMuted,
+            boxShadow:
+              selectedCategory && selectedType ? `0 4px 12px ${monetColors.shadowSoft}` : 'none',
+          }}
         >
           Add Policy
         </button>
+      </div>
       </div>
     </Modal>
   )
