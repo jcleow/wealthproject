@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
+import { ColorSchemeToggle } from '@/components/ui/ColorSchemeToggle'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -10,7 +11,7 @@ import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventMo
 import { ProfileSelectionModal } from '../modals/ProfileSelectionModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
-import { useTimelineStore, useFeatureModulesStore } from '@/stores'
+import { useTimelineStore, useFeatureModulesStore, useColorScheme } from '@/stores'
 import { useShallow } from 'zustand/react/shallow'
 import type { ScenarioEvent } from '@/types/scenario'
 import clsx from 'clsx'
@@ -55,6 +56,10 @@ export function FinancialWorkspace({
       openLayoutModal: s.openLayoutModal,
     }))
   )
+
+  // Get color scheme from store
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
 
   // Get timeline data from hook (React Query)
   const timeline = useTimeline({ resolution: 'monthly' })
@@ -180,17 +185,15 @@ export function FinancialWorkspace({
   }, [])
 
   return (
-    <div className={`flex flex-col
-h-full min-h-0 w-full min-w-0
-bg-transparent
-text-slate-200`}>
+    <div
+      className={clsx(
+        'flex flex-col h-full min-h-0 w-full min-w-0 bg-transparent transition-colors duration-300',
+        isMonet ? 'text-[var(--monet-text-primary)]' : 'text-slate-200'
+      )}
+    >
       {/* Compact Header - hidden when chartOnly */}
       {!chartOnly && (
-      <header className={`relative z-[100]
-flex items-center justify-between
-h-14
-px-6
-shrink-0`}>
+      <header className="relative z-[100] flex items-center justify-between h-14 px-6 shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             {/* <h2 className="text-lg font-medium tracking-tight text-slate-100">Workspace</h2> */}
@@ -201,21 +204,28 @@ shrink-0`}>
         <div className={clsx(
           "flex items-center gap-3",
           "px-3 py-1.5",
-          "border border-white/[0.06] rounded-full",
-          "bg-white/[0.02]",
+          "rounded-full",
           "backdrop-blur-sm",
+          "transition-colors duration-300",
+          isMonet
+            ? "border border-[var(--monet-lavender)]/20 bg-white/60"
+            : "border border-white/[0.06] bg-white/[0.02]",
         )}>
           {/* Search */}
-          <div className="flex items-center gap-2 border-r border-white/[0.06] pr-3">
-            <Search className="h-3.5 w-3.5 text-slate-500" />
+          <div className={clsx(
+            "flex items-center gap-2 border-r pr-3",
+            isMonet ? "border-[var(--monet-lavender)]/20" : "border-white/[0.06]"
+          )}>
+            <Search className={clsx("h-3.5 w-3.5", isMonet ? "text-[var(--monet-text-muted)]" : "text-slate-500")} />
             <input
               type="text"
               placeholder="Search..."
-              className={`w-48
-placeholder-slate-600
-focus:outline-none
-bg-transparent
-text-[13px] text-slate-300`}
+              className={clsx(
+                "w-48 focus:outline-none bg-transparent text-[13px]",
+                isMonet
+                  ? "placeholder-[var(--monet-text-muted)] text-[var(--monet-text-primary)]"
+                  : "placeholder-slate-600 text-slate-300"
+              )}
             />
           </div>
 
@@ -226,10 +236,11 @@ text-[13px] text-slate-300`}
                 "flex items-center justify-center",
                 "h-7 w-7",
                 "rounded-full",
-                "hover:bg-white/5",
-                "hover:text-slate-300 text-slate-500",
                 "disabled:opacity-60",
                 "transition",
+                isMonet
+                  ? "hover:bg-[var(--monet-lavender)]/10 hover:text-[var(--monet-lavender-dark)] text-[var(--monet-text-muted)]"
+                  : "hover:bg-white/5 hover:text-slate-300 text-slate-500",
               )}
               title="Load a profile template"
               type="button"
@@ -244,7 +255,9 @@ text-[13px] text-slate-300`}
                 "h-7 w-7",
                 "rounded-full",
                 "hover:bg-rose-500/10",
-                "hover:text-rose-300 text-rose-400/70",
+                isMonet
+                  ? "hover:text-[var(--monet-coral-dark)] text-[var(--monet-coral)]"
+                  : "hover:text-rose-300 text-rose-400/70",
                 "disabled:opacity-60",
                 "transition",
               )}
@@ -256,7 +269,7 @@ text-[13px] text-slate-300`}
             </button>
           </div>
 
-          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className={clsx("h-4 w-px", isMonet ? "bg-[var(--monet-lavender)]/20" : "bg-white/[0.06]")} />
 
           <div className="relative z-[100]" ref={moduleMenuRef}>
             <button
@@ -265,13 +278,15 @@ text-[13px] text-slate-300`}
                 "flex items-center gap-1.5",
                 "px-2 py-1",
                 "rounded-lg",
-                "hover:bg-white/5",
-                "font-medium hover:text-slate-200 text-[11px] text-slate-400",
+                "font-medium text-[11px]",
                 "transition",
+                isMonet
+                  ? "hover:bg-[var(--monet-lavender)]/10 hover:text-[var(--monet-lavender-dark)] text-[var(--monet-text-secondary)]"
+                  : "hover:bg-white/5 hover:text-slate-200 text-slate-400",
               )}
               type="button"
             >
-              <Sparkles className="h-3 w-3 text-blue-400/70" />
+              <Sparkles className={clsx("h-3 w-3", isMonet ? "text-[var(--monet-lavender)]" : "text-blue-400/70")} />
               <span className="text-[13px] hidden md:inline">Modules</span>
               <ChevronDown className={`h-2.5 w-2.5 transition ${isModuleMenuOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -425,7 +440,7 @@ text-purple-400`}>
             )}
           </div>
 
-          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className={clsx("h-4 w-px", isMonet ? "bg-[var(--monet-lavender)]/20" : "bg-white/[0.06]")} />
 
           {/* Layout toggle */}
           <button
@@ -435,14 +450,18 @@ text-purple-400`}>
               "flex items-center justify-center",
               "h-7 w-7",
               "rounded-full",
-              "hover:bg-white/5",
-              "hover:text-slate-300 text-slate-500",
               "transition",
+              isMonet
+                ? "hover:bg-[var(--monet-lavender)]/10 hover:text-[var(--monet-lavender-dark)] text-[var(--monet-text-muted)]"
+                : "hover:bg-white/5 hover:text-slate-300 text-slate-500",
             )}
             title="Change layout"
           >
             <LayoutGrid className="h-3.5 w-3.5" />
           </button>
+
+          {/* Color scheme toggle */}
+          <ColorSchemeToggle />
 
           {/* Notification bell */}
           <button
@@ -451,9 +470,10 @@ text-purple-400`}>
               "flex items-center justify-center",
               "h-7 w-7",
               "rounded-full",
-              "hover:bg-white/5",
-              "hover:text-slate-300 text-slate-500",
               "transition",
+              isMonet
+                ? "hover:bg-[var(--monet-lavender)]/10 hover:text-[var(--monet-lavender-dark)] text-[var(--monet-text-muted)]"
+                : "hover:bg-white/5 hover:text-slate-300 text-slate-500",
             )}
           >
             <Bell className="h-3.5 w-3.5" />
@@ -483,10 +503,12 @@ text-purple-400`}>
             <section className={clsx(
               "relative",
               "h-full",
-              "border border-white/[0.1] hover:border-white/[0.15] rounded-2xl",
-              "bg-[#0a0a0a]/60",
+              "rounded-2xl",
               "transition-all",
               "overflow-hidden",
+              isMonet
+                ? "border border-[var(--monet-lavender)]/20 bg-white/70 backdrop-blur-xl"
+                : "border border-white/[0.1] hover:border-white/[0.15] bg-[#0a0a0a]/60",
             )}>
               {/* Chart Container - NetWorthProjection has its own header */}
               <div className="h-full">
