@@ -6,7 +6,7 @@ import clsx from 'clsx'
 import { useFinancialData } from '@/hooks/useFinancialData'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
-import { useTimelineStore, useTaxModeStore } from '@/stores'
+import { useTimelineStore, useTaxModeStore, useColorScheme } from '@/stores'
 import {
   useCashAccountsQuery,
   useCreateCashAccountMutation,
@@ -79,6 +79,10 @@ export function FinancialDataManagement({
   showTaxMode: _showTaxMode = false,
   compact = false,
 }: FinancialDataManagementProps) {
+  // Theme
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
+
   // Get timeline selection state from Zustand store
   const selectedYear = useTimelineStore((s) => s.selectedYear) ?? 0
   const selectedMonth = useTimelineStore((s) => s.selectedMonth) ?? undefined
@@ -893,15 +897,20 @@ export function FinancialDataManagement({
     <>
       <div
         id="financial-data-section"
-        className={clsx('flex flex-col bg-transparent text-white', compact ? 'pt-6' : 'p-6')}
+        className={clsx('flex flex-col bg-transparent', isMonet ? 'text-slate-800' : 'text-white', compact ? 'pt-6' : 'p-6')}
         onClick={(e) => {
           if (selectedItemId && (e.target as HTMLElement).closest('[data-line-item]') === null) {
             setSelectedItemId(null)
           }
         }}
       >
-        {/* Single white container wrapping everything - Stitch style */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        {/* Main container - Stitch style */}
+        <div className={clsx(
+          "rounded-2xl border overflow-hidden",
+          isMonet
+            ? "border-slate-200 bg-white shadow-sm"
+            : "border-white/[0.08] bg-[#0a0a0a]/60"
+        )}>
           <Header
             selectedYear={selectedYear}
             onSelectYear={setSelectedYear}
