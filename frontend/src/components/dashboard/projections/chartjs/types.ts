@@ -61,10 +61,10 @@ export const MARKER_CONFIG = {
   stackSpacing: 36, // markerRadius * 2 + 8
   /** Size of the icon inside the marker */
   iconSize: 17, // markerRadius * 1.2
-  /** Stroke color for marker border */
-  strokeColor: 'rgba(255,255,255,0.3)',
+  /** Stroke color for marker border (transparent for clean Stitch-style look) */
+  strokeColor: 'transparent',
   /** Stroke width for marker border */
-  strokeWidth: 1,
+  strokeWidth: 0,
   /** Opacity for disabled markers */
   disabledOpacity: 0.45,
   /** Hit test tolerance (pixels beyond marker radius) */

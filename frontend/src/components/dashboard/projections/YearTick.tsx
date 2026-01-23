@@ -1,5 +1,6 @@
 import type { TimeResolution } from '@/types/timeline'
 import { DEFAULT_STARTING_AGE, type AxisMode } from './types'
+import { useColorScheme } from '@/stores'
 
 // Static array extracted outside component to avoid recreation on each render
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const
@@ -33,10 +34,18 @@ export function YearTick({
   visibleRangeMonths,
   baseCalendarYear,
 }: YearTickProps) {
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
+
   if (!payload) return null
   const isOverride = overrideYears.has(payload.value)
   const isSelected = selectedYear === payload.value
   const age = startingAge ?? DEFAULT_STARTING_AGE
+
+  // Theme-aware tick colors
+  const tickColor = isMonet
+    ? (isSelected ? '#3b82f6' : '#64748b')  // blue-500 selected, slate-500 normal for light mode
+    : (isSelected ? '#a5b4fc' : '#cbd5e1')  // indigo-300 selected, slate-300 for dark mode
 
   let labelValue: string | number
 
@@ -99,7 +108,7 @@ export function YearTick({
     >
       <text
         dy={12}
-        fill={isSelected ? '#a5b4fc' : '#cbd5e1'}
+        fill={tickColor}
         fontSize={12}
         fontWeight={isSelected ? 700 : 400}
         textAnchor="middle"
