@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useShallow } from 'zustand/react/shallow'
 import { devtools } from 'zustand/middleware'
 import type { TaxResidencyStatus, TaxRelief, TaxCalculationResult } from '@/lib/taxCalculations'
 
@@ -108,13 +109,15 @@ export const useTaxResidencyStatus = () => useTaxModeStore((s) => s.residencySta
 
 // Combined selector for components that need multiple values
 export const useTaxModeActions = () =>
-  useTaxModeStore((s) => ({
-    toggleTaxMode: s.toggleTaxMode,
-    enableTaxMode: s.enableTaxMode,
-    disableTaxMode: s.disableTaxMode,
-    setViewMode: s.setViewMode,
-    setSelectedYearTaxData: s.setSelectedYearTaxData,
-    setResidencyStatus: s.setResidencyStatus,
-    updateRelief: s.updateRelief,
-    resetReliefs: s.resetReliefs,
-  }))
+  useTaxModeStore(
+    useShallow((s) => ({
+      toggleTaxMode: s.toggleTaxMode,
+      enableTaxMode: s.enableTaxMode,
+      disableTaxMode: s.disableTaxMode,
+      setViewMode: s.setViewMode,
+      setSelectedYearTaxData: s.setSelectedYearTaxData,
+      setResidencyStatus: s.setResidencyStatus,
+      updateRelief: s.updateRelief,
+      resetReliefs: s.resetReliefs,
+    }))
+  )

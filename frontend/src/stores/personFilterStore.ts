@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useShallow } from 'zustand/react/shallow'
 import { devtools } from 'zustand/middleware'
 
 // ============================================
@@ -36,7 +37,9 @@ export const usePersonFilterStore = create<PersonFilterState>()(
 
 export const usePersonsModalOpen = () => usePersonFilterStore((s) => s.isPersonsModalOpen)
 export const usePersonsModalActions = () =>
-  usePersonFilterStore((s) => ({
-    openPersonsModal: s.openPersonsModal,
-    closePersonsModal: s.closePersonsModal,
-  }))
+  usePersonFilterStore(
+    useShallow((s) => ({
+      openPersonsModal: s.openPersonsModal,
+      closePersonsModal: s.closePersonsModal,
+    }))
+  )
