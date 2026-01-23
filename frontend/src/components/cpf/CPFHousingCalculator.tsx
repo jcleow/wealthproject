@@ -15,6 +15,7 @@ import { ChevronDown, Check } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { useTheme } from '@/lib/theme'
 
 // 2025 BRS
 const BRS_2025 = 106500
@@ -31,6 +32,7 @@ function HousingDropdown<T extends string>({
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const { theme, isMonet } = useTheme()
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -52,30 +54,40 @@ function HousingDropdown<T extends string>({
           e.stopPropagation()
           setIsOpen(!isOpen)
         }}
+        style={{
+          background: theme.controlBg,
+          borderColor: isOpen ? theme.blue : theme.controlBorder,
+          color: theme.textPrimary,
+        }}
         className={`w-full
           flex items-center justify-between
           py-2 px-3
-          rounded-lg border border-white/[0.08]
-          bg-white/[0.02] hover:bg-white/[0.04]
-          text-sm text-white text-left
-          transition
-          ${isOpen ? 'border-blue-500/50' : ''}`}
+          rounded-lg border
+          text-sm text-left
+          transition`}
       >
         <span>{selectedOption?.label ?? ''}</span>
-        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          style={{ color: theme.textMuted }}
+        />
       </button>
 
       {isOpen && (
-        <div className="
-          absolute left-0 top-full z-[100] mt-1
-          w-full
-          rounded-xl
-          border border-white/[0.12]
-          bg-[#0c0c0c]
-          shadow-2xl shadow-black/60
-          overflow-hidden
-          animate-in fade-in slide-in-from-top-2 duration-150
-        ">
+        <div
+          style={{
+            background: isMonet ? 'rgba(255, 255, 255, 0.95)' : '#0c0c0c',
+            border: `1px solid ${isMonet ? theme.cardBorder : 'rgba(255, 255, 255, 0.12)'}`,
+            boxShadow: isMonet ? `0 8px 32px ${theme.shadowMedium}` : '0 8px 32px rgba(0, 0, 0, 0.6)',
+          }}
+          className="
+            absolute left-0 top-full z-[100] mt-1
+            w-full
+            rounded-xl
+            overflow-hidden
+            animate-in fade-in slide-in-from-top-2 duration-150
+          "
+        >
           <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
             {options.map((opt) => {
               const isSelected = opt.value === value
@@ -88,19 +100,22 @@ function HousingDropdown<T extends string>({
                     onChange(opt.value)
                     setIsOpen(false)
                   }}
-                  className={`
+                  style={{
+                    background: isSelected
+                      ? isMonet ? 'rgba(123, 163, 201, 0.15)' : 'rgba(96, 165, 250, 0.15)'
+                      : 'transparent',
+                    color: isSelected ? theme.textPrimary : theme.textSecondary,
+                  }}
+                  className="
                     w-full flex items-center gap-2
                     px-3 py-2
                     text-sm text-left
                     transition-all duration-150
-                    ${isSelected
-                      ? 'bg-blue-500/15 text-white'
-                      : 'text-slate-300 hover:bg-white/[0.05]'
-                    }
-                  `}
+                    hover:opacity-80
+                  "
                 >
                   <span className="w-4 shrink-0">
-                    {isSelected && <Check className="h-3.5 w-3.5 text-blue-400" />}
+                    {isSelected && <Check className="h-3.5 w-3.5" style={{ color: theme.blue }} />}
                   </span>
                   <span>{opt.label}</span>
                 </button>
@@ -123,21 +138,26 @@ function PropertyInputNode({ data }: { data: {
   propertyType: 'bto' | 'resale' | 'private'
   onChange: (field: string, value: number | string) => void
 }}) {
+  const { theme, isMonet } = useTheme()
+
   return (
-    <div className={`min-w-[240px]
-p-4
-rounded-xl border border-white/[0.08]
-bg-[#0f1728]/95
-shadow-xl backdrop-blur`}>
-      <div className={`mb-3
-text-xs font-medium tracking-wide text-blue-400
-uppercase`}>
+    <div
+      style={{
+        background: isMonet ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 40, 0.95)',
+        border: `1px solid ${theme.cardBorder}`,
+      }}
+      className="min-w-[240px] p-4 rounded-xl shadow-xl backdrop-blur"
+    >
+      <div
+        style={{ color: theme.blue }}
+        className="mb-3 text-xs font-medium tracking-wide uppercase"
+      >
         Property Details
       </div>
 
       <div className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs text-slate-400">Property Type</label>
+          <label style={{ color: theme.textMuted }} className="mb-1 block text-xs">Property Type</label>
           <HousingDropdown
             value={data.propertyType}
             onChange={(val) => data.onChange('propertyType', val)}
@@ -150,7 +170,7 @@ uppercase`}>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-slate-400">Purchase Price</label>
+          <label style={{ color: theme.textMuted }} className="mb-1 block text-xs">Purchase Price</label>
           <CurrencyInput
             value={data.purchasePrice}
             onChange={(val) => data.onChange('purchasePrice', val)}
@@ -159,7 +179,7 @@ uppercase`}>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-slate-400">Market Valuation</label>
+          <label style={{ color: theme.textMuted }} className="mb-1 block text-xs">Market Valuation</label>
           <CurrencyInput
             value={data.valuation}
             onChange={(val) => data.onChange('valuation', val)}
@@ -169,7 +189,7 @@ uppercase`}>
 
         {data.propertyType !== 'bto' && (
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Loan Type</label>
+            <label style={{ color: theme.textMuted }} className="mb-1 block text-xs">Loan Type</label>
             <HousingDropdown
               value={data.loanType}
               onChange={(val) => data.onChange('loanType', val)}
@@ -186,7 +206,7 @@ uppercase`}>
         )}
       </div>
 
-      <Handle type="source" position={Position.Right} className="!bg-blue-500 !w-3 !h-3" />
+      <Handle type="source" position={Position.Right} style={{ background: theme.blue }} className="!w-3 !h-3" />
     </div>
   )
 }
@@ -197,23 +217,28 @@ function CPFBalanceNode({ data }: { data: {
   totalCpf: number
   onChange: (field: string, value: number) => void
 }}) {
-  return (
-    <div className={`min-w-[200px]
-p-4
-rounded-xl border border-white/[0.08]
-bg-[#0f1728]/95
-shadow-xl backdrop-blur`}>
-      <Handle type="target" position={Position.Left} className="!bg-emerald-500 !w-3 !h-3" />
+  const { theme, isMonet } = useTheme()
 
-      <div className={`mb-3
-text-xs font-medium tracking-wide text-emerald-400
-uppercase`}>
+  return (
+    <div
+      style={{
+        background: isMonet ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 40, 0.95)',
+        border: `1px solid ${theme.cardBorder}`,
+      }}
+      className="min-w-[200px] p-4 rounded-xl shadow-xl backdrop-blur"
+    >
+      <Handle type="target" position={Position.Left} style={{ background: theme.sage }} className="!w-3 !h-3" />
+
+      <div
+        style={{ color: theme.sage }}
+        className="mb-3 text-xs font-medium tracking-wide uppercase"
+      >
         Your CPF Balances
       </div>
 
       <div className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs text-slate-400">OA Balance</label>
+          <label style={{ color: theme.textMuted }} className="mb-1 block text-xs">OA Balance</label>
           <CurrencyInput
             value={data.oaBalance}
             onChange={(val) => data.onChange('oaBalance', val)}
@@ -222,7 +247,7 @@ uppercase`}>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-slate-400">Total CPF (OA+SA+MA)</label>
+          <label style={{ color: theme.textMuted }} className="mb-1 block text-xs">Total CPF (OA+SA+MA)</label>
           <CurrencyInput
             value={data.totalCpf}
             onChange={(val) => data.onChange('totalCpf', val)}
@@ -230,23 +255,23 @@ uppercase`}>
           />
         </div>
 
-        <div className="pt-2 border-t border-white/10">
+        <div style={{ borderColor: theme.surfaceBorder }} className="pt-2 border-t">
           <div className="flex justify-between text-xs">
-            <span className="text-slate-400">BRS Requirement:</span>
-            <span className={data.totalCpf >= BRS_2025 ? 'text-emerald-400' : 'text-red-400'}>
+            <span style={{ color: theme.textMuted }}>BRS Requirement:</span>
+            <span style={{ color: data.totalCpf >= BRS_2025 ? theme.sage : theme.accent }}>
               {formatCurrency(BRS_2025)}
             </span>
           </div>
           <div className="flex justify-between text-xs mt-1">
-            <span className="text-slate-400">Status:</span>
-            <span className={data.totalCpf >= BRS_2025 ? 'text-emerald-400' : 'text-red-400'}>
-              {data.totalCpf >= BRS_2025 ? '✓ BRS Met' : '✗ Below BRS'}
+            <span style={{ color: theme.textMuted }}>Status:</span>
+            <span style={{ color: data.totalCpf >= BRS_2025 ? theme.sage : theme.accent }}>
+              {data.totalCpf >= BRS_2025 ? '\u2713 BRS Met' : '\u2717 Below BRS'}
             </span>
           </div>
         </div>
       </div>
 
-      <Handle type="source" position={Position.Right} className="!bg-emerald-500 !w-3 !h-3" />
+      <Handle type="source" position={Position.Right} style={{ background: theme.sage }} className="!w-3 !h-3" />
     </div>
   )
 }
@@ -259,46 +284,50 @@ function LimitsNode({ data }: { data: {
   loanType: string
   brsmet: boolean
 }}) {
+  const { theme, isMonet } = useTheme()
   const showLimits = data.propertyType !== 'bto'
 
   return (
-    <div className={`min-w-[200px]
-p-4
-rounded-xl border border-violet-500/30
-bg-violet-500/10
-shadow-xl backdrop-blur`}>
-      <Handle type="target" position={Position.Left} className="!bg-violet-500 !w-3 !h-3" />
+    <div
+      style={{
+        background: isMonet ? 'rgba(168, 135, 179, 0.15)' : 'rgba(139, 92, 246, 0.1)',
+        border: `1px solid ${isMonet ? 'rgba(168, 135, 179, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`,
+      }}
+      className="min-w-[200px] p-4 rounded-xl shadow-xl backdrop-blur"
+    >
+      <Handle type="target" position={Position.Left} style={{ background: theme.purple }} className="!w-3 !h-3" />
 
-      <div className={`mb-2
-text-xs font-medium tracking-wide text-violet-400
-uppercase`}>
+      <div
+        style={{ color: theme.purple }}
+        className="mb-2 text-xs font-medium tracking-wide uppercase"
+      >
         CPF Usage Limits
       </div>
 
       {!showLimits ? (
-        <div className="text-sm text-white">
-          <p className="text-emerald-400 font-medium">No Limits!</p>
-          <p className="text-xs text-slate-400 mt-1">BTO has no withdrawal limits. Use OA freely for downpayment and instalments.</p>
+        <div className="text-sm">
+          <p style={{ color: theme.sage }} className="font-medium">No Limits!</p>
+          <p style={{ color: theme.textMuted }} className="text-xs mt-1">BTO has no withdrawal limits. Use OA freely for downpayment and instalments.</p>
         </div>
       ) : (
         <div className="space-y-2 text-sm">
           <div>
-            <div className="text-xs text-slate-500 mb-1">Valuation Limit (VL)</div>
-            <div className="font-medium text-white text-lg">{formatCurrency(data.vl)}</div>
-            <p className="text-xs text-slate-500">= min(Price, Valuation)</p>
+            <div style={{ color: theme.textMuted }} className="text-xs mb-1">Valuation Limit (VL)</div>
+            <div style={{ color: theme.textPrimary }} className="font-medium text-lg">{formatCurrency(data.vl)}</div>
+            <p style={{ color: theme.textMuted }} className="text-xs">= min(Price, Valuation)</p>
           </div>
 
           {data.loanType === 'bank' && (
-            <div className="pt-2 border-t border-white/10">
-              <div className="text-xs text-slate-500 mb-1">Withdrawal Limit (WL)</div>
-              <div className="font-medium text-white text-lg">{formatCurrency(data.wl)}</div>
-              <p className="text-xs text-slate-500">= 120% × VL (max for bank loan)</p>
+            <div style={{ borderColor: theme.surfaceBorder }} className="pt-2 border-t">
+              <div style={{ color: theme.textMuted }} className="text-xs mb-1">Withdrawal Limit (WL)</div>
+              <div style={{ color: theme.textPrimary }} className="font-medium text-lg">{formatCurrency(data.wl)}</div>
+              <p style={{ color: theme.textMuted }} className="text-xs">= 120% x VL (max for bank loan)</p>
             </div>
           )}
         </div>
       )}
 
-      <Handle type="source" position={Position.Right} className="!bg-violet-500 !w-3 !h-3" />
+      <Handle type="source" position={Position.Right} style={{ background: theme.purple }} className="!w-3 !h-3" />
     </div>
   )
 }
@@ -312,35 +341,61 @@ function ResultNode({ data }: { data: {
   reason: string
   color: 'green' | 'amber' | 'red'
 }}) {
-  const colorClasses = {
-    green: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
-    amber: 'border-amber-500/30 bg-amber-500/10 text-amber-400',
-    red: 'border-red-500/30 bg-red-500/10 text-red-400',
-  }[data.color]
+  const { theme, isMonet } = useTheme()
+
+  const getResultColors = () => {
+    if (data.color === 'green') {
+      return {
+        bg: isMonet ? 'rgba(127, 178, 133, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+        border: isMonet ? 'rgba(127, 178, 133, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+        text: theme.sage,
+      }
+    } else if (data.color === 'amber') {
+      return {
+        bg: isMonet ? 'rgba(212, 165, 116, 0.15)' : 'rgba(251, 191, 36, 0.1)',
+        border: isMonet ? 'rgba(212, 165, 116, 0.3)' : 'rgba(251, 191, 36, 0.3)',
+        text: theme.amber,
+      }
+    } else {
+      return {
+        bg: isMonet ? 'rgba(232, 168, 152, 0.15)' : 'rgba(239, 68, 68, 0.1)',
+        border: isMonet ? 'rgba(232, 168, 152, 0.3)' : 'rgba(239, 68, 68, 0.3)',
+        text: theme.accent,
+      }
+    }
+  }
+
+  const colors = getResultColors()
 
   return (
-    <div className={`rounded-xl border p-4 shadow-xl backdrop-blur min-w-[220px] ${colorClasses}`}>
-      <Handle type="target" position={Position.Left} className="!bg-current !w-3 !h-3" />
+    <div
+      style={{
+        background: colors.bg,
+        border: `1px solid ${colors.border}`,
+      }}
+      className="rounded-xl p-4 shadow-xl backdrop-blur min-w-[220px]"
+    >
+      <Handle type="target" position={Position.Left} style={{ background: colors.text }} className="!w-3 !h-3" />
 
-      <div className="mb-2 text-xs font-medium uppercase tracking-wide">
+      <div style={{ color: colors.text }} className="mb-2 text-xs font-medium uppercase tracking-wide">
         Maximum CPF Usable
       </div>
 
-      <div className="text-2xl font-bold text-white">
+      <div style={{ color: theme.textPrimary }} className="text-2xl font-bold">
         {formatCurrency(data.actualUsable)}
       </div>
 
       <div className="mt-3 space-y-2 text-xs">
-        <div className="flex justify-between text-slate-400">
+        <div className="flex justify-between" style={{ color: theme.textMuted }}>
           <span>Your OA:</span>
           <span>{formatCurrency(data.oaBalance)}</span>
         </div>
-        <div className="flex justify-between text-slate-400">
+        <div className="flex justify-between" style={{ color: theme.textMuted }}>
           <span>Max Allowed:</span>
           <span>{formatCurrency(data.maxUsable)}</span>
         </div>
-        <div className="pt-2 border-t border-white/10">
-          <p className="text-slate-300">{data.reason}</p>
+        <div style={{ borderColor: theme.surfaceBorder }} className="pt-2 border-t">
+          <p style={{ color: theme.textSecondary }}>{data.reason}</p>
         </div>
       </div>
     </div>
@@ -359,6 +414,7 @@ interface CPFHousingCalculatorProps {
 }
 
 export function CPFHousingCalculator({ className }: CPFHousingCalculatorProps) {
+  const { theme, isMonet } = useTheme()
   const [purchasePrice, setPurchasePrice] = useState(500000)
   const [valuation, setValuation] = useState(480000)
   const [oaBalance, setOaBalance] = useState(150000)
@@ -407,7 +463,7 @@ export function CPFHousingCalculator({ className }: CPFHousingCalculatorProps) {
         color = 'amber'
       }
     } else {
-      // Bank loan - WL is max, but need BRS for VL→WL
+      // Bank loan - WL is max, but need BRS for VL->WL
       if (brsMet) {
         maxUsable = wl
         reason = 'BRS met! You can use OA up to Withdrawal Limit (120% of VL).'
@@ -464,33 +520,39 @@ export function CPFHousingCalculator({ className }: CPFHousingCalculatorProps) {
       source: 'property',
       target: 'cpf',
       animated: true,
-      style: { stroke: '#10b981', strokeWidth: 2 },
+      style: { stroke: theme.sage, strokeWidth: 2 },
     },
     {
       id: 'e-property-limits',
       source: 'property',
       target: 'limits',
       animated: true,
-      style: { stroke: '#8b5cf6', strokeWidth: 2 },
+      style: { stroke: theme.purple, strokeWidth: 2 },
     },
     {
       id: 'e-cpf-result',
       source: 'cpf',
       target: 'result',
       animated: true,
-      style: { stroke: '#10b981', strokeWidth: 2 },
+      style: { stroke: theme.sage, strokeWidth: 2 },
     },
     {
       id: 'e-limits-result',
       source: 'limits',
       target: 'result',
       animated: true,
-      style: { stroke: '#8b5cf6', strokeWidth: 2 },
+      style: { stroke: theme.purple, strokeWidth: 2 },
     },
-  ], [])
+  ], [theme])
 
   return (
-    <div className={`h-[700px] rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
+    <div
+      style={{
+        background: isMonet ? theme.surfaceBg : '#0a0a0a',
+        border: `1px solid ${theme.cardBorder}`,
+      }}
+      className={`h-[700px] rounded-xl ${className}`}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -504,34 +566,40 @@ export function CPFHousingCalculator({ className }: CPFHousingCalculatorProps) {
           type: 'smoothstep',
         }}
       >
-        <Background color="#1e293b" gap={20} size={1} />
+        <Background color={isMonet ? theme.primaryLight : '#1e293b'} gap={20} size={1} />
         <Controls
-          className={`!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`}
+          className={isMonet
+            ? `!bg-white/80 !border-[rgba(155,139,180,0.2)] !rounded-lg [&>button]:!bg-white/90 [&>button]:!border-[rgba(155,139,180,0.2)] [&>button:hover]:!bg-white [&>button>svg]:!fill-[#6B6B6B]`
+            : `!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`
+          }
         />
       </ReactFlow>
 
       {/* Summary Footer */}
-      <div className={`flex items-center justify-between
-px-4 py-3
-border-t border-white/[0.06]
-text-sm`}>
+      <div
+        style={{ borderColor: theme.surfaceBorder }}
+        className="flex items-center justify-between px-4 py-3 border-t text-sm"
+      >
         <div className="flex gap-6">
           <div>
-            <span className="text-slate-400">Valuation Limit: </span>
-            <span className="font-medium text-violet-400">{formatCurrency(calculations.vl)}</span>
+            <span style={{ color: theme.textMuted }}>Valuation Limit: </span>
+            <span style={{ color: theme.purple }} className="font-medium">{formatCurrency(calculations.vl)}</span>
           </div>
           <div>
-            <span className="text-slate-400">Withdrawal Limit: </span>
-            <span className="font-medium text-violet-400">{formatCurrency(calculations.wl)}</span>
+            <span style={{ color: theme.textMuted }}>Withdrawal Limit: </span>
+            <span style={{ color: theme.purple }} className="font-medium">{formatCurrency(calculations.wl)}</span>
           </div>
           <div>
-            <span className="text-slate-400">Max Usable: </span>
-            <span className={`font-medium ${calculations.color === 'green' ? 'text-emerald-400' : 'text-amber-400'}`}>
+            <span style={{ color: theme.textMuted }}>Max Usable: </span>
+            <span
+              style={{ color: calculations.color === 'green' ? theme.sage : theme.amber }}
+              className="font-medium"
+            >
               {formatCurrency(calculations.actualUsable)}
             </span>
           </div>
         </div>
-        <div className="text-xs text-slate-500">
+        <div style={{ color: theme.textMuted }} className="text-xs">
           BRS: {formatCurrency(BRS_2025)} (2025)
         </div>
       </div>

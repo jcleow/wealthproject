@@ -10,6 +10,7 @@ import { cpfApi } from '@/api/financial/cpf'
 import { PropertyScenarioList } from './PropertyScenarioList'
 import { PropertyCPFDetail } from './PropertyCPFDetail'
 import { AggregateBar } from './AggregateBar'
+import { useTheme } from '@/lib/theme'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { CPFHousingUsageFullResponse } from '@/api/financial/cpf'
 
@@ -106,6 +107,7 @@ function useAggregateStats(
 
 export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOverviewProps) {
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null)
+  const { theme, isMonet } = useTheme()
 
   // Fetch property scenarios
   const { data: scenariosData, isLoading: scenariosLoading } = usePropertyPlannerV2ScenariosQuery()
@@ -175,10 +177,17 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
       <div className="flex h-full gap-4">
         <div className="w-[35%] space-y-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-24 animate-pulse rounded-xl border border-white/[0.06]" />
+            <div
+              key={i}
+              className="h-24 animate-pulse rounded-xl"
+              style={{ border: `1px solid ${theme.cardBorder}` }}
+            />
           ))}
         </div>
-        <div className="flex-1 h-96 animate-pulse rounded-xl border border-white/[0.06]" />
+        <div
+          className="flex-1 h-96 animate-pulse rounded-xl"
+          style={{ border: `1px solid ${theme.cardBorder}` }}
+        />
       </div>
     )
   }
@@ -187,17 +196,32 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
   if (scenarios.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-white/[0.06] mb-4">
-          <Home className="h-8 w-8 text-gray-400" />
+        <div
+          className="flex h-16 w-16 items-center justify-center rounded-2xl mb-4"
+          style={{ border: `1px solid ${theme.cardBorder}` }}
+        >
+          <Home className="h-8 w-8" style={{ color: theme.textMuted }} />
         </div>
-        <h3 className="text-lg font-medium text-white mb-2">No Property Scenarios Yet</h3>
-        <p className="text-sm text-gray-300 max-w-md mb-6">
+        <h3 className="text-lg font-medium mb-2" style={{ color: theme.textPrimary }}>
+          No Property Scenarios Yet
+        </h3>
+        <p className="text-sm max-w-md mb-6" style={{ color: theme.textSecondary }}>
           Create a property scenario in the Property Planner to see how it affects your CPF usage and retirement planning.
         </p>
         <button
           type="button"
           onClick={() => onOpenPropertyPlanner?.()}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500/15 text-emerald-400 text-sm font-medium hover:bg-emerald-500/25 transition"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition"
+          style={{
+            background: isMonet ? `${theme.sage}20` : 'rgba(16, 185, 129, 0.15)',
+            color: theme.sage,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = isMonet ? `${theme.sage}30` : 'rgba(16, 185, 129, 0.25)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = isMonet ? `${theme.sage}20` : 'rgba(16, 185, 129, 0.15)'
+          }}
         >
           <Plus className="h-4 w-4" />
           Open Property Planner
@@ -233,8 +257,13 @@ export function CPFPropertyOverview({ onOpenPropertyPlanner }: CPFPropertyOvervi
               onEditInPropertyPlanner={() => onOpenPropertyPlanner?.(selectedScenario.scenario.id)}
             />
           ) : (
-            <div className="flex items-center justify-center h-full rounded-xl border border-white/[0.06]">
-              <p className="text-sm text-gray-400">Select a property to view CPF details</p>
+            <div
+              className="flex items-center justify-center h-full rounded-xl"
+              style={{ border: `1px solid ${theme.cardBorder}` }}
+            >
+              <p className="text-sm" style={{ color: theme.textMuted }}>
+                Select a property to view CPF details
+              </p>
             </div>
           )}
         </div>

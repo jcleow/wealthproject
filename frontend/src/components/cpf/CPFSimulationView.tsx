@@ -12,6 +12,7 @@ import {
   User,
 } from 'lucide-react'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
+import { useTheme } from '@/lib/theme'
 
 import {
   CPFBalanceOverview,
@@ -103,20 +104,46 @@ interface StrategyPlaceholderProps {
 }
 
 function StrategyPlaceholder({ title, description, points }: StrategyPlaceholderProps) {
+  const { theme, isMonet } = useTheme()
+
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6">
-      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
-      <p className="text-sm text-slate-400 mb-4">{description}</p>
+    <div
+      className="rounded-xl p-6 transition-colors duration-300"
+      style={{
+        background: theme.cardBg,
+        border: `1px solid ${theme.cardBorder}`,
+      }}
+    >
+      <h3
+        className="text-lg font-semibold mb-2"
+        style={{ color: theme.textPrimary }}
+      >
+        {title}
+      </h3>
+      <p className="text-sm mb-4" style={{ color: theme.textMuted }}>
+        {description}
+      </p>
       <div className="space-y-2">
         {points.map((point, index) => (
           <div key={index} className="flex items-start gap-2">
-            <div className="mt-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
-            <span className="text-sm text-slate-300">{point}</span>
+            <div
+              className="mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0"
+              style={{ background: theme.sage }}
+            />
+            <span className="text-sm" style={{ color: theme.textSecondary }}>
+              {point}
+            </span>
           </div>
         ))}
       </div>
-      <div className="mt-6 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-        <p className="text-xs text-blue-300">
+      <div
+        className="mt-6 p-4 rounded-lg transition-colors duration-300"
+        style={{
+          background: isMonet ? `${theme.blue}15` : 'rgba(59, 130, 246, 0.1)',
+          border: `1px solid ${isMonet ? `${theme.blue}30` : 'rgba(59, 130, 246, 0.2)'}`,
+        }}
+      >
+        <p className="text-xs" style={{ color: theme.blue }}>
           <strong>Coming soon:</strong> Interactive calculator for this strategy will be available in a future update.
         </p>
       </div>
@@ -136,6 +163,7 @@ const LEARN_CALCULATORS: { id: LearnCalculator; label: string; description: stri
 export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimulationViewProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const { theme, isMonet } = useTheme()
   const [activeTab, setActiveTab] = useState<TabId>(initialTab)
   const [activeCalculator, setActiveCalculator] = useState<LearnCalculator>('journey')
   const [activeStrategy, setActiveStrategy] = useState<StrategyId>('contributions')
@@ -246,19 +274,51 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
   const usingMockData = !selectedAccount
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="flex h-full flex-col transition-colors duration-300"
+      style={{
+        background: isMonet ? theme.panelBg : 'transparent',
+        fontFamily: theme.fontFamily,
+      }}
+    >
       {/* Header */}
-      <div className="border-b border-white/[0.06] px-5 py-3">
+      <div
+        className="px-5 py-3 transition-colors duration-300"
+        style={{
+          borderBottom: `1px solid ${theme.panelBorder}`,
+        }}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/20">
-              <Wallet className="h-4 w-4 text-emerald-400" />
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors duration-300"
+              style={{
+                background: isMonet ? `${theme.sage}20` : 'rgba(16, 185, 129, 0.2)',
+              }}
+            >
+              <Wallet className="h-4 w-4" style={{ color: theme.sage }} />
             </div>
-            <h1 className="text-base font-semibold text-white">CPF Simulation</h1>
+            <h1
+              className="text-base font-semibold transition-colors duration-300"
+              style={{ color: theme.textPrimary }}
+            >
+              CPF Simulation
+            </h1>
           </div>
           <button
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-white/5 hover:text-white"
+            className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors duration-300"
+            style={{
+              color: theme.textMuted,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = theme.hoverBg
+              e.currentTarget.style.color = theme.textPrimary
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.color = theme.textMuted
+            }}
             title="Close CPF Simulation"
           >
             <X className="h-4 w-4" />
@@ -267,11 +327,19 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
       </div>
 
       {/* Controls Bar */}
-      <div className="border-b border-white/[0.06] px-5 py-2">
+      <div
+        className="px-5 py-2 transition-colors duration-300"
+        style={{
+          borderBottom: `1px solid ${theme.panelBorder}`,
+        }}
+      >
         <div className="flex items-center gap-4">
           {/* Person Selector */}
           {isLoadingAccounts ? (
-            <div className="h-9 w-32 animate-pulse rounded-lg bg-white/[0.05]" />
+            <div
+              className="h-9 w-32 animate-pulse rounded-lg"
+              style={{ background: theme.surfaceBg }}
+            />
           ) : cpfAccounts && cpfAccounts.length > 0 ? (
             <CustomDropdown
               value={selectedAccountId || ''}
@@ -282,36 +350,49 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
               }))}
               showIcon
               icon={<User className="h-4 w-4" />}
-              iconColor="text-slate-400"
+              iconColor={isMonet ? 'text-[#6B6B6B]' : 'text-slate-400'}
               minWidth="120px"
             />
           ) : (
-            <span className="text-sm font-medium text-amber-300">Demo Mode</span>
+            <span
+              className="text-sm font-medium"
+              style={{ color: theme.amber }}
+            >
+              Demo Mode
+            </span>
           )}
 
           {/* Age/Year Toggle + Input + Slider */}
           <div className="flex items-center gap-2">
             {/* Age/Year Toggle */}
-            <div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+            <div
+              className="inline-flex rounded-lg p-0.5 transition-colors duration-300"
+              style={{
+                background: theme.controlBg,
+                border: `1px solid ${theme.controlBorder}`,
+              }}
+            >
               <button
                 type="button"
                 onClick={() => setDisplayMode('age')}
-                className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
-                  displayMode === 'age'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
+                className="px-2 py-1 rounded-md text-xs font-medium transition-all duration-150"
+                style={{
+                  background: displayMode === 'age' ? theme.activeBg : 'transparent',
+                  color: displayMode === 'age' ? theme.textPrimary : theme.textMuted,
+                  boxShadow: displayMode === 'age' ? `0 1px 2px ${theme.shadowSoft}` : 'none',
+                }}
               >
                 Age
               </button>
               <button
                 type="button"
                 onClick={() => setDisplayMode('year')}
-                className={`px-2 py-1 rounded-md text-xs font-medium transition-all duration-150 ${
-                  displayMode === 'year'
-                    ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
+                className="px-2 py-1 rounded-md text-xs font-medium transition-all duration-150"
+                style={{
+                  background: displayMode === 'year' ? theme.activeBg : 'transparent',
+                  color: displayMode === 'year' ? theme.textPrimary : theme.textMuted,
+                  boxShadow: displayMode === 'year' ? `0 1px 2px ${theme.shadowSoft}` : 'none',
+                }}
               >
                 Year
               </button>
@@ -337,9 +418,15 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
                   setSimulatedAge(baseAge)
                 }
               }}
-              className="w-14 bg-transparent text-sm font-medium text-white text-center focus:outline-none border-b border-white/20 focus:border-blue-400"
+              className="w-14 bg-transparent text-sm font-medium text-center focus:outline-none transition-colors duration-300"
+              style={{
+                color: theme.textPrimary,
+                borderBottom: `1px solid ${theme.inputBorder}`,
+              }}
             />
-            <span className="text-sm text-slate-400">{displayMode === 'age' ? 'y/o' : ''}</span>
+            <span className="text-sm" style={{ color: theme.textMuted }}>
+              {displayMode === 'age' ? 'y/o' : ''}
+            </span>
             <input
               type="range"
               min={minValue}
@@ -351,50 +438,95 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
                 const newAge = displayMode === 'age' ? val : yearToAge(val)
                 setSimulatedAge(newAge)
               }}
-              className="h-1 w-48 cursor-pointer appearance-none rounded-full bg-slate-700/60 accent-blue-500 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-blue-400 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
+              className="h-1 w-48 cursor-pointer appearance-none rounded-full [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-md"
+              style={{
+                background: isMonet ? 'rgba(155, 139, 180, 0.3)' : 'rgba(100, 116, 139, 0.6)',
+                accentColor: theme.blue,
+              }}
             />
           </div>
 
           {/* Residency Status */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500">🇸🇬</span>
-            <span className="text-sm text-slate-300">{profile.residencyStatus.replace(/_/g, ' ')}</span>
+            <span className="text-xs" style={{ color: theme.textMuted }}>🇸🇬</span>
+            <span className="text-sm" style={{ color: theme.textSecondary }}>
+              {profile.residencyStatus.replace(/_/g, ' ')}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="border-b border-white/[0.06] px-5">
+      <div
+        className="px-5 transition-colors duration-300"
+        style={{
+          borderBottom: `1px solid ${theme.panelBorder}`,
+        }}
+      >
         <div className="scrollbar-hide flex items-center gap-1 overflow-x-auto py-2">
           {/* Main tabs */}
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabChange(tab.id)}
-              className={`flex flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
-                activeTab === tab.id
-                  ? 'bg-white/[0.08] text-white'
-                  : 'text-slate-400 hover:bg-white/[0.04] hover:text-white'
-              }`}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          ))}
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleTabChange(tab.id)}
+                className="flex flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200"
+                style={{
+                  background: isActive ? theme.activeBg : 'transparent',
+                  color: isActive ? theme.textPrimary : theme.textMuted,
+                  boxShadow: isActive && isMonet ? `0 2px 8px ${theme.shadowSoft}` : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = theme.hoverBg
+                    e.currentTarget.style.color = theme.textPrimary
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = theme.textMuted
+                  }
+                }}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            )
+          })}
           {/* Spacer */}
           <div className="flex-1" />
           {/* Learn tab on right */}
-          <button
-            onClick={() => handleTabChange(LEARN_TAB.id)}
-            className={`flex flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition ${
-              activeTab === LEARN_TAB.id
-                ? 'bg-white/[0.08] text-white'
-                : 'text-slate-400 hover:bg-white/[0.04] hover:text-white'
-            }`}
-          >
-            {LEARN_TAB.icon}
-            <span>{LEARN_TAB.label}</span>
-          </button>
+          {(() => {
+            const isActive = activeTab === LEARN_TAB.id
+            return (
+              <button
+                onClick={() => handleTabChange(LEARN_TAB.id)}
+                className="flex flex-shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200"
+                style={{
+                  background: isActive ? theme.activeBg : 'transparent',
+                  color: isActive ? theme.textPrimary : theme.textMuted,
+                  boxShadow: isActive && isMonet ? `0 2px 8px ${theme.shadowSoft}` : 'none',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = theme.hoverBg
+                    e.currentTarget.style.color = theme.textPrimary
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = theme.textMuted
+                  }
+                }}
+              >
+                {LEARN_TAB.icon}
+                <span>{LEARN_TAB.label}</span>
+              </button>
+            )
+          })()}
         </div>
       </div>
 
@@ -422,7 +554,7 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
           <div className="space-y-4">
             {/* Strategy Selector Dropdown */}
             <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-400">Select strategy:</span>
+              <span className="text-sm" style={{ color: theme.textMuted }}>Select strategy:</span>
               <CustomDropdown
                 value={activeStrategy}
                 onChange={(val) => setActiveStrategy(val as StrategyId)}
@@ -525,20 +657,40 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
           <div className="space-y-4">
             {/* Calculator Selector */}
             <div className="flex flex-wrap gap-2">
-              {LEARN_CALCULATORS.map((calc) => (
-                <button
-                  key={calc.id}
-                  onClick={() => setActiveCalculator(calc.id)}
-                  className={`rounded-lg px-3 py-2 text-sm transition ${
-                    activeCalculator === calc.id
-                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                      : 'bg-white/[0.02] text-slate-400 border border-white/[0.06] hover:bg-white/[0.04] hover:text-white'
-                  }`}
-                >
-                  <div className="font-medium">{calc.label}</div>
-                  <div className="text-xs opacity-70">{calc.description}</div>
-                </button>
-              ))}
+              {LEARN_CALCULATORS.map((calc) => {
+                const isActive = activeCalculator === calc.id
+                return (
+                  <button
+                    key={calc.id}
+                    onClick={() => setActiveCalculator(calc.id)}
+                    className="rounded-lg px-3 py-2 text-sm transition-all duration-200"
+                    style={{
+                      background: isActive
+                        ? isMonet ? `${theme.sage}20` : 'rgba(16, 185, 129, 0.2)'
+                        : theme.cardBg,
+                      color: isActive ? theme.sage : theme.textMuted,
+                      border: `1px solid ${isActive
+                        ? isMonet ? `${theme.sage}40` : 'rgba(16, 185, 129, 0.3)'
+                        : theme.cardBorder}`,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = theme.cardBgHover
+                        e.currentTarget.style.color = theme.textPrimary
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = theme.cardBg
+                        e.currentTarget.style.color = theme.textMuted
+                      }
+                    }}
+                  >
+                    <div className="font-medium">{calc.label}</div>
+                    <div className="text-xs opacity-70">{calc.description}</div>
+                  </button>
+                )
+              })}
             </div>
 
             {/* Active Calculator */}
@@ -551,8 +703,13 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
       </div>
 
       {/* Footer */}
-      <div className="border-t border-white/[0.06] px-5 py-3">
-        <p className="text-center text-xs text-slate-500">
+      <div
+        className="px-5 py-3 transition-colors duration-300"
+        style={{
+          borderTop: `1px solid ${theme.panelBorder}`,
+        }}
+      >
+        <p className="text-center text-xs" style={{ color: theme.textMuted }}>
           {usingMockData ? (
             <>
               Demo data for illustration. Verify calculations with{' '}
@@ -560,7 +717,8 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
                 href={EXTERNAL_LINKS.cpf.home.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:underline"
+                className="hover:underline"
+                style={{ color: theme.blue }}
               >
                 cpf.gov.sg
               </a>
@@ -572,7 +730,8 @@ export function CPFSimulationView({ onClose, initialTab = 'overview' }: CPFSimul
                 href={EXTERNAL_LINKS.cpf.home.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-400 hover:underline"
+                className="hover:underline"
+                style={{ color: theme.blue }}
               >
                 cpf.gov.sg
               </a>

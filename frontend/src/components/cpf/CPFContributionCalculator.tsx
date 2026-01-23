@@ -18,6 +18,7 @@ import { formatCurrency } from '@/lib/format'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { CPFContributionSankey } from './CPFContributionSankey'
 import { CPFContributionWaterfall } from './CPFContributionWaterfall'
+import { useTheme, type AppTheme } from '@/lib/theme'
 
 // CPF contribution rates by age (2025)
 const CPF_RATES = {
@@ -58,10 +59,14 @@ function ContributionDropdown({
   value,
   onChange,
   options,
+  theme,
+  isMonet,
 }: {
   value: number
   onChange: (value: number) => void
   options: { value: number; label: string }[]
+  theme: AppTheme
+  isMonet: boolean
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -86,30 +91,28 @@ function ContributionDropdown({
           e.stopPropagation()
           setIsOpen(!isOpen)
         }}
-        className={`w-full
-          flex items-center justify-between
-          py-2 px-3
-          rounded-lg border border-white/[0.08]
-          bg-white/[0.02] hover:bg-white/[0.04]
-          text-white text-left
-          transition
-          ${isOpen ? 'border-emerald-500/50' : ''}`}
+        className="w-full flex items-center justify-between py-2 px-3 rounded-lg transition"
+        style={{
+          background: theme.controlBg,
+          border: `1px solid ${isOpen ? theme.sage : theme.controlBorder}`,
+          color: theme.textPrimary,
+        }}
       >
         <span>{selectedOption?.label ?? ''}</span>
-        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`h-4 w-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          style={{ color: theme.textMuted }}
+        />
       </button>
 
       {isOpen && (
-        <div className="
-          absolute left-0 top-full z-[100] mt-1
-          w-full
-          rounded-xl
-          border border-white/[0.12]
-          bg-[#0c0c0c]
-          shadow-2xl shadow-black/60
-          overflow-hidden
-          animate-in fade-in slide-in-from-top-2 duration-150
-        ">
+        <div
+          className="absolute left-0 top-full z-[100] mt-1 w-full rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150"
+          style={{
+            background: isMonet ? 'rgba(255, 255, 255, 0.98)' : '#0c0c0c',
+            border: `1px solid ${theme.cardBorderHover}`,
+          }}
+        >
           <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
             {options.map((opt) => {
               const isSelected = opt.value === value
@@ -122,19 +125,24 @@ function ContributionDropdown({
                     onChange(opt.value)
                     setIsOpen(false)
                   }}
-                  className={`
-                    w-full flex items-center gap-2
-                    px-3 py-2
-                    text-sm text-left
-                    transition-all duration-150
-                    ${isSelected
-                      ? 'bg-emerald-500/15 text-white'
-                      : 'text-slate-300 hover:bg-white/[0.05]'
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-all duration-150"
+                  style={{
+                    background: isSelected ? (isMonet ? 'rgba(127, 178, 133, 0.15)' : 'rgba(16, 185, 129, 0.15)') : 'transparent',
+                    color: isSelected ? theme.textPrimary : theme.textSecondary,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = theme.hoverBg
                     }
-                  `}
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = 'transparent'
+                    }
+                  }}
                 >
                   <span className="w-4 shrink-0">
-                    {isSelected && <Check className="h-3.5 w-3.5 text-emerald-400" />}
+                    {isSelected && <Check className="h-3.5 w-3.5" style={{ color: theme.sage }} />}
                   </span>
                   <span>{opt.label}</span>
                 </button>
@@ -155,6 +163,8 @@ function InputPanel({
   cappedWage,
   onSalaryChange,
   onAgeChange,
+  theme,
+  isMonet,
 }: {
   salary: number
   age: number
@@ -162,12 +172,17 @@ function InputPanel({
   cappedWage: number
   onSalaryChange: (value: number) => void
   onAgeChange: (value: number) => void
+  theme: AppTheme
+  isMonet: boolean
 }) {
   return (
-    <div className="flex items-start gap-6 px-4 py-3 border-b border-white/[0.06]">
+    <div
+      className="flex items-start gap-6 px-4 py-3"
+      style={{ borderBottom: `1px solid ${theme.surfaceBorder}` }}
+    >
       {/* Salary Input */}
       <div className="flex-1 max-w-[200px]">
-        <label className="mb-1 block text-xs text-slate-400">Gross Salary</label>
+        <label className="mb-1 block text-xs" style={{ color: theme.textMuted }}>Gross Salary</label>
         <CurrencyInput
           value={salary}
           onChange={onSalaryChange}
@@ -177,7 +192,7 @@ function InputPanel({
 
       {/* Age Dropdown */}
       <div className="flex-1 max-w-[160px]">
-        <label className="mb-1 block text-xs text-slate-400">Your Age</label>
+        <label className="mb-1 block text-xs" style={{ color: theme.textMuted }}>Your Age</label>
         <ContributionDropdown
           value={age}
           onChange={onAgeChange}
@@ -191,20 +206,34 @@ function InputPanel({
             { value: 68, label: '66-70' },
             { value: 72, label: 'Above 70' },
           ]}
+          theme={theme}
+          isMonet={isMonet}
         />
       </div>
 
       {/* Rates Display */}
       <div className="flex gap-4 items-center text-sm">
-        <div className="px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/20">
-          <span className="text-slate-400 text-xs">Total Rate</span>
-          <p className="font-medium text-violet-400">{(rates.total * 100).toFixed(1)}%</p>
+        <div
+          className="px-3 py-2 rounded-lg"
+          style={{
+            background: isMonet ? 'rgba(168, 135, 179, 0.1)' : 'rgba(139, 92, 246, 0.1)',
+            border: `1px solid ${isMonet ? 'rgba(168, 135, 179, 0.2)' : 'rgba(139, 92, 246, 0.2)'}`,
+          }}
+        >
+          <span className="text-xs" style={{ color: theme.textMuted }}>Total Rate</span>
+          <p className="font-medium" style={{ color: theme.purple }}>{(rates.total * 100).toFixed(1)}%</p>
         </div>
-        <div className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.06]">
-          <span className="text-slate-400 text-xs">Capped Wage</span>
-          <p className="font-medium text-white">{formatCurrency(cappedWage)}</p>
+        <div
+          className="px-3 py-2 rounded-lg"
+          style={{
+            background: theme.surfaceBg,
+            border: `1px solid ${theme.surfaceBorder}`,
+          }}
+        >
+          <span className="text-xs" style={{ color: theme.textMuted }}>Capped Wage</span>
+          <p className="font-medium" style={{ color: theme.textPrimary }}>{formatCurrency(cappedWage)}</p>
           {cappedWage >= OW_CEILING && (
-            <span className="text-xs text-amber-400">At ceiling</span>
+            <span className="text-xs" style={{ color: theme.amber }}>At ceiling</span>
           )}
         </div>
       </div>
@@ -213,22 +242,26 @@ function InputPanel({
 }
 
 // Custom Node: Salary Input (for Flow mode)
-function SalaryInputNode({ data }: { data: { salary: number; age: number; onChange: (salary: number, age: number) => void } }) {
+function SalaryInputNode({ data }: { data: { salary: number; age: number; onChange: (salary: number, age: number) => void; theme: AppTheme; isMonet: boolean } }) {
+  const { theme, isMonet } = data
   return (
-    <div className={`min-w-[200px]
-p-4
-rounded-xl border border-white/[0.08]
-bg-[#0f1728]/95
-shadow-xl backdrop-blur`}>
-      <div className={`mb-3
-text-xs font-medium tracking-wide text-emerald-400
-uppercase`}>
+    <div
+      className="min-w-[200px] p-4 rounded-xl shadow-xl backdrop-blur"
+      style={{
+        background: isMonet ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 40, 0.95)',
+        border: `1px solid ${theme.controlBorder}`,
+      }}
+    >
+      <div
+        className="mb-3 text-xs font-medium tracking-wide uppercase"
+        style={{ color: theme.sage }}
+      >
         Monthly Salary
       </div>
 
       <div className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs text-slate-400">Gross Salary</label>
+          <label className="mb-1 block text-xs" style={{ color: theme.textMuted }}>Gross Salary</label>
           <CurrencyInput
             value={data.salary}
             onChange={(val) => data.onChange(val, data.age)}
@@ -237,7 +270,7 @@ uppercase`}>
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-slate-400">Your Age</label>
+          <label className="mb-1 block text-xs" style={{ color: theme.textMuted }}>Your Age</label>
           <ContributionDropdown
             value={data.age}
             onChange={(val) => data.onChange(data.salary, val)}
@@ -251,89 +284,123 @@ uppercase`}>
               { value: 68, label: '66-70' },
               { value: 72, label: 'Above 70' },
             ]}
+            theme={theme}
+            isMonet={isMonet}
           />
         </div>
       </div>
 
-      <Handle type="source" position={Position.Right} className="!bg-emerald-500 !w-3 !h-3" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3" style={{ background: theme.sage }} />
     </div>
   )
 }
 
 // Custom Node: CPF Calculator (middle)
-function CalculatorNode({ data }: { data: { rates: typeof CPF_RATES['35']; cappedWage: number } }) {
+function CalculatorNode({ data }: { data: { rates: typeof CPF_RATES['35']; cappedWage: number; theme: AppTheme; isMonet: boolean } }) {
+  const { theme, isMonet } = data
   return (
-    <div className={`min-w-[180px]
-p-4
-rounded-xl border border-violet-500/30
-bg-violet-500/10
-shadow-xl backdrop-blur`}>
-      <Handle type="target" position={Position.Left} className="!bg-violet-500 !w-3 !h-3" />
+    <div
+      className="min-w-[180px] p-4 rounded-xl shadow-xl backdrop-blur"
+      style={{
+        background: isMonet ? 'rgba(168, 135, 179, 0.1)' : 'rgba(139, 92, 246, 0.1)',
+        border: `1px solid ${isMonet ? 'rgba(168, 135, 179, 0.3)' : 'rgba(139, 92, 246, 0.3)'}`,
+      }}
+    >
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3" style={{ background: theme.purple }} />
 
-      <div className={`mb-2
-text-xs font-medium tracking-wide text-violet-400
-uppercase`}>
+      <div
+        className="mb-2 text-xs font-medium tracking-wide uppercase"
+        style={{ color: theme.purple }}
+      >
         CPF Calculator
       </div>
 
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-slate-400">Total Rate:</span>
-          <span className="font-medium text-white">{(data.rates.total * 100).toFixed(1)}%</span>
+          <span style={{ color: theme.textMuted }}>Total Rate:</span>
+          <span className="font-medium" style={{ color: theme.textPrimary }}>{(data.rates.total * 100).toFixed(1)}%</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-slate-400">Employee:</span>
-          <span className="text-slate-300">{(data.rates.employee * 100).toFixed(1)}%</span>
+          <span style={{ color: theme.textMuted }}>Employee:</span>
+          <span style={{ color: theme.textSecondary }}>{(data.rates.employee * 100).toFixed(1)}%</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-slate-400">Employer:</span>
-          <span className="text-slate-300">{(data.rates.employer * 100).toFixed(1)}%</span>
+          <span style={{ color: theme.textMuted }}>Employer:</span>
+          <span style={{ color: theme.textSecondary }}>{(data.rates.employer * 100).toFixed(1)}%</span>
         </div>
-        <div className="border-t border-white/10 pt-2 mt-2">
+        <div className="pt-2 mt-2" style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}>
           <div className="flex justify-between text-xs">
-            <span className="text-slate-400">Capped Wage:</span>
-            <span className="text-violet-300">{formatCurrency(data.cappedWage)}</span>
+            <span style={{ color: theme.textMuted }}>Capped Wage:</span>
+            <span style={{ color: theme.purpleLight }}>{formatCurrency(data.cappedWage)}</span>
           </div>
           {data.cappedWage < 7400 && (
-            <p className="text-xs text-slate-500 mt-1">Below OW ceiling</p>
+            <p className="text-xs mt-1" style={{ color: theme.textMuted }}>Below OW ceiling</p>
           )}
           {data.cappedWage >= 7400 && (
-            <p className="text-xs text-amber-400 mt-1">Capped at $7,400</p>
+            <p className="text-xs mt-1" style={{ color: theme.amber }}>Capped at $7,400</p>
           )}
         </div>
       </div>
 
-      <Handle type="source" position={Position.Right} className="!bg-violet-500 !w-3 !h-3" />
+      <Handle type="source" position={Position.Right} className="!w-3 !h-3" style={{ background: theme.purple }} />
     </div>
   )
 }
 
 // Custom Node: CPF Account Output
-function AccountNode({ data }: { data: { label: string; amount: number; rate: number; color: string; description: string } }) {
-  const colorClasses = {
-    blue: 'border-blue-500/30 bg-blue-500/10 text-blue-400',
-    emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
-    amber: 'border-amber-500/30 bg-amber-500/10 text-amber-400',
-    green: 'border-green-500/30 bg-green-500/10 text-green-400',
-  }[data.color] || 'border-white/10 bg-white/5 text-white'
+function AccountNode({ data }: { data: { label: string; amount: number; rate: number; color: string; description: string; theme: AppTheme; isMonet: boolean } }) {
+  const { theme, isMonet } = data
+  const colorMap = {
+    blue: {
+      border: isMonet ? 'rgba(123, 163, 201, 0.3)' : 'rgba(59, 130, 246, 0.3)',
+      bg: isMonet ? 'rgba(123, 163, 201, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+      text: theme.blue,
+    },
+    emerald: {
+      border: isMonet ? 'rgba(127, 178, 133, 0.3)' : 'rgba(16, 185, 129, 0.3)',
+      bg: isMonet ? 'rgba(127, 178, 133, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+      text: theme.sage,
+    },
+    amber: {
+      border: isMonet ? 'rgba(212, 165, 116, 0.3)' : 'rgba(245, 158, 11, 0.3)',
+      bg: isMonet ? 'rgba(212, 165, 116, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+      text: theme.amber,
+    },
+    green: {
+      border: isMonet ? 'rgba(127, 178, 133, 0.3)' : 'rgba(34, 197, 94, 0.3)',
+      bg: isMonet ? 'rgba(127, 178, 133, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+      text: theme.sage,
+    },
+  }
+  const colors = colorMap[data.color as keyof typeof colorMap] || {
+    border: theme.cardBorder,
+    bg: theme.surfaceBg,
+    text: theme.textPrimary,
+  }
 
   return (
-    <div className={`rounded-xl border p-4 shadow-xl backdrop-blur min-w-[160px] ${colorClasses}`}>
-      <Handle type="target" position={Position.Left} className="!bg-current !w-3 !h-3" />
+    <div
+      className="rounded-xl p-4 shadow-xl backdrop-blur min-w-[160px]"
+      style={{
+        background: colors.bg,
+        border: `1px solid ${colors.border}`,
+      }}
+    >
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3" style={{ background: colors.text }} />
 
-      <div className="mb-1 text-xs font-medium uppercase tracking-wide">
+      <div className="mb-1 text-xs font-medium uppercase tracking-wide" style={{ color: colors.text }}>
         {data.label}
       </div>
 
-      <div className="text-2xl font-bold text-white">
+      <div className="text-2xl font-bold" style={{ color: theme.textPrimary }}>
         {formatCurrency(data.amount)}
       </div>
 
-      <div className="mt-2 text-xs text-slate-400">
+      <div className="mt-2 text-xs" style={{ color: theme.textMuted }}>
         {(data.rate * 100).toFixed(1)}% of wage
       </div>
 
-      <div className="mt-1 text-xs text-slate-500">
+      <div className="mt-1 text-xs" style={{ color: theme.textMuted }}>
         {data.description}
       </div>
     </div>
@@ -341,33 +408,37 @@ function AccountNode({ data }: { data: { label: string; amount: number; rate: nu
 }
 
 // Custom Node: Take-home Pay
-function TakeHomeNode({ data }: { data: { grossSalary: number; employeeContrib: number } }) {
+function TakeHomeNode({ data }: { data: { grossSalary: number; employeeContrib: number; theme: AppTheme; isMonet: boolean } }) {
+  const { theme, isMonet } = data
   const takeHome = data.grossSalary - data.employeeContrib
 
   return (
-    <div className={`min-w-[180px]
-p-4
-rounded-xl border border-green-500/30
-bg-green-500/10
-shadow-xl backdrop-blur`}>
-      <Handle type="target" position={Position.Left} className="!bg-green-500 !w-3 !h-3" />
+    <div
+      className="min-w-[180px] p-4 rounded-xl shadow-xl backdrop-blur"
+      style={{
+        background: isMonet ? 'rgba(127, 178, 133, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+        border: `1px solid ${isMonet ? 'rgba(127, 178, 133, 0.3)' : 'rgba(34, 197, 94, 0.3)'}`,
+      }}
+    >
+      <Handle type="target" position={Position.Left} className="!w-3 !h-3" style={{ background: theme.sage }} />
 
-      <div className={`mb-1
-text-xs font-medium tracking-wide text-green-400
-uppercase`}>
+      <div
+        className="mb-1 text-xs font-medium tracking-wide uppercase"
+        style={{ color: theme.sage }}
+      >
         Take-Home Pay
       </div>
 
-      <div className="text-2xl font-bold text-white">
+      <div className="text-2xl font-bold" style={{ color: theme.textPrimary }}>
         {formatCurrency(takeHome)}
       </div>
 
       <div className="mt-2 space-y-1 text-xs">
-        <div className="flex justify-between text-slate-400">
+        <div className="flex justify-between" style={{ color: theme.textMuted }}>
           <span>Gross:</span>
           <span>{formatCurrency(data.grossSalary)}</span>
         </div>
-        <div className="flex justify-between text-red-400">
+        <div className="flex justify-between" style={{ color: theme.coralRose }}>
           <span>CPF (Employee):</span>
           <span>-{formatCurrency(data.employeeContrib)}</span>
         </div>
@@ -388,6 +459,7 @@ interface CPFContributionCalculatorProps {
 }
 
 export function CPFContributionCalculator({ className }: CPFContributionCalculatorProps) {
+  const { theme, isMonet } = useTheme()
   const [salary, setSalary] = useState(5000)
   const [age, setAge] = useState(30)
   const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('flow')
@@ -426,13 +498,13 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
       id: 'salary',
       type: 'salaryInput',
       position: { x: -300, y: 93 },
-      data: { salary, age, onChange: handleChange },
+      data: { salary, age, onChange: handleChange, theme, isMonet },
     },
     {
       id: 'calculator',
       type: 'calculator',
       position: { x: 280, y: 100 },
-      data: { rates: calculations.rates, cappedWage: calculations.cappedWage },
+      data: { rates: calculations.rates, cappedWage: calculations.cappedWage, theme, isMonet },
     },
     {
       id: 'oa',
@@ -443,7 +515,9 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
         amount: calculations.oaContrib,
         rate: calculations.rates.oa,
         color: 'blue',
-        description: 'Housing, education, investment'
+        description: 'Housing, education, investment',
+        theme,
+        isMonet,
       },
     },
     {
@@ -455,7 +529,9 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
         amount: calculations.saContrib,
         rate: calculations.rates.sa,
         color: 'emerald',
-        description: 'Retirement savings'
+        description: 'Retirement savings',
+        theme,
+        isMonet,
       },
     },
     {
@@ -467,7 +543,9 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
         amount: calculations.maContrib,
         rate: calculations.rates.ma,
         color: 'amber',
-        description: 'Healthcare expenses'
+        description: 'Healthcare expenses',
+        theme,
+        isMonet,
       },
     },
     {
@@ -476,10 +554,12 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
       position: { x: 280, y: 420 },
       data: {
         grossSalary: salary,
-        employeeContrib: calculations.employeeContrib
+        employeeContrib: calculations.employeeContrib,
+        theme,
+        isMonet,
       },
     },
-  ], [salary, age, calculations, handleChange])
+  ], [salary, age, calculations, handleChange, theme, isMonet])
 
   const edges: Edge[] = useMemo(() => [
     {
@@ -487,46 +567,61 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
       source: 'salary',
       target: 'calculator',
       animated: true,
-      style: { stroke: '#a78bfa', strokeWidth: 2 },
+      style: { stroke: theme.purple, strokeWidth: 2 },
     },
     {
       id: 'e-calc-oa',
       source: 'calculator',
       target: 'oa',
       animated: true,
-      style: { stroke: '#3b82f6', strokeWidth: 2 },
+      style: { stroke: theme.blue, strokeWidth: 2 },
     },
     {
       id: 'e-calc-sa',
       source: 'calculator',
       target: 'sa',
       animated: true,
-      style: { stroke: '#10b981', strokeWidth: 2 },
+      style: { stroke: theme.sage, strokeWidth: 2 },
     },
     {
       id: 'e-calc-ma',
       source: 'calculator',
       target: 'ma',
       animated: true,
-      style: { stroke: '#f59e0b', strokeWidth: 2 },
+      style: { stroke: theme.amber, strokeWidth: 2 },
     },
     {
       id: 'e-salary-takehome',
       source: 'salary',
       target: 'takehome',
       animated: true,
-      style: { stroke: '#22c55e', strokeWidth: 2 },
+      style: { stroke: theme.sage, strokeWidth: 2 },
     },
-  ], [])
+  ], [theme])
 
   return (
-    <div className={`flex flex-col h-[700px] rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
+    <div
+      className={`flex flex-col h-[700px] rounded-xl ${className}`}
+      style={{
+        background: isMonet ? 'rgba(255, 255, 255, 0.7)' : '#0a0a0a',
+        border: `1px solid ${theme.cardBorder}`,
+      }}
+    >
       {/* Mode Toggle Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
-        <h3 className="text-sm font-medium text-white">CPF Contribution Flow</h3>
+      <div
+        className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: `1px solid ${theme.surfaceBorder}` }}
+      >
+        <h3 className="text-sm font-medium" style={{ color: theme.textPrimary }}>CPF Contribution Flow</h3>
 
         {/* Visualization Mode Toggle */}
-        <div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+        <div
+          className="inline-flex rounded-lg p-0.5"
+          style={{
+            background: theme.controlBg,
+            border: `1px solid ${theme.controlBorder}`,
+          }}
+        >
           {VISUALIZATION_MODES.map((mode) => {
             const Icon = mode.icon
             const isActive = visualizationMode === mode.id
@@ -538,10 +633,12 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
                 title={mode.description}
                 className={clsx(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
-                  isActive
-                    ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-300'
                 )}
+                style={{
+                  background: isActive ? theme.activeBg : 'transparent',
+                  color: isActive ? theme.textPrimary : theme.textMuted,
+                  boxShadow: isActive ? '0 1px 2px rgba(0,0,0,0.1)' : 'none',
+                }}
               >
                 <Icon className="h-3.5 w-3.5" />
                 {mode.label}
@@ -560,6 +657,8 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
           cappedWage={calculations.cappedWage}
           onSalaryChange={(val) => setSalary(val)}
           onAgeChange={(val) => setAge(val)}
+          theme={theme}
+          isMonet={isMonet}
         />
       )}
 
@@ -579,9 +678,12 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
               type: 'smoothstep',
             }}
           >
-            <Background color="#1e293b" gap={20} size={1} />
+            <Background color={isMonet ? '#9B8BB4' : '#1e293b'} gap={20} size={1} />
             <Controls
-              className={`!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`}
+              className={isMonet
+                ? '!bg-white/90 !border-[rgba(155,139,180,0.2)] !rounded-lg [&>button]:!bg-white [&>button]:!border-[rgba(155,139,180,0.2)] [&>button:hover]:!bg-[rgba(155,139,180,0.1)] [&>button>svg]:!fill-[#3D3D3D]'
+                : '!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white'
+              }
             />
           </ReactFlow>
         )}
@@ -616,25 +718,25 @@ export function CPFContributionCalculator({ className }: CPFContributionCalculat
 
       {/* Summary Footer (only for flow mode, others have their own) */}
       {visualizationMode === 'flow' && (
-        <div className={`flex items-center justify-between
-px-4 py-3
-border-t border-white/[0.06]
-text-sm`}>
+        <div
+          className="flex items-center justify-between px-4 py-3 text-sm"
+          style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}
+        >
           <div className="flex gap-6">
             <div>
-              <span className="text-slate-400">Total CPF: </span>
-              <span className="font-medium text-violet-400">{formatCurrency(calculations.totalContrib)}</span>
+              <span style={{ color: theme.textMuted }}>Total CPF: </span>
+              <span className="font-medium" style={{ color: theme.purple }}>{formatCurrency(calculations.totalContrib)}</span>
             </div>
             <div>
-              <span className="text-slate-400">Your Contribution: </span>
-              <span className="font-medium text-red-400">{formatCurrency(calculations.employeeContrib)}</span>
+              <span style={{ color: theme.textMuted }}>Your Contribution: </span>
+              <span className="font-medium" style={{ color: theme.coralRose }}>{formatCurrency(calculations.employeeContrib)}</span>
             </div>
             <div>
-              <span className="text-slate-400">Employer Contribution: </span>
-              <span className="font-medium text-emerald-400">{formatCurrency(calculations.employerContrib)}</span>
+              <span style={{ color: theme.textMuted }}>Employer Contribution: </span>
+              <span className="font-medium" style={{ color: theme.sage }}>{formatCurrency(calculations.employerContrib)}</span>
             </div>
           </div>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs" style={{ color: theme.textMuted }}>
             Rates for age {age} (2025)
           </div>
         </div>

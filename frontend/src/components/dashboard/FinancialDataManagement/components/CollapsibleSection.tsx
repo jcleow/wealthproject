@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react'
 import { ChevronDown, Pencil, Trash2 } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
+import clsx from 'clsx'
 import { formatCurrency } from '@/lib/format'
-import { numericStyles } from '@/lib/utils'
+import { useColorScheme } from '@/stores'
 import { getIconByName } from '../utils'
 
 // Subcomponent for rendering item icons with optional tooltip and click handler
@@ -103,19 +104,37 @@ export function CollapsibleSection({
   children,
 }: CollapsibleSectionProps) {
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed)
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
 
   return (
-    <div className="mt-3 border-t border-white/[0.06] pt-3">
+    <div className={clsx(
+      "mt-3 border-t pt-3",
+      isMonet ? "border-slate-200" : "border-white/[0.06]"
+    )}>
       <button
         type="button"
         onClick={() => setIsCollapsed(!isCollapsed)}
-        className="mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 hover:bg-white/[0.03] transition-colors"
+        className={clsx(
+          "mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 transition-colors",
+          isMonet ? "hover:bg-slate-100" : "hover:bg-white/[0.03]"
+        )}
       >
-        <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform shrink-0 ${isCollapsed ? '-rotate-90' : ''}`} />
-        <span className="text-xs font-medium uppercase tracking-wider text-slate-400">{title}</span>
-        <span className="ml-auto text-sm font-medium text-slate-300">
+        <ChevronDown className={clsx(
+          "h-4 w-4 transition-transform shrink-0",
+          isMonet ? "text-slate-500" : "text-slate-400",
+          isCollapsed && "-rotate-90"
+        )} />
+        <span className={clsx(
+          "text-xs font-medium uppercase tracking-wider",
+          isMonet ? "text-slate-600" : "text-slate-400"
+        )}>{title}</span>
+        <span className={clsx(
+          "ml-auto text-sm font-medium",
+          isMonet ? "text-slate-700" : "text-slate-300"
+        )}>
           {formatCurrency(total)}
-          {totalSuffix && <span className="ml-1 text-xs text-slate-500">{totalSuffix}</span>}
+          {totalSuffix && <span className={clsx("ml-1 text-xs", isMonet ? "text-slate-500" : "text-slate-500")}>{totalSuffix}</span>}
         </span>
       </button>
       {!isCollapsed && children}
@@ -155,6 +174,9 @@ export function CollapsibleItem({
   tooltipLabel,
   onIconClick,
 }: CollapsibleItemProps) {
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
+
   // For percentage suffix, don't format as currency
   const shouldFormatAsCurrency = formatAsCurrency && amountSuffix !== '%'
   const displayAmount = shouldFormatAsCurrency ? formatCurrency(amount) : amount
@@ -162,10 +184,15 @@ export function CollapsibleItem({
   return (
     <div
       onClick={() => onSelect(id)}
-      className={`relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-white/[0.04] ${isSelected ? 'bg-white/[0.06]' : ''}`}
+      className={clsx(
+        "relative flex cursor-pointer items-center justify-between rounded-lg px-2 py-2 transition-colors",
+        isMonet
+          ? (isSelected ? "bg-slate-100" : "hover:bg-slate-50")
+          : (isSelected ? "bg-white/[0.06]" : "hover:bg-white/[0.04]")
+      )}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <span className="truncate text-sm text-slate-300">{name}</span>
+        <span className={clsx("truncate text-sm", isMonet ? "text-slate-700" : "text-slate-300")}>{name}</span>
         {icon && (
           <ItemIcon
             icon={icon}
@@ -175,9 +202,13 @@ export function CollapsibleItem({
           />
         )}
       </div>
-      <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : ''}`}>
+      <span className={clsx(
+        "font-mono tabular-nums text-sm transition-opacity",
+        isMonet ? "text-slate-600" : "text-slate-300",
+        isSelected && "opacity-0"
+      )}>
         {displayAmount}
-        {amountSuffix && <span className="ml-1 text-xs text-slate-400">{amountSuffix}</span>}
+        {amountSuffix && <span className={clsx("ml-1 text-xs", isMonet ? "text-slate-500" : "text-slate-400")}>{amountSuffix}</span>}
       </span>
       {isSelected && (onEdit || onDelete) && (
         <div className="absolute right-2 flex items-center gap-0.5">
@@ -187,7 +218,10 @@ export function CollapsibleItem({
                 e.stopPropagation()
                 onEdit()
               }}
-              className="p-1 rounded hover:bg-blue-500/20 text-slate-400 hover:text-blue-300 transition-colors"
+              className={clsx(
+                "p-1 rounded transition-colors",
+                isMonet ? "hover:bg-blue-100 text-slate-500 hover:text-blue-600" : "hover:bg-blue-500/20 text-slate-400 hover:text-blue-300"
+              )}
               type="button"
               title="Edit"
             >
@@ -200,7 +234,10 @@ export function CollapsibleItem({
                 e.stopPropagation()
                 onDelete()
               }}
-              className="p-1 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 transition-colors"
+              className={clsx(
+                "p-1 rounded transition-colors",
+                isMonet ? "hover:bg-rose-100 text-slate-500 hover:text-rose-600" : "hover:bg-rose-500/20 text-slate-400 hover:text-rose-300"
+              )}
               type="button"
               title="Delete"
             >

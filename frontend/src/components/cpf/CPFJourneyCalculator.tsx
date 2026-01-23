@@ -19,6 +19,7 @@ import '@xyflow/react/dist/style.css'
 
 import { formatCurrency } from '@/lib/format'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { useTheme, type AppTheme } from '@/lib/theme'
 
 // ============================================================================
 // CONSTANTS
@@ -59,40 +60,151 @@ function getAgeGroup(age: number): AgeGroup {
 }
 
 // ============================================================================
+// THEME-AWARE COLOR HELPERS
+// ============================================================================
+
+interface ThemeColors {
+  theme: AppTheme
+  isMonet: boolean
+}
+
+function getSectionColors(color: string, themeColors: ThemeColors) {
+  const { theme, isMonet } = themeColors
+
+  if (isMonet) {
+    const colorMap: Record<string, { border: string; bg: string; text: string }> = {
+      emerald: { border: `1px dashed ${theme.sage}40`, bg: `${theme.sage}08`, text: theme.sage },
+      blue: { border: `1px dashed ${theme.blue}40`, bg: `${theme.blue}08`, text: theme.blue },
+      violet: { border: `1px dashed ${theme.purple}40`, bg: `${theme.purple}08`, text: theme.purple },
+      amber: { border: `1px dashed ${theme.amber}40`, bg: `${theme.amber}08`, text: theme.amber },
+      purple: { border: `1px dashed ${theme.purple}40`, bg: `${theme.purple}08`, text: theme.purple },
+    }
+    return colorMap[color] || { border: `1px dashed ${theme.cardBorder}`, bg: theme.surfaceBg, text: theme.textSecondary }
+  }
+
+  // Dark theme
+  const colorMap: Record<string, { border: string; bg: string; text: string }> = {
+    emerald: { border: '2px dashed rgba(16, 185, 129, 0.3)', bg: 'rgba(16, 185, 129, 0.05)', text: '#34d399' },
+    blue: { border: '2px dashed rgba(59, 130, 246, 0.3)', bg: 'rgba(59, 130, 246, 0.05)', text: '#60a5fa' },
+    violet: { border: '2px dashed rgba(139, 92, 246, 0.3)', bg: 'rgba(139, 92, 246, 0.05)', text: '#a78bfa' },
+    amber: { border: '2px dashed rgba(245, 158, 11, 0.3)', bg: 'rgba(245, 158, 11, 0.05)', text: '#fbbf24' },
+    purple: { border: '2px dashed rgba(168, 85, 247, 0.3)', bg: 'rgba(168, 85, 247, 0.05)', text: '#c084fc' },
+  }
+  return colorMap[color] || { border: `2px dashed ${theme.cardBorder}`, bg: theme.surfaceBg, text: theme.textSecondary }
+}
+
+function getNodeColors(color: string, themeColors: ThemeColors) {
+  const { theme, isMonet } = themeColors
+
+  if (isMonet) {
+    const colorMap: Record<string, { border: string; bg: string; headerBorder: string; accent: string }> = {
+      emerald: {
+        border: `1px solid ${theme.sage}30`,
+        bg: theme.cardBg,
+        headerBorder: `${theme.sage}20`,
+        accent: theme.sage
+      },
+      blue: {
+        border: `1px solid ${theme.blue}30`,
+        bg: theme.cardBg,
+        headerBorder: `${theme.blue}20`,
+        accent: theme.blue
+      },
+      violet: {
+        border: `1px solid ${theme.purple}30`,
+        bg: theme.cardBg,
+        headerBorder: `${theme.purple}20`,
+        accent: theme.purple
+      },
+      amber: {
+        border: `1px solid ${theme.amber}30`,
+        bg: theme.cardBg,
+        headerBorder: `${theme.amber}20`,
+        accent: theme.amber
+      },
+      purple: {
+        border: `1px solid ${theme.purple}30`,
+        bg: theme.cardBg,
+        headerBorder: `${theme.purple}20`,
+        accent: theme.purple
+      },
+      green: {
+        border: `1px solid ${theme.sage}30`,
+        bg: theme.cardBg,
+        headerBorder: `${theme.sage}20`,
+        accent: theme.sageDark
+      },
+    }
+    return colorMap[color] || { border: `1px solid ${theme.cardBorder}`, bg: theme.cardBg, headerBorder: theme.cardBorder, accent: theme.primary }
+  }
+
+  // Dark theme
+  const colorMap: Record<string, { border: string; bg: string; headerBorder: string; accent: string }> = {
+    emerald: {
+      border: '1px solid rgba(16, 185, 129, 0.3)',
+      bg: 'rgba(16, 185, 129, 0.1)',
+      headerBorder: 'rgba(16, 185, 129, 0.2)',
+      accent: '#34d399'
+    },
+    blue: {
+      border: '1px solid rgba(59, 130, 246, 0.3)',
+      bg: 'rgba(59, 130, 246, 0.1)',
+      headerBorder: 'rgba(59, 130, 246, 0.2)',
+      accent: '#60a5fa'
+    },
+    violet: {
+      border: '1px solid rgba(139, 92, 246, 0.3)',
+      bg: 'rgba(139, 92, 246, 0.1)',
+      headerBorder: 'rgba(139, 92, 246, 0.2)',
+      accent: '#a78bfa'
+    },
+    amber: {
+      border: '1px solid rgba(245, 158, 11, 0.3)',
+      bg: 'rgba(245, 158, 11, 0.1)',
+      headerBorder: 'rgba(245, 158, 11, 0.2)',
+      accent: '#fbbf24'
+    },
+    purple: {
+      border: '1px solid rgba(168, 85, 247, 0.3)',
+      bg: 'rgba(168, 85, 247, 0.1)',
+      headerBorder: 'rgba(168, 85, 247, 0.2)',
+      accent: '#c084fc'
+    },
+    green: {
+      border: '1px solid rgba(34, 197, 94, 0.3)',
+      bg: 'rgba(34, 197, 94, 0.1)',
+      headerBorder: 'rgba(34, 197, 94, 0.2)',
+      accent: '#22c55e'
+    },
+  }
+  return colorMap[color] || { border: `1px solid ${theme.cardBorder}`, bg: theme.cardBg, headerBorder: theme.cardBorder, accent: theme.primary }
+}
+
+// ============================================================================
 // SECTION BOUNDARY NODE
 // ============================================================================
 
-function SectionNode({ data }: { data: { label: string; color: string; width: number; height: number } }) {
-  const borderColor = {
-    emerald: 'border-emerald-500/30',
-    blue: 'border-blue-500/30',
-    violet: 'border-violet-500/30',
-    amber: 'border-amber-500/30',
-    purple: 'border-purple-500/30',
-  }[data.color] || 'border-white/10'
-
-  const bgColor = {
-    emerald: 'bg-emerald-500/5',
-    blue: 'bg-blue-500/5',
-    violet: 'bg-violet-500/5',
-    amber: 'bg-amber-500/5',
-    purple: 'bg-purple-500/5',
-  }[data.color] || 'bg-white/5'
-
-  const textColor = {
-    emerald: 'text-emerald-400',
-    blue: 'text-blue-400',
-    violet: 'text-violet-400',
-    amber: 'text-amber-400',
-    purple: 'text-purple-400',
-  }[data.color] || 'text-white'
+function SectionNode({ data }: { data: { label: string; color: string; width: number; height: number; themeColors: ThemeColors } }) {
+  const colors = getSectionColors(data.color, data.themeColors)
+  const { theme, isMonet } = data.themeColors
 
   return (
     <div
-      className={`rounded-2xl border-2 border-dashed ${borderColor} ${bgColor} pointer-events-none`}
-      style={{ width: data.width, height: data.height }}
+      className="rounded-2xl pointer-events-none"
+      style={{
+        width: data.width,
+        height: data.height,
+        border: colors.border,
+        background: colors.bg,
+      }}
     >
-      <div className={`absolute -top-3 left-4 px-2 text-xs font-semibold uppercase tracking-wider ${textColor} bg-[#0a0a0a]`}>
+      <div
+        className="absolute -top-3 left-4 px-2 text-xs font-semibold uppercase tracking-wider"
+        style={{
+          color: colors.text,
+          background: isMonet ? theme.panelBg : '#0a0a0a',
+        }}
+      >
         {data.label}
       </div>
     </div>
@@ -107,12 +219,19 @@ function SalaryInputNode({ data }: { data: {
   salary: number
   age: number
   onChange: (field: string, value: number) => void
+  themeColors: ThemeColors
 }}) {
+  const { theme, isMonet } = data.themeColors
+  const nodeColors = getNodeColors('emerald', data.themeColors)
+
   return (
-    <div className={`min-w-[180px]
-rounded-xl border border-white/[0.08]
-bg-[#0f1728]/95
-shadow-xl backdrop-blur`}>
+    <div
+      className="min-w-[180px] rounded-xl shadow-xl backdrop-blur"
+      style={{
+        border: isMonet ? `1px solid ${theme.cardBorder}` : '1px solid rgba(255, 255, 255, 0.08)',
+        background: isMonet ? theme.cardBg : 'rgba(15, 23, 40, 0.95)',
+      }}
+    >
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-emerald-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-emerald-500 !w-3 !h-3" />
@@ -120,44 +239,55 @@ shadow-xl backdrop-blur`}>
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-emerald-500 !w-3 !h-3" />
 
       {/* Drag handle area */}
-      <div className={`px-4 pt-3 pb-2
-border-b border-white/[0.06]
-cursor-move
-drag-handle`}>
-        <div className={`text-xs font-medium tracking-wide text-emerald-400
-uppercase`}>
+      <div
+        className="px-4 pt-3 pb-2 cursor-move drag-handle"
+        style={{ borderBottom: `1px solid ${isMonet ? theme.cardBorder : 'rgba(255, 255, 255, 0.06)'}` }}
+      >
+        <div
+          className="text-xs font-medium tracking-wide uppercase"
+          style={{ color: nodeColors.accent }}
+        >
           Your Profile
         </div>
       </div>
       <div className="p-4 pt-3">
+        <div className="space-y-3">
+          <div>
+            <label
+              className="mb-1 block text-xs"
+              style={{ color: theme.textMuted }}
+            >
+              Monthly Salary
+            </label>
+            <CurrencyInput
+              value={data.salary}
+              onChange={(val) => data.onChange('salary', val)}
+              size="sm"
+            />
+          </div>
 
-      <div className="space-y-3">
-        <div>
-          <label className="mb-1 block text-xs text-slate-400">Monthly Salary</label>
-          <CurrencyInput
-            value={data.salary}
-            onChange={(val) => data.onChange('salary', val)}
-            size="sm"
-          />
+          <div>
+            <label
+              className="mb-1 block text-xs"
+              style={{ color: theme.textMuted }}
+            >
+              Current Age
+            </label>
+            <input
+              type="number"
+              value={data.age}
+              onChange={(e) => data.onChange('age', Number(e.target.value))}
+              min={21}
+              max={70}
+              className="w-full py-2 px-3 rounded-lg transition"
+              style={{
+                border: `1px solid ${theme.inputBorder}`,
+                background: theme.inputBg,
+                color: theme.inputText,
+              }}
+            />
+          </div>
         </div>
-
-        <div>
-          <label className="mb-1 block text-xs text-slate-400">Current Age</label>
-          <input
-            type="number"
-            value={data.age}
-            onChange={(e) => data.onChange('age', Number(e.target.value))}
-            min={21}
-            max={70}
-            className={`w-full
-py-2 px-3
-rounded-lg border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none
-bg-white/[0.02]
-text-white
-transition`}
-          />
-        </div>
-      </div>
       </div>
     </div>
   )
@@ -174,51 +304,60 @@ function ContributionNode({ data }: { data: {
   totalContrib: number
   employeeContrib: number
   takeHome: number
+  themeColors: ThemeColors
 }}) {
+  const { theme } = data.themeColors
+  const nodeColors = getNodeColors('emerald', data.themeColors)
+
   return (
-    <div className={`min-w-[160px]
-rounded-xl border border-emerald-500/30
-bg-emerald-500/10
-shadow-xl backdrop-blur`}>
+    <div
+      className="min-w-[160px] rounded-xl shadow-xl backdrop-blur"
+      style={{
+        border: nodeColors.border,
+        background: nodeColors.bg,
+      }}
+    >
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-emerald-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-emerald-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-emerald-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-emerald-500 !w-3 !h-3" />
 
-      <div className={`px-4 pt-3 pb-2
-border-b border-emerald-500/20
-cursor-move
-drag-handle`}>
-        <div className={`text-xs font-medium tracking-wide text-emerald-400
-uppercase`}>
+      <div
+        className="px-4 pt-3 pb-2 cursor-move drag-handle"
+        style={{ borderBottom: `1px solid ${nodeColors.headerBorder}` }}
+      >
+        <div
+          className="text-xs font-medium tracking-wide uppercase"
+          style={{ color: nodeColors.accent }}
+        >
           Monthly CPF
         </div>
       </div>
 
       <div className="p-4 pt-3 space-y-1 text-sm">
         <div className="flex justify-between">
-          <span className="text-blue-400">OA:</span>
-          <span className="text-white">{formatCurrency(data.oaContrib)}</span>
+          <span style={{ color: theme.blue }}>OA:</span>
+          <span style={{ color: theme.textPrimary }}>{formatCurrency(data.oaContrib)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-emerald-400">SA:</span>
-          <span className="text-white">{formatCurrency(data.saContrib)}</span>
+          <span style={{ color: theme.sage }}>SA:</span>
+          <span style={{ color: theme.textPrimary }}>{formatCurrency(data.saContrib)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-amber-400">MA:</span>
-          <span className="text-white">{formatCurrency(data.maContrib)}</span>
+          <span style={{ color: theme.amber }}>MA:</span>
+          <span style={{ color: theme.textPrimary }}>{formatCurrency(data.maContrib)}</span>
         </div>
-        <div className={`flex justify-between
-pt-2
-border-t border-white/10
-font-medium`}>
-          <span className="text-slate-300">Total:</span>
-          <span className="text-white">{formatCurrency(data.totalContrib)}</span>
+        <div
+          className="flex justify-between pt-2 font-medium"
+          style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}
+        >
+          <span style={{ color: theme.textSecondary }}>Total:</span>
+          <span style={{ color: theme.textPrimary }}>{formatCurrency(data.totalContrib)}</span>
         </div>
-        <div className="flex justify-between text-xs text-slate-400">
+        <div className="flex justify-between text-xs" style={{ color: theme.textMuted }}>
           <span>Take-home:</span>
-          <span className="text-green-400">{formatCurrency(data.takeHome)}</span>
+          <span style={{ color: theme.sage }}>{formatCurrency(data.takeHome)}</span>
         </div>
       </div>
     </div>
@@ -235,54 +374,66 @@ function BalancesNode({ data }: { data: {
   maBalance: number
   yearsWorked: number
   onChange: (field: string, value: number) => void
+  themeColors: ThemeColors
 }}) {
+  const { theme } = data.themeColors
+  const nodeColors = getNodeColors('blue', data.themeColors)
   const total = data.oaBalance + data.saBalance + data.maBalance
 
   return (
-    <div className={`min-w-[180px]
-rounded-xl border border-blue-500/30
-bg-blue-500/10
-shadow-xl backdrop-blur`}>
+    <div
+      className="min-w-[180px] rounded-xl shadow-xl backdrop-blur"
+      style={{
+        border: nodeColors.border,
+        background: nodeColors.bg,
+      }}
+    >
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-blue-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-blue-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-blue-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-blue-500 !w-3 !h-3" />
 
-      <div className={`px-4 pt-3 pb-2
-border-b border-blue-500/20
-cursor-move
-drag-handle`}>
-        <div className="text-xs font-medium uppercase tracking-wide text-blue-400">
+      <div
+        className="px-4 pt-3 pb-2 cursor-move drag-handle"
+        style={{ borderBottom: `1px solid ${nodeColors.headerBorder}` }}
+      >
+        <div
+          className="text-xs font-medium uppercase tracking-wide"
+          style={{ color: nodeColors.accent }}
+        >
           Balances at 55
         </div>
       </div>
 
       <div className="p-4 pt-3 space-y-2">
         <div>
-          <label className="text-xs text-slate-500">OA Balance</label>
+          <label className="text-xs" style={{ color: theme.textMuted }}>OA Balance</label>
           <CurrencyInput
             value={data.oaBalance}
             onChange={(val) => data.onChange('oaBalance', val)}
           />
         </div>
         <div>
-          <label className="text-xs text-slate-500">SA Balance</label>
+          <label className="text-xs" style={{ color: theme.textMuted }}>SA Balance</label>
           <CurrencyInput
             value={data.saBalance}
             onChange={(val) => data.onChange('saBalance', val)}
           />
         </div>
         <div>
-          <label className="text-xs text-slate-500">MA Balance</label>
+          <label className="text-xs" style={{ color: theme.textMuted }}>MA Balance</label>
           <CurrencyInput
             value={data.maBalance}
             onChange={(val) => data.onChange('maBalance', val)}
           />
         </div>
-        <div className="pt-2 border-t border-white/10 flex justify-between text-sm">
-          <span className="text-slate-400">Total:</span>
-          <span className="font-medium text-white">{formatCurrency(total)}</span>
+        <div
+          className="pt-2 flex justify-between text-sm"
+          style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}
+        >
+          <span style={{ color: theme.textMuted }}>Total:</span>
+          <span className="font-medium" style={{ color: theme.textPrimary }}>{formatCurrency(total)}</span>
         </div>
       </div>
     </div>
@@ -298,39 +449,52 @@ function HousingNode({ data }: { data: {
   cpfUsedForHousing: number
   oaAfterHousing: number
   onChange: (field: string, value: number) => void
+  themeColors: ThemeColors
 }}) {
+  const { theme } = data.themeColors
+  const nodeColors = getNodeColors('violet', data.themeColors)
+
   return (
-    <div className={`min-w-[160px]
-rounded-xl border border-violet-500/30
-bg-violet-500/10
-shadow-xl backdrop-blur`}>
+    <div
+      className="min-w-[160px] rounded-xl shadow-xl backdrop-blur"
+      style={{
+        border: nodeColors.border,
+        background: nodeColors.bg,
+      }}
+    >
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-violet-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-violet-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-violet-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-violet-500 !w-3 !h-3" />
 
-      <div className={`px-4 pt-3 pb-2
-border-b border-violet-500/20
-cursor-move
-drag-handle`}>
-        <div className="text-xs font-medium uppercase tracking-wide text-violet-400">
+      <div
+        className="px-4 pt-3 pb-2 cursor-move drag-handle"
+        style={{ borderBottom: `1px solid ${nodeColors.headerBorder}` }}
+      >
+        <div
+          className="text-xs font-medium uppercase tracking-wide"
+          style={{ color: nodeColors.accent }}
+        >
           Housing (Optional)
         </div>
       </div>
 
       <div className="p-4 pt-3 space-y-2">
         <div>
-          <label className="text-xs text-slate-500">CPF Used for Property</label>
+          <label className="text-xs" style={{ color: theme.textMuted }}>CPF Used for Property</label>
           <CurrencyInput
             value={data.cpfUsedForHousing}
             onChange={(val) => data.onChange('cpfUsedForHousing', val)}
           />
         </div>
-        <div className="pt-2 border-t border-white/10 text-xs">
-          <div className="flex justify-between text-slate-400">
+        <div
+          className="pt-2 text-xs"
+          style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}
+        >
+          <div className="flex justify-between" style={{ color: theme.textMuted }}>
             <span>OA after housing:</span>
-            <span className="text-blue-300">{formatCurrency(data.oaAfterHousing)}</span>
+            <span style={{ color: theme.blue }}>{formatCurrency(data.oaAfterHousing)}</span>
           </div>
         </div>
       </div>
@@ -350,54 +514,69 @@ function RACreationNode({ data }: { data: {
   raBalance: number
   targetSum: number
   shortfall: number
+  themeColors: ThemeColors
 }}) {
+  const { theme, isMonet } = data.themeColors
+  const nodeColors = getNodeColors('amber', data.themeColors)
   const metTarget = data.shortfall <= 0
 
   return (
-    <div className={`min-w-[180px]
-rounded-xl border border-amber-500/30
-bg-amber-500/10
-shadow-xl backdrop-blur`}>
+    <div
+      className="min-w-[180px] rounded-xl shadow-xl backdrop-blur"
+      style={{
+        border: nodeColors.border,
+        background: nodeColors.bg,
+      }}
+    >
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-amber-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-amber-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-amber-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-amber-500 !w-3 !h-3" />
 
-      <div className={`px-4 pt-3 pb-2
-border-b border-amber-500/20
-cursor-move
-drag-handle`}>
-        <div className="text-xs font-medium uppercase tracking-wide text-amber-400">
+      <div
+        className="px-4 pt-3 pb-2 cursor-move drag-handle"
+        style={{ borderBottom: `1px solid ${nodeColors.headerBorder}` }}
+      >
+        <div
+          className="text-xs font-medium uppercase tracking-wide"
+          style={{ color: nodeColors.accent }}
+        >
           Age 55: RA Created
         </div>
       </div>
 
       <div className="p-4 pt-3 space-y-2 text-sm">
-        <div className="text-xs text-slate-400">Transfers to RA:</div>
+        <div className="text-xs" style={{ color: theme.textMuted }}>Transfers to RA:</div>
         <div className="flex justify-between">
-          <span className="text-emerald-400">From SA:</span>
-          <span className="text-white">{formatCurrency(data.saToRa)}</span>
+          <span style={{ color: theme.sage }}>From SA:</span>
+          <span style={{ color: theme.textPrimary }}>{formatCurrency(data.saToRa)}</span>
         </div>
         {data.oaToRa > 0 && (
           <div className="flex justify-between">
-            <span className="text-blue-400">From OA:</span>
-            <span className="text-white">{formatCurrency(data.oaToRa)}</span>
+            <span style={{ color: theme.blue }}>From OA:</span>
+            <span style={{ color: theme.textPrimary }}>{formatCurrency(data.oaToRa)}</span>
           </div>
         )}
-        <div className="pt-2 border-t border-white/10">
+        <div
+          className="pt-2"
+          style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}
+        >
           <div className="flex justify-between font-medium">
-            <span className="text-purple-400">RA Balance:</span>
-            <span className="text-white">{formatCurrency(data.raBalance)}</span>
+            <span style={{ color: theme.purple }}>RA Balance:</span>
+            <span style={{ color: theme.textPrimary }}>{formatCurrency(data.raBalance)}</span>
           </div>
           <div className="flex justify-between text-xs mt-1">
-            <span className="text-slate-400">Target (FRS):</span>
-            <span className={metTarget ? 'text-emerald-400' : 'text-red-400'}>
+            <span style={{ color: theme.textMuted }}>Target (FRS):</span>
+            <span style={{ color: metTarget ? theme.sage : (isMonet ? '#dc2626' : '#f87171') }}>
               {formatCurrency(data.targetSum)}
             </span>
           </div>
           {!metTarget && (
-            <div className="text-xs text-red-400 mt-1">
+            <div
+              className="text-xs mt-1"
+              style={{ color: isMonet ? '#dc2626' : '#f87171' }}
+            >
               Shortfall: {formatCurrency(data.shortfall)}
             </div>
           )}
@@ -416,40 +595,53 @@ function PayoutNode({ data }: { data: {
   monthlyPayout: number
   yearlyPayout: number
   plan: string
+  themeColors: ThemeColors
 }}) {
+  const { theme } = data.themeColors
+  const nodeColors = getNodeColors('purple', data.themeColors)
+
   return (
-    <div className={`min-w-[160px]
-rounded-xl border border-purple-500/30
-bg-purple-500/10
-shadow-xl backdrop-blur`}>
+    <div
+      className="min-w-[160px] rounded-xl shadow-xl backdrop-blur"
+      style={{
+        border: nodeColors.border,
+        background: nodeColors.bg,
+      }}
+    >
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-purple-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-purple-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-purple-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-purple-500 !w-3 !h-3" />
 
-      <div className={`px-4 pt-3 pb-2
-border-b border-purple-500/20
-cursor-move
-drag-handle`}>
-        <div className="text-xs font-medium uppercase tracking-wide text-purple-400">
+      <div
+        className="px-4 pt-3 pb-2 cursor-move drag-handle"
+        style={{ borderBottom: `1px solid ${nodeColors.headerBorder}` }}
+      >
+        <div
+          className="text-xs font-medium uppercase tracking-wide"
+          style={{ color: nodeColors.accent }}
+        >
           CPF LIFE (Age 65+)
         </div>
       </div>
 
       <div className="p-4 pt-3 space-y-2">
-        <div className="text-2xl font-bold text-white">
+        <div className="text-2xl font-bold" style={{ color: theme.textPrimary }}>
           {formatCurrency(data.monthlyPayout)}
-          <span className="text-sm text-slate-400 font-normal">/mo</span>
+          <span className="text-sm font-normal" style={{ color: theme.textMuted }}>/mo</span>
         </div>
-        <div className="text-sm text-slate-400">
+        <div className="text-sm" style={{ color: theme.textMuted }}>
           {formatCurrency(data.yearlyPayout)}/year
         </div>
-        <div className="pt-2 border-t border-white/10 text-xs">
-          <span className="text-slate-400">Plan: </span>
-          <span className="text-purple-300 capitalize">{data.plan}</span>
+        <div
+          className="pt-2 text-xs"
+          style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}
+        >
+          <span style={{ color: theme.textMuted }}>Plan: </span>
+          <span className="capitalize" style={{ color: theme.purple }}>{data.plan}</span>
         </div>
-        <div className="text-xs text-emerald-400">
+        <div className="text-xs" style={{ color: theme.sage }}>
           Payouts for life
         </div>
       </div>
@@ -465,40 +657,53 @@ function RemainingNode({ data }: { data: {
   oaRemaining: number
   maRemaining: number
   withdrawable: number
+  themeColors: ThemeColors
 }}) {
+  const { theme } = data.themeColors
+  const nodeColors = getNodeColors('green', data.themeColors)
+
   return (
-    <div className={`min-w-[140px]
-rounded-xl border border-green-500/30
-bg-green-500/10
-shadow-xl backdrop-blur`}>
+    <div
+      className="min-w-[140px] rounded-xl shadow-xl backdrop-blur"
+      style={{
+        border: nodeColors.border,
+        background: nodeColors.bg,
+      }}
+    >
       {/* Handles on all 4 sides */}
       <Handle type="target" position={Position.Top} id="top" className="!bg-green-500 !w-3 !h-3" />
       <Handle type="target" position={Position.Left} id="left" className="!bg-green-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-green-500 !w-3 !h-3" />
       <Handle type="source" position={Position.Bottom} id="bottom" className="!bg-green-500 !w-3 !h-3" />
 
-      <div className={`px-4 pt-3 pb-2
-border-b border-green-500/20
-cursor-move
-drag-handle`}>
-        <div className="text-xs font-medium uppercase tracking-wide text-green-400">
+      <div
+        className="px-4 pt-3 pb-2 cursor-move drag-handle"
+        style={{ borderBottom: `1px solid ${nodeColors.headerBorder}` }}
+      >
+        <div
+          className="text-xs font-medium uppercase tracking-wide"
+          style={{ color: nodeColors.accent }}
+        >
           Other Balances
         </div>
       </div>
 
       <div className="p-4 pt-3 space-y-1 text-sm">
         <div className="flex justify-between">
-          <span className="text-blue-400">OA:</span>
-          <span className="text-white">{formatCurrency(data.oaRemaining)}</span>
+          <span style={{ color: theme.blue }}>OA:</span>
+          <span style={{ color: theme.textPrimary }}>{formatCurrency(data.oaRemaining)}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-amber-400">MA:</span>
-          <span className="text-white">{formatCurrency(data.maRemaining)}</span>
+          <span style={{ color: theme.amber }}>MA:</span>
+          <span style={{ color: theme.textPrimary }}>{formatCurrency(data.maRemaining)}</span>
         </div>
         {data.withdrawable > 0 && (
-          <div className="pt-2 border-t border-white/10">
-            <div className="text-xs text-slate-400">Withdrawable:</div>
-            <div className="text-lg font-bold text-green-400">
+          <div
+            className="pt-2"
+            style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}
+          >
+            <div className="text-xs" style={{ color: theme.textMuted }}>Withdrawable:</div>
+            <div className="text-lg font-bold" style={{ color: theme.sage }}>
               {formatCurrency(data.withdrawable)}
             </div>
           </div>
@@ -532,6 +737,10 @@ interface CPFJourneyCalculatorProps {
 }
 
 export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
+  // Theme
+  const { theme, isMonet } = useTheme()
+  const themeColors: ThemeColors = useMemo(() => ({ theme, isMonet }), [theme, isMonet])
+
   // Input state
   const [salary, setSalary] = useState(6000)
   const [age, setAge] = useState(30)
@@ -607,7 +816,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       id: 'section-1',
       type: 'section',
       position: { x: 0, y: sectionY },
-      data: { label: '1. Monthly Contributions', color: 'emerald', width: 380, height: 280 },
+      data: { label: '1. Monthly Contributions', color: 'emerald', width: 380, height: 280, themeColors },
       draggable: false,
       selectable: false,
       zIndex: -1,
@@ -616,7 +825,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       id: 'section-2',
       type: 'section',
       position: { x: 400, y: sectionY },
-      data: { label: '2. Accumulated Balances', color: 'blue', width: 420, height: 280 },
+      data: { label: '2. Accumulated Balances', color: 'blue', width: 420, height: 280, themeColors },
       draggable: false,
       selectable: false,
       zIndex: -1,
@@ -625,7 +834,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       id: 'section-3',
       type: 'section',
       position: { x: 840, y: sectionY },
-      data: { label: '3. Age 55 (RA Creation)', color: 'amber', width: 220, height: 280 },
+      data: { label: '3. Age 55 (RA Creation)', color: 'amber', width: 220, height: 280, themeColors },
       draggable: false,
       selectable: false,
       zIndex: -1,
@@ -634,7 +843,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       id: 'section-4',
       type: 'section',
       position: { x: 1080, y: sectionY },
-      data: { label: '4. Retirement (65+)', color: 'purple', width: 340, height: 280 },
+      data: { label: '4. Retirement (65+)', color: 'purple', width: 340, height: 280, themeColors },
       draggable: false,
       selectable: false,
       zIndex: -1,
@@ -644,14 +853,14 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       id: 'salary',
       type: 'salaryInput',
       position: { x: 20, y: nodeY },
-      data: { salary: 6000, age: 30, onChange: () => {} },
+      data: { salary: 6000, age: 30, onChange: () => {}, themeColors },
       dragHandle: '.drag-handle',
     },
     {
       id: 'contribution',
       type: 'contribution',
       position: { x: 210, y: nodeY },
-      data: { oaContrib: 0, saContrib: 0, maContrib: 0, totalContrib: 0, employeeContrib: 0, takeHome: 0 },
+      data: { oaContrib: 0, saContrib: 0, maContrib: 0, totalContrib: 0, employeeContrib: 0, takeHome: 0, themeColors },
       dragHandle: '.drag-handle',
     },
     // Stage 2: Balances & Housing
@@ -659,14 +868,14 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       id: 'balances',
       type: 'balances',
       position: { x: 420, y: nodeY },
-      data: { oaBalance: 150000, saBalance: 80000, maBalance: 50000, yearsWorked: 25, onChange: () => {} },
+      data: { oaBalance: 150000, saBalance: 80000, maBalance: 50000, yearsWorked: 25, onChange: () => {}, themeColors },
       dragHandle: '.drag-handle',
     },
     {
       id: 'housing',
       type: 'housing',
       position: { x: 620, y: nodeY + 120 },
-      data: { propertyPrice: 500000, cpfUsedForHousing: 100000, oaAfterHousing: 50000, onChange: () => {} },
+      data: { propertyPrice: 500000, cpfUsedForHousing: 100000, oaAfterHousing: 50000, onChange: () => {}, themeColors },
       dragHandle: '.drag-handle',
     },
     // Stage 3: RA Creation
@@ -674,7 +883,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       id: 'ra-creation',
       type: 'raCreation',
       position: { x: 860, y: nodeY },
-      data: { saBalance: 80000, oaBalance: 50000, saToRa: 80000, oaToRa: 50000, raBalance: 130000, targetSum: 213000, shortfall: 83000 },
+      data: { saBalance: 80000, oaBalance: 50000, saToRa: 80000, oaToRa: 50000, raBalance: 130000, targetSum: 213000, shortfall: 83000, themeColors },
       dragHandle: '.drag-handle',
     },
     // Stage 4: CPF LIFE & Remaining
@@ -682,14 +891,14 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       id: 'payout',
       type: 'payout',
       position: { x: 1100, y: nodeY },
-      data: { raBalance: 130000, monthlyPayout: 715, yearlyPayout: 8580, plan: 'standard' },
+      data: { raBalance: 130000, monthlyPayout: 715, yearlyPayout: 8580, plan: 'standard', themeColors },
       dragHandle: '.drag-handle',
     },
     {
       id: 'remaining',
       type: 'remaining',
       position: { x: 1270, y: nodeY },
-      data: { oaRemaining: 0, maRemaining: 50000, withdrawable: 0 },
+      data: { oaRemaining: 0, maRemaining: 50000, withdrawable: 0, themeColors },
       dragHandle: '.drag-handle',
     },
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -697,13 +906,18 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
 
-  // Update node data when calculations change (preserving positions)
+  // Update node data when calculations or theme change (preserving positions)
   useEffect(() => {
     setNodes((nds) =>
       nds.map((node) => {
         switch (node.id) {
+          case 'section-1':
+          case 'section-2':
+          case 'section-3':
+          case 'section-4':
+            return { ...node, data: { ...node.data, themeColors } }
           case 'salary':
-            return { ...node, data: { salary, age, onChange: handleChange } }
+            return { ...node, data: { salary, age, onChange: handleChange, themeColors } }
           case 'contribution':
             return {
               ...node,
@@ -714,12 +928,13 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
                 totalContrib: calculations.totalContrib,
                 employeeContrib: calculations.employeeContrib,
                 takeHome: calculations.takeHome,
+                themeColors,
               },
             }
           case 'balances':
             return {
               ...node,
-              data: { oaBalance, saBalance, maBalance, yearsWorked: 55 - age, onChange: handleChange },
+              data: { oaBalance, saBalance, maBalance, yearsWorked: 55 - age, onChange: handleChange, themeColors },
             }
           case 'housing':
             return {
@@ -729,6 +944,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
                 cpfUsedForHousing,
                 oaAfterHousing: calculations.oaAfterHousing,
                 onChange: handleChange,
+                themeColors,
               },
             }
           case 'ra-creation':
@@ -742,6 +958,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
                 raBalance: calculations.raBalance,
                 targetSum: calculations.targetSum,
                 shortfall: calculations.shortfall,
+                themeColors,
               },
             }
           case 'payout':
@@ -752,6 +969,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
                 monthlyPayout: calculations.monthlyPayout,
                 yearlyPayout: calculations.yearlyPayout,
                 plan: 'standard',
+                themeColors,
               },
             }
           case 'remaining':
@@ -761,6 +979,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
                 oaRemaining: calculations.oaRemaining,
                 maRemaining: calculations.maRemaining,
                 withdrawable: calculations.withdrawable,
+                themeColors,
               },
             }
           default:
@@ -768,7 +987,9 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
         }
       })
     )
-  }, [salary, age, oaBalance, saBalance, maBalance, cpfUsedForHousing, calculations, handleChange, setNodes])
+  }, [salary, age, oaBalance, saBalance, maBalance, cpfUsedForHousing, calculations, handleChange, setNodes, themeColors])
+
+  const labelBgFill = isMonet ? theme.panelBg : '#0a0a0a'
 
   const initialEdges: Edge[] = useMemo(() => [
     // Stage 1 connections
@@ -780,7 +1001,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       targetHandle: 'left',
       animated: true,
       reconnectable: true,
-      style: { stroke: '#10b981', strokeWidth: 2 },
+      style: { stroke: theme.sage, strokeWidth: 2 },
     },
     // Stage 1 → 2
     {
@@ -791,10 +1012,10 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       targetHandle: 'left',
       animated: true,
       reconnectable: true,
-      style: { stroke: '#3b82f6', strokeWidth: 2 },
+      style: { stroke: theme.blue, strokeWidth: 2 },
       label: 'Years of saving',
-      labelStyle: { fill: '#64748b', fontSize: 10 },
-      labelBgStyle: { fill: '#0a0a0a', fillOpacity: 0.8 },
+      labelStyle: { fill: theme.textMuted, fontSize: 10 },
+      labelBgStyle: { fill: labelBgFill, fillOpacity: 0.8 },
     },
     // Stage 2: Housing
     {
@@ -805,7 +1026,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       targetHandle: 'top',
       animated: true,
       reconnectable: true,
-      style: { stroke: '#8b5cf6', strokeWidth: 2 },
+      style: { stroke: theme.purple, strokeWidth: 2 },
     },
     // Stage 2 → 3
     {
@@ -816,7 +1037,7 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       targetHandle: 'left',
       animated: true,
       reconnectable: true,
-      style: { stroke: '#f59e0b', strokeWidth: 2 },
+      style: { stroke: theme.amber, strokeWidth: 2 },
     },
     // Stage 3 → 4
     {
@@ -827,10 +1048,10 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       targetHandle: 'left',
       animated: true,
       reconnectable: true,
-      style: { stroke: '#a855f7', strokeWidth: 2 },
+      style: { stroke: theme.purple, strokeWidth: 2 },
       label: 'CPF LIFE',
-      labelStyle: { fill: '#a855f7', fontSize: 10 },
-      labelBgStyle: { fill: '#0a0a0a', fillOpacity: 0.8 },
+      labelStyle: { fill: theme.purple, fontSize: 10 },
+      labelBgStyle: { fill: labelBgFill, fillOpacity: 0.8 },
     },
     {
       id: 'e-ra-remaining',
@@ -840,11 +1061,83 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
       targetHandle: 'left',
       animated: true,
       reconnectable: true,
-      style: { stroke: '#22c55e', strokeWidth: 2 },
+      style: { stroke: theme.sage, strokeWidth: 2 },
     },
-  ], [])
+  ], [theme, labelBgFill])
 
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+
+  // Update edges when theme changes
+  useEffect(() => {
+    setEdges([
+      {
+        id: 'e-salary-contrib',
+        source: 'salary',
+        sourceHandle: 'right',
+        target: 'contribution',
+        targetHandle: 'left',
+        animated: true,
+        reconnectable: true,
+        style: { stroke: theme.sage, strokeWidth: 2 },
+      },
+      {
+        id: 'e-contrib-balances',
+        source: 'contribution',
+        sourceHandle: 'right',
+        target: 'balances',
+        targetHandle: 'left',
+        animated: true,
+        reconnectable: true,
+        style: { stroke: theme.blue, strokeWidth: 2 },
+        label: 'Years of saving',
+        labelStyle: { fill: theme.textMuted, fontSize: 10 },
+        labelBgStyle: { fill: labelBgFill, fillOpacity: 0.8 },
+      },
+      {
+        id: 'e-balances-housing',
+        source: 'balances',
+        sourceHandle: 'bottom',
+        target: 'housing',
+        targetHandle: 'top',
+        animated: true,
+        reconnectable: true,
+        style: { stroke: theme.purple, strokeWidth: 2 },
+      },
+      {
+        id: 'e-housing-ra',
+        source: 'housing',
+        sourceHandle: 'right',
+        target: 'ra-creation',
+        targetHandle: 'left',
+        animated: true,
+        reconnectable: true,
+        style: { stroke: theme.amber, strokeWidth: 2 },
+      },
+      {
+        id: 'e-ra-payout',
+        source: 'ra-creation',
+        sourceHandle: 'right',
+        target: 'payout',
+        targetHandle: 'left',
+        animated: true,
+        reconnectable: true,
+        style: { stroke: theme.purple, strokeWidth: 2 },
+        label: 'CPF LIFE',
+        labelStyle: { fill: theme.purple, fontSize: 10 },
+        labelBgStyle: { fill: labelBgFill, fillOpacity: 0.8 },
+      },
+      {
+        id: 'e-ra-remaining',
+        source: 'ra-creation',
+        sourceHandle: 'right',
+        target: 'remaining',
+        targetHandle: 'left',
+        animated: true,
+        reconnectable: true,
+        style: { stroke: theme.sage, strokeWidth: 2 },
+      },
+    ])
+  }, [theme, labelBgFill, setEdges])
 
   // Handle edge reconnection
   const onReconnect = useCallback(
@@ -865,16 +1158,28 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
           sourceHandle: connection.sourceHandle ?? undefined,
           targetHandle: connection.targetHandle ?? undefined,
           animated: true,
-          style: { stroke: '#64748b', strokeWidth: 2 },
+          style: { stroke: theme.textMuted, strokeWidth: 2 },
         }
         setEdges((eds) => [...eds, newEdge])
       }
     },
-    [setEdges]
+    [setEdges, theme.textMuted]
   )
 
+  // Background color for ReactFlow
+  const backgroundDotColor = isMonet ? theme.textMuted : '#1e293b'
+  const controlsClassName = isMonet
+    ? `!bg-white/80 !border-slate-200 !rounded-lg [&>button]:!bg-white/90 [&>button]:!border-slate-200 [&>button:hover]:!bg-slate-100 [&>button>svg]:!fill-slate-600`
+    : `!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`
+
   return (
-    <div className={`h-[700px] rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
+    <div
+      className={`h-[700px] rounded-xl ${className}`}
+      style={{
+        border: `1px solid ${theme.cardBorder}`,
+        background: isMonet ? theme.panelBg : '#0a0a0a',
+      }}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -893,41 +1198,46 @@ export function CPFJourneyCalculator({ className }: CPFJourneyCalculatorProps) {
           type: 'smoothstep',
           reconnectable: true,
         }}
-        connectionLineStyle={{ stroke: '#64748b', strokeWidth: 2 }}
+        connectionLineStyle={{ stroke: theme.textMuted, strokeWidth: 2 }}
       >
-        <Background color="#1e293b" gap={20} size={1} />
-        <Controls
-          className={`!bg-slate-800 !border-white/10 !rounded-lg [&>button]:!bg-slate-700 [&>button]:!border-white/10 [&>button:hover]:!bg-slate-600 [&>button>svg]:!fill-white`}
-        />
-        <Panel position="top-right" className="bg-slate-800/80 rounded-lg p-2 text-xs text-slate-400">
-          Drag nodes • Drag connectors • Scroll to zoom
+        <Background color={backgroundDotColor} gap={20} size={1} />
+        <Controls className={controlsClassName} />
+        <Panel
+          position="top-right"
+          className="rounded-lg p-2 text-xs"
+          style={{
+            background: isMonet ? 'rgba(255, 255, 255, 0.8)' : 'rgba(30, 41, 59, 0.8)',
+            color: theme.textMuted,
+          }}
+        >
+          Drag nodes | Drag connectors | Scroll to zoom
         </Panel>
       </ReactFlow>
 
       {/* Summary Footer */}
-      <div className={`flex items-center justify-between
-px-4 py-3
-border-t border-white/[0.06]
-text-sm`}>
+      <div
+        className="flex items-center justify-between px-4 py-3 text-sm"
+        style={{ borderTop: `1px solid ${theme.cardBorder}` }}
+      >
         <div className="flex gap-4">
           <div>
-            <span className="text-slate-400">Monthly CPF: </span>
-            <span className="font-medium text-emerald-400">{formatCurrency(calculations.totalContrib)}</span>
+            <span style={{ color: theme.textMuted }}>Monthly CPF: </span>
+            <span className="font-medium" style={{ color: theme.sage }}>{formatCurrency(calculations.totalContrib)}</span>
           </div>
           <div>
-            <span className="text-slate-400">RA at 55: </span>
-            <span className="font-medium text-purple-400">{formatCurrency(calculations.raBalance)}</span>
+            <span style={{ color: theme.textMuted }}>RA at 55: </span>
+            <span className="font-medium" style={{ color: theme.purple }}>{formatCurrency(calculations.raBalance)}</span>
           </div>
           <div>
-            <span className="text-slate-400">Monthly Payout: </span>
-            <span className="font-medium text-purple-400">{formatCurrency(calculations.monthlyPayout)}</span>
+            <span style={{ color: theme.textMuted }}>Monthly Payout: </span>
+            <span className="font-medium" style={{ color: theme.purple }}>{formatCurrency(calculations.monthlyPayout)}</span>
           </div>
           <div>
-            <span className="text-slate-400">Withdrawable: </span>
-            <span className="font-medium text-green-400">{formatCurrency(calculations.withdrawable)}</span>
+            <span style={{ color: theme.textMuted }}>Withdrawable: </span>
+            <span className="font-medium" style={{ color: theme.sage }}>{formatCurrency(calculations.withdrawable)}</span>
           </div>
         </div>
-        <div className="text-xs text-slate-500">
+        <div className="text-xs" style={{ color: theme.textMuted }}>
           FRS: {formatCurrency(FRS_2025)} (2025)
         </div>
       </div>
