@@ -5,11 +5,11 @@ export const AREA_ANIMATION_MS = 700
 export const MARKER_BUFFER_MS = 400
 
 export const chartColors = {
-  axis: '#aeb6c9',
-  grid: 'rgba(86, 91, 100, 0.6)',
-  gradientStart: '#4f81ff',
-  gradientEnd: 'rgba(59, 130, 246, 0.08)',
-  stroke: '#7db0ff',
+  axis: '#64748b',  // slate-500 - darker for better contrast on light bg
+  grid: 'rgba(100, 116, 139, 0.12)',  // subtle grid that works on both
+  gradientStart: 'rgba(74, 144, 217, 0.20)',
+  gradientEnd: 'rgba(74, 144, 217, 0.02)',
+  stroke: '#3B82F6',  // blue-500 - vibrant line color
 }
 
 export type AxisMode = 'age' | 'year_number' | 'actual_year'
