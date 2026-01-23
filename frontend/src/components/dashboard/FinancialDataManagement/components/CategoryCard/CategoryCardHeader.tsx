@@ -95,7 +95,7 @@ export function CategoryCardHeader({
               "text-xs tabular-nums",
               isMonet ? "text-slate-500" : "text-slate-400"
             )}>
-              {formatCurrency(total)} Total
+              {formatCurrency(total)}
             </span>
           )}
         </div>

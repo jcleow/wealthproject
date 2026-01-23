@@ -313,7 +313,7 @@ export type InsuranceTheme = AppTheme
 export const monetClasses = {
   // Dropdown/Menu containers
   dropdown: {
-    container: 'border border-[var(--monet-lavender)]/20 bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl',
+    container: 'border border-[var(--monet-lavender)]/20 bg-white rounded-xl shadow-2xl',
     backdrop: 'fixed inset-0',
   },
 

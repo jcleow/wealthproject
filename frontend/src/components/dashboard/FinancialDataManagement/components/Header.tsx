@@ -205,7 +205,7 @@ export function Header({
           <div className={clsx(
             "relative z-[50] flex flex-col rounded-xl border backdrop-blur-sm",
             isMonet
-              ? "border-slate-200 bg-white/80 shadow-sm"
+              ? "border-slate-200 bg-white shadow-sm"
               : "border-white/[0.08] bg-white/[0.02]"
           )}>
             <div className="flex items-center gap-1 p-1">

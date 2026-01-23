@@ -44,7 +44,7 @@ export function InvestmentsIncomeSection({
     ))
   ) : (
     <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
-      <span className="truncate text-sm text-slate-300">Allocated to investments</span>
+      <span className="text-sm text-slate-300">Allocated to investments</span>
       <span className={numericStyles.base}>
         {formatCurrency(displayAmount)}
         <span className="ml-1 text-xs text-slate-400">{showMonthlyData ? '/mo' : '/yr'}</span>

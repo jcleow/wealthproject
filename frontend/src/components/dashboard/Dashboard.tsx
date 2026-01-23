@@ -363,14 +363,14 @@ gap-6 p-6`}>
                 {/* Side-by-side content area */}
                 <div
                   className={clsx(
-                    'flex gap-4 overflow-hidden -mt-2 h-[70vh]',
+                    'flex gap-4 -mt-2 h-[70vh]',
                     effectiveLayout === 'chart-right' && 'flex-row-reverse'
                   )}
                 >
                   {/* Chart section */}
                   <div
                     ref={chartRef}
-                    className="flex w-[65%] shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent h-full"
+                    className="flex w-[65%] shrink-0 flex-col overflow-hidden rounded-2xl bg-transparent"
                   >
                     <FinancialWorkspace
                       onPropertyScenarioEdit={handlePropertyScenarioEdit}

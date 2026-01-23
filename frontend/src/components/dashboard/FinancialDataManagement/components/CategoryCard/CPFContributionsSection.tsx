@@ -17,14 +17,14 @@ export function CPFContributionsSection({
   const renderContributions = () => cpfContributionsRaw.map((item, index) => (
     <div key={item.id || `cpf-contrib-${index}`}>
       <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
-        <span className="truncate text-sm text-slate-300">Employee - {item.name.replace('CPF Contribution - ', '')}</span>
+        <span className="text-sm text-slate-300">Employee - {item.name.replace('CPF Contribution - ', '')}</span>
         <span className={numericStyles.base}>
           ({formatCurrency(parseDecimal(item.employeeContribution))})
           <span className="ml-1 text-xs text-slate-400">/mo</span>
         </span>
       </div>
       <div className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
-        <span className="truncate text-sm text-slate-300">Employer - {item.name.replace('CPF Contribution - ', '')}</span>
+        <span className="text-sm text-slate-300">Employer - {item.name.replace('CPF Contribution - ', '')}</span>
         <span className={numericStyles.base}>
           {formatCurrency(parseDecimal(item.employerContribution))}
           <span className="ml-1 text-xs text-slate-400">/mo</span>
@@ -40,7 +40,7 @@ export function CPFContributionsSection({
     >
       <div className="flex items-center gap-2 min-w-0">
         <ArrowUpRight className="h-4 w-4 text-emerald-400 shrink-0" />
-        <span className="truncate text-sm text-emerald-300">
+        <span className="text-sm text-emerald-300">
           CPF Refund - {refund.propertyName}
         </span>
       </div>

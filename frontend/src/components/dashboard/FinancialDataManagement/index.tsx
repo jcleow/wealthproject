@@ -893,33 +893,35 @@ export function FinancialDataManagement({
     <>
       <div
         id="financial-data-section"
-        className={clsx('flex flex-col bg-transparent text-white', !compact && 'h-full')}
+        className={clsx('flex flex-col bg-transparent text-white', compact ? 'pt-6' : 'p-6')}
         onClick={(e) => {
           if (selectedItemId && (e.target as HTMLElement).closest('[data-line-item]') === null) {
             setSelectedItemId(null)
           }
         }}
       >
-        <Header
-          selectedYear={selectedYear}
-          onSelectYear={setSelectedYear}
-          selectedCalendarMonth={selectedMonth}
-          onSelectMonth={setSelectedMonth}
-          anchorAbsoluteYear={anchorYear}
-          anchorCalendarMonth={anchorMonth}
-          resolution={resolution}
-          timelineYears={timelineYears}
-          timelineMonths={timelineMonths}
-          isTimelineLoading={isTimelineLoading}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          compact={compact}
-        />
+        {/* Single white container wrapping everything - Stitch style */}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <Header
+            selectedYear={selectedYear}
+            onSelectYear={setSelectedYear}
+            selectedCalendarMonth={selectedMonth}
+            onSelectMonth={setSelectedMonth}
+            anchorAbsoluteYear={anchorYear}
+            anchorCalendarMonth={anchorMonth}
+            resolution={resolution}
+            timelineYears={timelineYears}
+            timelineMonths={timelineMonths}
+            isTimelineLoading={isTimelineLoading}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            compact={compact}
+          />
 
-        {/* Cashflow cards - always visible */}
-        <div className={clsx(
-          compact ? 'px-4 py-4' : 'flex-1 overflow-auto px-6 py-6'
-        )}>
+          {/* Financial data content */}
+          <div className={clsx(
+            compact ? 'px-4 pb-4' : 'px-6 pb-6'
+          )}>
             <div className={clsx('flex flex-col', compact ? 'gap-4' : 'gap-6')}>
               {/* Summary cards at top - side by side */}
               <SummaryCards
@@ -998,6 +1000,7 @@ export function FinancialDataManagement({
               </div>
             </div>
           </div>
+        </div>
       </div>
 
       <FinancialFormModal
