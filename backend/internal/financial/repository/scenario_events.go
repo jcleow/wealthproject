@@ -10,42 +10,9 @@ import (
 	"time"
 )
 
-// listScenarioEventsWithImpactsQuery returns paginated events and their impacts in one round-trip.
-// Ordering: events by occurs_on ASC, created_at DESC; impacts by start_date ASC NULLS LAST, created_at ASC.
-const listScenarioEventsWithImpactsQuery = `
-WITH filtered_events AS (
-	SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
-	FROM scenario_events
-	WHERE %s
-	ORDER BY occurs_on ASC, created_at DESC
-	LIMIT $%d OFFSET $%d
-)
-SELECT fe.id, fe.user_id, fe.name, fe.description, fe.occurs_on, fe.display_icon, fe.display_color, fe.tags, fe.scenario_id, fe.is_included, fe.created_at, fe.updated_at,
-       imp.id, imp.event_id,
-       CASE
-         WHEN imp.target_asset_id IS NOT NULL THEN 'asset'
-         WHEN imp.target_liability_id IS NOT NULL THEN 'liability'
-         WHEN imp.target_income_id IS NOT NULL THEN 'income'
-         WHEN imp.target_expense_id IS NOT NULL THEN 'expense'
-         WHEN imp.target_cash_account_id IS NOT NULL THEN 'cash_account'
-         WHEN imp.target_investment_id IS NOT NULL THEN 'investment'
-         ELSE ''
-       END as target_type,
-       COALESCE(imp.target_asset_id, imp.target_liability_id, imp.target_income_id, imp.target_expense_id, imp.target_cash_account_id, imp.target_investment_id) as target_id,
-       imp.impact_kind, imp.amount, 'SGD' as currency, imp.cadence,
-       COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as start_date,
-       COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as end_date,
-       COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as notes,
-       imp.created_at
-FROM filtered_events fe
-LEFT JOIN scenario_event_impacts imp ON imp.event_id = fe.id
-LEFT JOIN finance_assets a ON imp.target_asset_id = a.id
-LEFT JOIN finance_liabilities l ON imp.target_liability_id = l.id
-LEFT JOIN finance_incomes inc ON imp.target_income_id = inc.id
-LEFT JOIN finance_expenses exp ON imp.target_expense_id = exp.id
-LEFT JOIN finance_cash_accounts ca ON imp.target_cash_account_id = ca.id
-LEFT JOIN finance_investments inv ON imp.target_investment_id = inv.id
-ORDER BY fe.occurs_on ASC, fe.created_at DESC, imp.created_at ASC`
+// NOTE: The scenario_event_impacts table has been deprecated.
+// Impacts are now stored directly in finance_* tables with scenario_event_id FK.
+// The queries below use the new architecture.
 
 // ScenarioEvent represents a scenario event with impacts.
 type ScenarioEvent struct {
@@ -90,7 +57,9 @@ type ScenarioFilters struct {
 	Offset       int
 }
 
-// CreateScenarioEvent inserts a scenario event and its impacts.
+// CreateScenarioEvent inserts a scenario event.
+// NEW ARCHITECTURE: Impact creation is done through V2 API which inserts into finance_* tables.
+// Note: For full impact management, use the V2 API (CreateScenarioEventV2).
 func (s *Store) CreateScenarioEvent(ctx context.Context, ev ScenarioEvent) (ScenarioEvent, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -113,19 +82,15 @@ func (s *Store) CreateScenarioEvent(ctx context.Context, ev ScenarioEvent) (Scen
 	}
 	created.Tags = decodeStringArray(tagsBytes)
 
-	if len(ev.Impacts) > 0 {
-		if err := insertImpacts(ctx, tx, created.ID, ev.Impacts); err != nil {
-			return ScenarioEvent{}, err
-		}
-	}
+	// Note: Impact insertion is not supported in V1 - impacts should be created through V2 API
+	// which inserts into finance_* tables with scenario_event_id, impact_kind, and impact_frequency
 
 	if err := tx.Commit(); err != nil {
 		return ScenarioEvent{}, err
 	}
 
-	if len(ev.Impacts) > 0 {
-		created.Impacts, _ = s.ListScenarioImpacts(ctx, created.UserID, created.ID)
-	}
+	// Fetch any existing impacts (in case they were created separately)
+	created.Impacts, _ = s.ListScenarioImpacts(ctx, created.UserID, created.ID)
 	return created, nil
 }
 
@@ -149,6 +114,7 @@ func (s *Store) GetScenarioEvent(ctx context.Context, userID, eventID string) (S
 }
 
 // ListScenarioEvents returns paginated events for a user plus total count.
+// NEW ARCHITECTURE: Impacts are now stored in finance_* tables with scenario_event_id FK.
 func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters ScenarioFilters) ([]ScenarioEvent, int, error) {
 	limit := filters.Limit
 	if limit <= 0 || limit > 100 {
@@ -187,39 +153,29 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 		return nil, 0, err
 	}
 
-	cte := fmt.Sprintf(listScenarioEventsWithImpactsQuery, whereClause, len(args)+1, len(args)+2)
+	// Fetch events without impacts first (simpler query)
+	query := fmt.Sprintf(`
+		SELECT id, user_id, name, description, occurs_on, display_icon, display_color, tags, scenario_id, is_included, created_at, updated_at
+		FROM scenario_events
+		WHERE %s
+		ORDER BY occurs_on ASC, created_at DESC
+		LIMIT $%d OFFSET $%d`,
+		whereClause, len(args)+1, len(args)+2)
 
-	rows, err := s.db.QueryContext(ctx, cte, append(args, limit, offset)...)
+	rows, err := s.db.QueryContext(ctx, query, append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var events []ScenarioEvent
-	eventMap := map[string]*ScenarioEvent{}
-
 	for rows.Next() {
 		var ev ScenarioEvent
 		var tagsJSON []byte
 		var scenarioID sql.NullString
 
-		// All impact fields must be nullable since LEFT JOIN can return NULLs
-		var impID sql.NullString
-		var impEventID sql.NullString
-		var impTargetType sql.NullString
-		var impTargetID sql.NullString
-		var impImpactKind sql.NullString
-		var impAmount sql.NullInt64
-		var impCurrency sql.NullString
-		var impCadence sql.NullString
-		var impStartDate sql.NullTime
-		var impEndDate sql.NullTime
-		var impNotes sql.NullString
-		var impCreatedAt sql.NullTime
-
 		if err := rows.Scan(
 			&ev.ID, &ev.UserID, &ev.Name, &ev.Description, &ev.OccursOn, &ev.DisplayIcon, &ev.DisplayColor, &tagsJSON, &scenarioID, &ev.IsIncluded, &ev.CreatedAt, &ev.UpdatedAt,
-			&impID, &impEventID, &impTargetType, &impTargetID, &impImpactKind, &impAmount, &impCurrency, &impCadence, &impStartDate, &impEndDate, &impNotes, &impCreatedAt,
 		); err != nil {
 			return nil, 0, err
 		}
@@ -228,57 +184,32 @@ func (s *Store) ListScenarioEvents(ctx context.Context, userID string, filters S
 		if scenarioID.Valid {
 			ev.ScenarioID = &scenarioID.String
 		}
-
-		current, exists := eventMap[ev.ID]
-		if !exists {
-			events = append(events, ev)
-			current = &events[len(events)-1]
-			eventMap[ev.ID] = current
-		}
-
-		if impID.Valid {
-			// StartMonth is required by database schema (NOT NULL constraint)
-			if !impStartDate.Valid {
-				return nil, 0, fmt.Errorf("impact %s has NULL start_date (database constraint violation)", impID.String)
-			}
-
-			imp := ScenarioImpact{
-				ID:         impID.String,
-				EventID:    ev.ID,
-				TargetType: impTargetType.String,
-				ImpactKind: impImpactKind.String,
-				Amount:     impAmount.Int64,
-				Currency:   impCurrency.String,
-				Cadence:    impCadence.String,
-				StartDate:  impStartDate.Time, // Safe to access since we checked Valid above
-				Notes:      impNotes.String,
-			}
-			if impTargetID.Valid {
-				imp.TargetID = &impTargetID.String
-			}
-			if impEventID.Valid {
-				imp.EventID = impEventID.String
-			}
-			if impEndDate.Valid {
-				imp.EndDate = &impEndDate.Time
-			}
-			if impCreatedAt.Valid {
-				imp.CreatedAt = impCreatedAt.Time
-			}
-			current.Impacts = append(current.Impacts, imp)
-		}
-	}
-	if events == nil {
-		events = []ScenarioEvent{}
+		ev.Impacts = []ScenarioImpact{} // Will be populated below
+		events = append(events, ev)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, err
+	}
+
+	// Fetch impacts for each event from finance tables
+	for i := range events {
+		impacts, err := s.ListScenarioImpacts(ctx, userID, events[i].ID)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to fetch impacts for event %s: %w", events[i].ID, err)
+		}
+		events[i].Impacts = impacts
+	}
+
+	if events == nil {
+		events = []ScenarioEvent{}
 	}
 
 	return events, total, nil
 }
 
 // UpdateScenarioEvent replaces metadata and impacts.
+// NEW ARCHITECTURE: Impacts are managed through finance_* tables.
+// Note: For full impact management, use the V2 API (UpdateScenarioEventV2).
 func (s *Store) UpdateScenarioEvent(ctx context.Context, ev ScenarioEvent) (ScenarioEvent, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -304,14 +235,23 @@ func (s *Store) UpdateScenarioEvent(ctx context.Context, ev ScenarioEvent) (Scen
 	}
 	updated.Tags = decodeStringArray(tagsBytes)
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM scenario_event_impacts WHERE event_id=$1`, ev.ID); err != nil {
-		return ScenarioEvent{}, err
+	// NEW ARCHITECTURE: Delete impacts from finance_* tables for this event
+	tables := []string{
+		"finance_incomes",
+		"finance_expenses",
+		"finance_assets",
+		"finance_liabilities",
+		"finance_investments",
+		"finance_cash_accounts",
 	}
-	if len(ev.Impacts) > 0 {
-		if err := insertImpacts(ctx, tx, ev.ID, ev.Impacts); err != nil {
-			return ScenarioEvent{}, err
+	for _, table := range tables {
+		query := fmt.Sprintf(`DELETE FROM %s WHERE scenario_event_id = $1 AND user_id = $2`, table)
+		if _, err := tx.ExecContext(ctx, query, ev.ID, ev.UserID); err != nil {
+			return ScenarioEvent{}, fmt.Errorf("failed to delete impacts from %s: %w", table, err)
 		}
 	}
+
+	// Note: Impact insertion is not supported in V1 - use V2 API for that
 	if err := tx.Commit(); err != nil {
 		return ScenarioEvent{}, err
 	}
@@ -348,101 +288,261 @@ func (s *Store) ToggleScenarioIncluded(ctx context.Context, userID, eventID stri
 	return nil
 }
 
-// ListScenarioImpacts lists impacts for an event.
+// ListScenarioImpacts lists impacts for an event by querying finance tables.
+// NEW ARCHITECTURE: Impacts are stored in finance_* tables with scenario_event_id FK.
 // Requires userID for defense-in-depth ownership verification.
 func (s *Store) ListScenarioImpacts(ctx context.Context, userID, eventID string) ([]ScenarioImpact, error) {
-	rows, err := s.db.QueryContext(ctx, `
-		SELECT imp.id, imp.event_id,
-		       CASE
-		         WHEN imp.target_asset_id IS NOT NULL THEN 'asset'
-		         WHEN imp.target_liability_id IS NOT NULL THEN 'liability'
-		         WHEN imp.target_income_id IS NOT NULL THEN 'income'
-		         WHEN imp.target_expense_id IS NOT NULL THEN 'expense'
-		         WHEN imp.target_cash_account_id IS NOT NULL THEN 'cash_account'
-		         WHEN imp.target_investment_id IS NOT NULL THEN 'investment'
-		         ELSE ''
-		       END as target_type,
-		       COALESCE(imp.target_asset_id, imp.target_liability_id, imp.target_income_id, imp.target_expense_id, imp.target_cash_account_id, imp.target_investment_id) as target_id,
-		       imp.impact_kind, imp.amount, 'SGD' as currency, imp.cadence,
-		       COALESCE(a.start_date, l.start_date, inc.start_date, exp.start_date, ca.start_date, inv.start_date) as start_date,
-		       COALESCE(a.end_date, l.end_date, inc.end_date, exp.end_date, ca.end_date, inv.end_date) as end_date,
-		       COALESCE(a.notes, l.notes, inc.notes, exp.notes, ca.notes, inv.notes, '') as notes,
-		       imp.created_at
-		FROM scenario_event_impacts imp
-		JOIN scenario_events ev ON imp.event_id = ev.id
-		LEFT JOIN finance_assets a ON imp.target_asset_id = a.id
-		LEFT JOIN finance_liabilities l ON imp.target_liability_id = l.id
-		LEFT JOIN finance_incomes inc ON imp.target_income_id = inc.id
-		LEFT JOIN finance_expenses exp ON imp.target_expense_id = exp.id
-		LEFT JOIN finance_cash_accounts ca ON imp.target_cash_account_id = ca.id
-		LEFT JOIN finance_investments inv ON imp.target_investment_id = inv.id
-		WHERE imp.event_id = $1 AND ev.user_id = $2
-		ORDER BY imp.created_at ASC`, eventID, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 	var impacts []ScenarioImpact
-	for rows.Next() {
-		var imp ScenarioImpact
-		var startMonth sql.NullTime
-		var endMonth sql.NullTime
-		var targetID sql.NullString
-		if err := rows.Scan(&imp.ID, &imp.EventID, &imp.TargetType, &targetID, &imp.ImpactKind, &imp.Amount, &imp.Currency, &imp.Cadence, &startMonth, &endMonth, &imp.Notes, &imp.CreatedAt); err != nil {
+
+	// Query income impacts
+	incomeRows, err := s.db.QueryContext(ctx, `
+		SELECT id, COALESCE(parent_id, id), name, amount, start_date, end_date,
+		       COALESCE(notes, ''), impact_kind, COALESCE(impact_frequency, 'monthly'), updated_at
+		FROM finance_incomes
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query income impacts: %w", err)
+	}
+	defer incomeRows.Close()
+	for incomeRows.Next() {
+		var id, parentID, name, notes string
+		var amount float64
+		var startDate time.Time
+		var endDate sql.NullTime
+		var impactKind, impactFrequency sql.NullString
+		var updatedAt time.Time
+		if err := incomeRows.Scan(&id, &parentID, &name, &amount, &startDate, &endDate,
+			&notes, &impactKind, &impactFrequency, &updatedAt); err != nil {
 			return nil, err
 		}
-
-		// StartMonth is required by database schema (NOT NULL constraint)
-		if !startMonth.Valid {
-			return nil, fmt.Errorf("impact %s has NULL start_date (database constraint violation)", imp.ID)
+		imp := ScenarioImpact{
+			ID:         id,
+			EventID:    eventID,
+			TargetType: "income",
+			TargetID:   &parentID,
+			ImpactKind: impactKind.String,
+			Amount:     int64(amount),
+			Currency:   "SGD",
+			Cadence:    impactFrequency.String,
+			StartDate:  startDate,
+			Notes:      notes,
+			CreatedAt:  updatedAt,
 		}
-		imp.StartDate = startMonth.Time
-
-		if targetID.Valid {
-			imp.TargetID = &targetID.String
-		}
-		if endMonth.Valid {
-			imp.EndDate = &endMonth.Time
+		if endDate.Valid {
+			imp.EndDate = &endDate.Time
 		}
 		impacts = append(impacts, imp)
 	}
+
+	// Query expense impacts
+	expenseRows, err := s.db.QueryContext(ctx, `
+		SELECT id, COALESCE(parent_id, id), name, amount, start_date, end_date,
+		       COALESCE(notes, ''), impact_kind, COALESCE(impact_frequency, 'monthly'), updated_at
+		FROM finance_expenses
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query expense impacts: %w", err)
+	}
+	defer expenseRows.Close()
+	for expenseRows.Next() {
+		var id, parentID, name, notes string
+		var amount float64
+		var startDate time.Time
+		var endDate sql.NullTime
+		var impactKind, impactFrequency sql.NullString
+		var updatedAt time.Time
+		if err := expenseRows.Scan(&id, &parentID, &name, &amount, &startDate, &endDate,
+			&notes, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		imp := ScenarioImpact{
+			ID:         id,
+			EventID:    eventID,
+			TargetType: "expense",
+			TargetID:   &parentID,
+			ImpactKind: impactKind.String,
+			Amount:     int64(amount),
+			Currency:   "SGD",
+			Cadence:    impactFrequency.String,
+			StartDate:  startDate,
+			Notes:      notes,
+			CreatedAt:  updatedAt,
+		}
+		if endDate.Valid {
+			imp.EndDate = &endDate.Time
+		}
+		impacts = append(impacts, imp)
+	}
+
+	// Query asset impacts
+	assetRows, err := s.db.QueryContext(ctx, `
+		SELECT id, COALESCE(parent_id, id), name, current_value, start_date, end_date,
+		       COALESCE(notes, ''), impact_kind, COALESCE(impact_frequency, 'monthly'), updated_at
+		FROM finance_assets
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query asset impacts: %w", err)
+	}
+	defer assetRows.Close()
+	for assetRows.Next() {
+		var id, parentID, name, notes string
+		var currentValue float64
+		var startDate time.Time
+		var endDate sql.NullTime
+		var impactKind, impactFrequency sql.NullString
+		var updatedAt time.Time
+		if err := assetRows.Scan(&id, &parentID, &name, &currentValue, &startDate, &endDate,
+			&notes, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		imp := ScenarioImpact{
+			ID:         id,
+			EventID:    eventID,
+			TargetType: "asset",
+			TargetID:   &parentID,
+			ImpactKind: impactKind.String,
+			Amount:     int64(currentValue),
+			Currency:   "SGD",
+			Cadence:    impactFrequency.String,
+			StartDate:  startDate,
+			Notes:      notes,
+			CreatedAt:  updatedAt,
+		}
+		if endDate.Valid {
+			imp.EndDate = &endDate.Time
+		}
+		impacts = append(impacts, imp)
+	}
+
+	// Query liability impacts
+	liabilityRows, err := s.db.QueryContext(ctx, `
+		SELECT id, COALESCE(parent_id, id), name, current_balance, start_date, end_date,
+		       COALESCE(notes, ''), impact_kind, COALESCE(impact_frequency, 'monthly'), updated_at
+		FROM finance_liabilities
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query liability impacts: %w", err)
+	}
+	defer liabilityRows.Close()
+	for liabilityRows.Next() {
+		var id, parentID, name, notes string
+		var currentBalance float64
+		var startDate time.Time
+		var endDate sql.NullTime
+		var impactKind, impactFrequency sql.NullString
+		var updatedAt time.Time
+		if err := liabilityRows.Scan(&id, &parentID, &name, &currentBalance, &startDate, &endDate,
+			&notes, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		imp := ScenarioImpact{
+			ID:         id,
+			EventID:    eventID,
+			TargetType: "liability",
+			TargetID:   &parentID,
+			ImpactKind: impactKind.String,
+			Amount:     int64(currentBalance),
+			Currency:   "SGD",
+			Cadence:    impactFrequency.String,
+			StartDate:  startDate,
+			Notes:      notes,
+			CreatedAt:  updatedAt,
+		}
+		if endDate.Valid {
+			imp.EndDate = &endDate.Time
+		}
+		impacts = append(impacts, imp)
+	}
+
+	// Query investment impacts
+	investmentRows, err := s.db.QueryContext(ctx, `
+		SELECT id, COALESCE(parent_id, id), name, current_value, start_date, end_date,
+		       COALESCE(notes, ''), impact_kind, COALESCE(impact_frequency, 'monthly'), updated_at
+		FROM finance_investments
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query investment impacts: %w", err)
+	}
+	defer investmentRows.Close()
+	for investmentRows.Next() {
+		var id, parentID, name, notes string
+		var currentValue float64
+		var startDate time.Time
+		var endDate sql.NullTime
+		var impactKind, impactFrequency sql.NullString
+		var updatedAt time.Time
+		if err := investmentRows.Scan(&id, &parentID, &name, &currentValue, &startDate, &endDate,
+			&notes, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		imp := ScenarioImpact{
+			ID:         id,
+			EventID:    eventID,
+			TargetType: "investment",
+			TargetID:   &parentID,
+			ImpactKind: impactKind.String,
+			Amount:     int64(currentValue),
+			Currency:   "SGD",
+			Cadence:    impactFrequency.String,
+			StartDate:  startDate,
+			Notes:      notes,
+			CreatedAt:  updatedAt,
+		}
+		if endDate.Valid {
+			imp.EndDate = &endDate.Time
+		}
+		impacts = append(impacts, imp)
+	}
+
+	// Query cash account impacts
+	cashRows, err := s.db.QueryContext(ctx, `
+		SELECT id, COALESCE(parent_id, id), name, balance, start_date, end_date,
+		       COALESCE(notes, ''), impact_kind, COALESCE(impact_frequency, 'monthly'), updated_at
+		FROM finance_cash_accounts
+		WHERE scenario_event_id = $1 AND user_id = $2`, eventID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query cash account impacts: %w", err)
+	}
+	defer cashRows.Close()
+	for cashRows.Next() {
+		var id, parentID, name, notes string
+		var balance float64
+		var startDate time.Time
+		var endDate sql.NullTime
+		var impactKind, impactFrequency sql.NullString
+		var updatedAt time.Time
+		if err := cashRows.Scan(&id, &parentID, &name, &balance, &startDate, &endDate,
+			&notes, &impactKind, &impactFrequency, &updatedAt); err != nil {
+			return nil, err
+		}
+		imp := ScenarioImpact{
+			ID:         id,
+			EventID:    eventID,
+			TargetType: "cash_account",
+			TargetID:   &parentID,
+			ImpactKind: impactKind.String,
+			Amount:     int64(balance),
+			Currency:   "SGD",
+			Cadence:    impactFrequency.String,
+			StartDate:  startDate,
+			Notes:      notes,
+			CreatedAt:  updatedAt,
+		}
+		if endDate.Valid {
+			imp.EndDate = &endDate.Time
+		}
+		impacts = append(impacts, imp)
+	}
+
 	if impacts == nil {
 		impacts = []ScenarioImpact{}
 	}
-	return impacts, rows.Err()
+	return impacts, nil
 }
 
-func insertImpacts(ctx context.Context, tx *sql.Tx, eventID string, impacts []ScenarioImpact) error {
-	for _, imp := range impacts {
-		// Map target_type + target_id to typed FK columns
-		var targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID interface{}
-		switch imp.TargetType {
-		case "asset":
-			targetAssetID = imp.TargetID
-		case "liability":
-			targetLiabilityID = imp.TargetID
-		case "income":
-			targetIncomeID = imp.TargetID
-		case "expense":
-			targetExpenseID = imp.TargetID
-		case "cash_account":
-			targetCashAccountID = imp.TargetID
-		case "investment":
-			targetInvestmentID = imp.TargetID
-		}
-
-		if _, err := tx.ExecContext(ctx, `
-			INSERT INTO scenario_event_impacts
-			(event_id, impact_kind, amount, cadence,
-			 target_asset_id, target_liability_id, target_income_id, target_expense_id, target_cash_account_id, target_investment_id)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-			eventID, imp.ImpactKind, imp.Amount, imp.Cadence,
-			targetAssetID, targetLiabilityID, targetIncomeID, targetExpenseID, targetCashAccountID, targetInvestmentID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
+// NOTE: insertImpacts function has been removed.
+// Impact insertion is now done through V2 API which inserts into finance_* tables
+// with scenario_event_id, impact_kind, and impact_frequency columns.
 
 func decodeStringArray(b []byte) []string {
 	if len(b) == 0 {
