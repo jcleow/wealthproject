@@ -119,21 +119,16 @@ function drawMarker(
   iconFallback: string,
   opacity: number
 ): void {
-  const { radius, iconSize, strokeColor, strokeWidth } = MARKER_CONFIG
+  const { radius, iconSize } = MARKER_CONFIG
 
   ctx.save()
   ctx.globalAlpha = opacity
 
-  // Draw circle background
+  // Draw circle background (no border for clean Stitch-style look)
   ctx.beginPath()
   ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
   ctx.fillStyle = color
   ctx.fill()
-
-  // Draw border
-  ctx.strokeStyle = strokeColor
-  ctx.lineWidth = strokeWidth
-  ctx.stroke()
 
   // Draw icon or fallback text
   if (iconImage) {
@@ -166,22 +161,17 @@ function drawCompoundMarker(
   opacity: number
 ): void {
   const { innerRadius } = COMPOUND_MARKER_CONFIG
-  const { iconSize, strokeColor, strokeWidth, disabledOpacity } = MARKER_CONFIG
+  const { iconSize, disabledOpacity } = MARKER_CONFIG
 
   ctx.save()
   const markerOpacity = opacity * (marker.isIncluded ? 1 : disabledOpacity)
   ctx.globalAlpha = markerOpacity
 
-  // Draw circle background (same as regular marker)
+  // Draw circle background (no border for clean Stitch-style look)
   ctx.beginPath()
   ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2)
   ctx.fillStyle = marker.iconColor
   ctx.fill()
-
-  // Draw circle border
-  ctx.strokeStyle = strokeColor
-  ctx.lineWidth = strokeWidth
-  ctx.stroke()
 
   // Draw icon
   const iconImage = marker.iconImage || getCachedIcon(marker.icon)
@@ -216,21 +206,15 @@ function drawNestedMilestone(
   opacity: number
 ): void {
   const { nestedRadius, nestedIconSize } = COMPOUND_MARKER_CONFIG
-  const { strokeColor, strokeWidth } = MARKER_CONFIG
 
   ctx.save()
   ctx.globalAlpha = opacity
 
-  // Draw circle background
+  // Draw circle background (no border for clean Stitch-style look)
   ctx.beginPath()
   ctx.arc(centerX, centerY, nestedRadius, 0, Math.PI * 2)
   ctx.fillStyle = iconColor
   ctx.fill()
-
-  // Draw circle border
-  ctx.strokeStyle = strokeColor
-  ctx.lineWidth = strokeWidth
-  ctx.stroke()
 
   // Draw icon
   const iconImage = getCachedIcon(iconName)

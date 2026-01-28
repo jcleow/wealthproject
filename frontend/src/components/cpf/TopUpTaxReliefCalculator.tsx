@@ -6,6 +6,7 @@ import { Calculator, ArrowRight, Info, AlertCircle } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { calculateMockRSTU, calculateMockOAtoSATransfer, CPF_LIMITS } from '@/lib/cpf-mock-data'
+import { useTheme } from '@/lib/theme'
 import type { CPFProfile } from '@/types/cpf'
 
 interface TopUpTaxReliefCalculatorProps {
@@ -15,28 +16,43 @@ interface TopUpTaxReliefCalculatorProps {
 
 export function TopUpTaxReliefCalculator({ profile, className }: TopUpTaxReliefCalculatorProps) {
   const [activeTab, setActiveTab] = useState<'rstu' | 'transfer'>('rstu')
+  const { theme, isMonet } = useTheme()
 
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Tab Selector */}
-      <div className="flex rounded-lg border border-white/[0.08] bg-[#0a0a0a] p-1">
+      <div
+        className="flex rounded-lg p-1"
+        style={{
+          background: isMonet ? theme.controlBg : '#0a0a0a',
+          border: `1px solid ${theme.controlBorder}`,
+        }}
+      >
         <button
           onClick={() => setActiveTab('rstu')}
-          className={`flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition ${
-            activeTab === 'rstu'
-              ? 'bg-emerald-500/20 text-emerald-400'
-              : 'text-slate-400 hover:text-white'
-          }`}
+          className="flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition"
+          style={{
+            background: activeTab === 'rstu'
+              ? isMonet ? 'rgba(127, 178, 133, 0.15)' : 'rgba(52, 211, 153, 0.2)'
+              : 'transparent',
+            color: activeTab === 'rstu'
+              ? theme.sage
+              : theme.textMuted,
+          }}
         >
           RSTU Tax Relief
         </button>
         <button
           onClick={() => setActiveTab('transfer')}
-          className={`flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition ${
-            activeTab === 'transfer'
-              ? 'bg-blue-500/20 text-blue-400'
-              : 'text-slate-400 hover:text-white'
-          }`}
+          className="flex-1 rounded-md px-4 py-2.5 text-sm font-medium transition"
+          style={{
+            background: activeTab === 'transfer'
+              ? isMonet ? 'rgba(123, 163, 201, 0.15)' : 'rgba(96, 165, 250, 0.2)'
+              : 'transparent',
+            color: activeTab === 'transfer'
+              ? theme.blue
+              : theme.textMuted,
+          }}
         >
           OA to SA Transfer
         </button>
@@ -54,6 +70,7 @@ export function TopUpTaxReliefCalculator({ profile, className }: TopUpTaxReliefC
 function RSTUCalculator({ profile }: { profile: CPFProfile }) {
   const [selfTopUp, setSelfTopUp] = useState(0)
   const [familyTopUp, setFamilyTopUp] = useState(0)
+  const { theme, isMonet } = useTheme()
 
   const annualIncome = profile.monthlyIncome * 12 + profile.annualBonus
 
@@ -64,13 +81,17 @@ function RSTUCalculator({ profile }: { profile: CPFProfile }) {
   return (
     <div className="space-y-6">
       {/* Info Banner */}
-      <div className={`p-4
-rounded-xl border border-emerald-500/20
-bg-emerald-500/5`}>
+      <div
+        className="p-4 rounded-xl"
+        style={{
+          background: isMonet ? 'rgba(127, 178, 133, 0.08)' : 'rgba(52, 211, 153, 0.05)',
+          border: `1px solid ${isMonet ? 'rgba(127, 178, 133, 0.2)' : 'rgba(52, 211, 153, 0.2)'}`,
+        }}
+      >
         <div className="flex items-start gap-3">
-          <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-400" />
-          <div className="text-xs text-slate-300">
-            <p className="font-medium text-emerald-300">
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: theme.sage }} />
+          <div className="text-xs" style={{ color: theme.textSecondary }}>
+            <p className="font-medium" style={{ color: isMonet ? theme.sageDark : theme.sageLight }}>
               Retirement Sum Topping-Up (RSTU) Scheme
             </p>
             <p className="mt-1">
@@ -82,46 +103,61 @@ bg-emerald-500/5`}>
       </div>
 
       {/* Input Form */}
-      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-        <h3 className="mb-4 text-sm font-medium text-slate-300">Calculate Your Tax Relief</h3>
+      <div
+        className="rounded-xl p-5"
+        style={{
+          background: isMonet ? theme.cardBg : '#0a0a0a',
+          border: `1px solid ${theme.cardBorder}`,
+        }}
+      >
+        <h3 className="mb-4 text-sm font-medium" style={{ color: theme.textSecondary }}>
+          Calculate Your Tax Relief
+        </h3>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-xs text-slate-400">Self Top-up Amount</label>
+            <label className="text-xs" style={{ color: theme.textMuted }}>Self Top-up Amount</label>
             <CurrencyInput
               value={selfTopUp}
               onChange={setSelfTopUp}
               placeholder="0"
               size="sm"
             />
-            <p className="text-xs text-slate-500">
+            <p className="text-xs" style={{ color: theme.textMuted }}>
               Max relief: ${CPF_LIMITS.rstuSelfCap.toLocaleString()}
             </p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs text-slate-400">Family Top-up Amount</label>
+            <label className="text-xs" style={{ color: theme.textMuted }}>Family Top-up Amount</label>
             <CurrencyInput
               value={familyTopUp}
               onChange={setFamilyTopUp}
               placeholder="0"
               size="sm"
             />
-            <p className="text-xs text-slate-500">
+            <p className="text-xs" style={{ color: theme.textMuted }}>
               Max relief: ${CPF_LIMITS.rstuFamilyCap.toLocaleString()}
             </p>
           </div>
         </div>
 
         {/* Your Income Info */}
-        <div className="mt-4 rounded-lg bg-white/[0.02] p-3">
+        <div
+          className="mt-4 rounded-lg p-3"
+          style={{
+            background: theme.surfaceBg,
+          }}
+        >
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400">Your estimated annual income</span>
-            <span className="font-medium text-white">{formatCurrency(annualIncome)}</span>
+            <span style={{ color: theme.textMuted }}>Your estimated annual income</span>
+            <span className="font-medium" style={{ color: theme.textPrimary }}>
+              {formatCurrency(annualIncome)}
+            </span>
           </div>
           <div className="mt-1 flex items-center justify-between text-xs">
-            <span className="text-slate-400">Marginal tax rate</span>
-            <span className="font-medium text-amber-400">
+            <span style={{ color: theme.textMuted }}>Marginal tax rate</span>
+            <span className="font-medium" style={{ color: theme.amber }}>
               {(result.marginalTaxRate * 100).toFixed(1)}%
             </span>
           </div>
@@ -129,10 +165,16 @@ bg-emerald-500/5`}>
       </div>
 
       {/* Results */}
-      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
+      <div
+        className="rounded-xl p-5"
+        style={{
+          background: isMonet ? theme.cardBg : '#0a0a0a',
+          border: `1px solid ${theme.cardBorder}`,
+        }}
+      >
         <div className="flex items-center gap-2 mb-4">
-          <Calculator className="h-4 w-4 text-emerald-400" />
-          <h3 className="text-sm font-medium text-slate-300">Tax Relief Summary</h3>
+          <Calculator className="h-4 w-4" style={{ color: theme.sage }} />
+          <h3 className="text-sm font-medium" style={{ color: theme.textSecondary }}>Tax Relief Summary</h3>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
@@ -148,14 +190,23 @@ bg-emerald-500/5`}>
             remaining={result.familyReliefRemaining}
             cap={CPF_LIMITS.rstuFamilyCap}
           />
-          <div className={`p-4
-rounded-lg border border-emerald-500/30
-bg-emerald-500/10`}>
-            <p className="text-xs text-emerald-300">Total Tax Savings</p>
-            <p className="mt-1 text-2xl font-semibold text-emerald-400">
+          <div
+            className="p-4 rounded-lg"
+            style={{
+              background: isMonet ? 'rgba(127, 178, 133, 0.1)' : 'rgba(52, 211, 153, 0.1)',
+              border: `1px solid ${isMonet ? 'rgba(127, 178, 133, 0.3)' : 'rgba(52, 211, 153, 0.3)'}`,
+            }}
+          >
+            <p className="text-xs" style={{ color: isMonet ? theme.sageDark : theme.sageLight }}>
+              Total Tax Savings
+            </p>
+            <p className="mt-1 text-2xl font-semibold" style={{ color: theme.sage }}>
               {formatCurrency(result.taxSavings)}
             </p>
-            <p className="mt-1 text-xs text-emerald-300/70">
+            <p
+              className="mt-1 text-xs"
+              style={{ color: isMonet ? 'rgba(90, 138, 94, 0.7)' : 'rgba(52, 211, 153, 0.7)' }}
+            >
               On {formatCurrency(result.totalRelief)} relief
             </p>
           </div>
@@ -163,13 +214,15 @@ bg-emerald-500/10`}>
 
         {/* Optimization Tips */}
         {result.selfReliefRemaining > 0 && (
-          <div className={`flex items-start
-mt-4 gap-3 p-3
-rounded-lg
-bg-blue-500/5`}>
-            <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
-            <p className="text-xs text-slate-300">
-              <span className="font-medium text-blue-300">Tip: </span>
+          <div
+            className="flex items-start mt-4 gap-3 p-3 rounded-lg"
+            style={{
+              background: isMonet ? 'rgba(123, 163, 201, 0.08)' : 'rgba(96, 165, 250, 0.05)',
+            }}
+          >
+            <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: theme.blue }} />
+            <p className="text-xs" style={{ color: theme.textSecondary }}>
+              <span className="font-medium" style={{ color: theme.blueLight }}>Tip: </span>
               You can still top up {formatCurrency(result.selfReliefRemaining)} to your SA/RA to
               maximize your tax relief this year.
             </p>
@@ -182,6 +235,7 @@ bg-blue-500/5`}>
 
 function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
   const [transferAmount, setTransferAmount] = useState(0)
+  const { theme, isMonet } = useTheme()
 
   const result = useMemo(() => {
     return calculateMockOAtoSATransfer(
@@ -201,11 +255,19 @@ function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
   return (
     <div className="space-y-6">
       {/* Warning Banner */}
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+      <div
+        className="rounded-xl p-4"
+        style={{
+          background: isMonet ? 'rgba(212, 165, 116, 0.08)' : 'rgba(251, 191, 36, 0.05)',
+          border: `1px solid ${isMonet ? 'rgba(212, 165, 116, 0.2)' : 'rgba(251, 191, 36, 0.2)'}`,
+        }}
+      >
         <div className="flex items-start gap-3">
-          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
-          <div className="text-xs text-slate-300">
-            <p className="font-medium text-amber-300">One-Way Transfer</p>
+          <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: theme.amber }} />
+          <div className="text-xs" style={{ color: theme.textSecondary }}>
+            <p className="font-medium" style={{ color: isMonet ? theme.amber : theme.amberLight }}>
+              One-Way Transfer
+            </p>
             <p className="mt-1">
               OA to SA transfers are <strong>irreversible</strong>. Once transferred, funds cannot
               be moved back to OA. SA funds can only be used for retirement and approved
@@ -217,37 +279,70 @@ function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
 
       {/* Current Balances */}
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
-          <p className="text-xs text-slate-400">Current OA Balance</p>
-          <p className="mt-1 text-xl font-semibold text-blue-400">
+        <div
+          className="rounded-xl p-4"
+          style={{
+            background: isMonet ? theme.cardBg : '#0a0a0a',
+            border: `1px solid ${theme.cardBorder}`,
+          }}
+        >
+          <p className="text-xs" style={{ color: theme.textMuted }}>Current OA Balance</p>
+          <p className="mt-1 text-xl font-semibold" style={{ color: theme.blue }}>
             {formatCurrency(profile.balances.oa)}
           </p>
-          <p className="mt-1 text-xs text-slate-500">Earns 2.5% p.a.</p>
+          <p className="mt-1 text-xs" style={{ color: theme.textMuted }}>Earns 2.5% p.a.</p>
         </div>
-        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
-          <p className="text-xs text-slate-400">Current SA Balance</p>
-          <p className="mt-1 text-xl font-semibold text-emerald-400">
+        <div
+          className="rounded-xl p-4"
+          style={{
+            background: isMonet ? theme.cardBg : '#0a0a0a',
+            border: `1px solid ${theme.cardBorder}`,
+          }}
+        >
+          <p className="text-xs" style={{ color: theme.textMuted }}>Current SA Balance</p>
+          <p className="mt-1 text-xl font-semibold" style={{ color: theme.sage }}>
             {formatCurrency(profile.balances.sa)}
           </p>
-          <p className="mt-1 text-xs text-slate-500">Earns 4.0% p.a.</p>
+          <p className="mt-1 text-xs" style={{ color: theme.textMuted }}>Earns 4.0% p.a.</p>
         </div>
       </div>
 
       {/* Transfer Calculator */}
-      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-        <h3 className="mb-4 text-sm font-medium text-slate-300">Transfer Calculator</h3>
+      <div
+        className="rounded-xl p-5"
+        style={{
+          background: isMonet ? theme.cardBg : '#0a0a0a',
+          border: `1px solid ${theme.cardBorder}`,
+        }}
+      >
+        <h3 className="mb-4 text-sm font-medium" style={{ color: theme.textSecondary }}>
+          Transfer Calculator
+        </h3>
 
         {!result.allowed ? (
-          <div className="rounded-lg bg-rose-500/10 p-4 text-center">
-            <AlertCircle className="mx-auto h-8 w-8 text-rose-400" />
-            <p className="mt-2 text-sm font-medium text-rose-300">{result.blockedReason}</p>
+          <div
+            className="rounded-lg p-4 text-center"
+            style={{
+              background: isMonet ? 'rgba(232, 168, 152, 0.1)' : 'rgba(244, 63, 94, 0.1)',
+            }}
+          >
+            <AlertCircle
+              className="mx-auto h-8 w-8"
+              style={{ color: isMonet ? theme.coralRose : '#fb7185' }}
+            />
+            <p
+              className="mt-2 text-sm font-medium"
+              style={{ color: isMonet ? theme.coralRose : '#fda4af' }}
+            >
+              {result.blockedReason}
+            </p>
           </div>
         ) : (
           <>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs text-slate-400">Transfer Amount</label>
-                <span className="text-xs text-emerald-400">
+                <label className="text-xs" style={{ color: theme.textMuted }}>Transfer Amount</label>
+                <span className="text-xs" style={{ color: theme.sage }}>
                   Max: {formatCurrency(result.maxTransferable)}
                 </span>
               </div>
@@ -258,7 +353,7 @@ function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
                 maxValue={result.maxTransferable}
                 size="sm"
               />
-              <p className="text-xs text-slate-500">
+              <p className="text-xs" style={{ color: theme.textMuted }}>
                 FRS limit: {formatCurrency(CPF_LIMITS.frs2024)} − Your SA:{' '}
                 {formatCurrency(profile.balances.sa)} = {formatCurrency(result.maxTransferable)}{' '}
                 transferable
@@ -268,28 +363,33 @@ function OAtoSATransfer({ profile }: { profile: CPFProfile }) {
             {/* Transfer Preview */}
             {result.actualTransfer > 0 && (
               <div className="mt-6">
-                <div className={`flex items-center justify-between
-p-4
-rounded-lg
-bg-white/[0.02]`}>
+                <div
+                  className="flex items-center justify-between p-4 rounded-lg"
+                  style={{
+                    background: theme.surfaceBg,
+                  }}
+                >
                   <div className="text-center">
-                    <p className="text-xs text-slate-400">From OA</p>
-                    <p className="text-lg font-semibold text-blue-400">
+                    <p className="text-xs" style={{ color: theme.textMuted }}>From OA</p>
+                    <p className="text-lg font-semibold" style={{ color: theme.blue }}>
                       {formatCurrency(profile.balances.oa)}
                     </p>
-                    <p className="text-xs text-rose-400">
+                    <p
+                      className="text-xs"
+                      style={{ color: isMonet ? theme.coralRose : '#fb7185' }}
+                    >
                       −{formatCurrency(result.actualTransfer)}
                     </p>
                   </div>
 
-                  <ArrowRight className="h-6 w-6 text-slate-500" />
+                  <ArrowRight className="h-6 w-6" style={{ color: theme.textMuted }} />
 
                   <div className="text-center">
-                    <p className="text-xs text-slate-400">To SA</p>
-                    <p className="text-lg font-semibold text-emerald-400">
+                    <p className="text-xs" style={{ color: theme.textMuted }}>To SA</p>
+                    <p className="text-lg font-semibold" style={{ color: theme.sage }}>
                       {formatCurrency(profile.balances.sa)}
                     </p>
-                    <p className="text-xs text-emerald-400">
+                    <p className="text-xs" style={{ color: theme.sage }}>
                       +{formatCurrency(result.actualTransfer)}
                     </p>
                   </div>
@@ -297,38 +397,66 @@ bg-white/[0.02]`}>
 
                 {/* Benefits */}
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-                    <p className="text-xs text-slate-400">Extra Interest Earned (Year 1)</p>
-                    <p className="mt-1 text-lg font-semibold text-emerald-400">
+                  <div
+                    className="rounded-lg p-3"
+                    style={{
+                      background: theme.surfaceBg,
+                      border: `1px solid ${theme.surfaceBorder}`,
+                    }}
+                  >
+                    <p className="text-xs" style={{ color: theme.textMuted }}>
+                      Extra Interest Earned (Year 1)
+                    </p>
+                    <p className="mt-1 text-lg font-semibold" style={{ color: theme.sage }}>
                       +{formatCurrency(interestDifferential)}
                     </p>
-                    <p className="text-xs text-slate-500">1.5% differential (4% vs 2.5%)</p>
+                    <p className="text-xs" style={{ color: theme.textMuted }}>
+                      1.5% differential (4% vs 2.5%)
+                    </p>
                   </div>
-                  <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-3">
-                    <p className="text-xs text-slate-400">Tax Relief Eligible</p>
-                    <p className="mt-1 text-lg font-semibold text-amber-400">
+                  <div
+                    className="rounded-lg p-3"
+                    style={{
+                      background: theme.surfaceBg,
+                      border: `1px solid ${theme.surfaceBorder}`,
+                    }}
+                  >
+                    <p className="text-xs" style={{ color: theme.textMuted }}>Tax Relief Eligible</p>
+                    <p className="mt-1 text-lg font-semibold" style={{ color: theme.amber }}>
                       {formatCurrency(Math.min(result.taxReliefEligible, CPF_LIMITS.rstuSelfCap))}
                     </p>
-                    <p className="text-xs text-slate-500">Under RSTU scheme (up to $8K)</p>
+                    <p className="text-xs" style={{ color: theme.textMuted }}>
+                      Under RSTU scheme (up to $8K)
+                    </p>
                   </div>
                 </div>
 
                 {result.warnings.length > 0 && (
-                  <div className="mt-4 rounded-lg bg-amber-500/10 p-3">
+                  <div
+                    className="mt-4 rounded-lg p-3"
+                    style={{
+                      background: isMonet ? 'rgba(212, 165, 116, 0.1)' : 'rgba(251, 191, 36, 0.1)',
+                    }}
+                  >
                     {result.warnings.map((warning, i) => (
-                      <p key={i} className="text-xs text-amber-300">
+                      <p
+                        key={i}
+                        className="text-xs"
+                        style={{ color: isMonet ? theme.amber : theme.amberLight }}
+                      >
                         {warning}
                       </p>
                     ))}
                   </div>
                 )}
 
-                <button className={`w-full
-mt-4 py-2.5
-rounded-lg
-bg-blue-500 hover:bg-blue-600
-text-sm font-medium text-white
-transition`}>
+                <button
+                  className="w-full mt-4 py-2.5 rounded-lg text-sm font-medium transition"
+                  style={{
+                    background: theme.blue,
+                    color: theme.textOnPrimary,
+                  }}
+                >
                   Transfer {formatCurrency(result.actualTransfer)} to SA
                 </button>
               </div>
@@ -351,23 +479,36 @@ function ResultCard({
   remaining: number
   cap: number
 }) {
+  const { theme, isMonet } = useTheme()
   const percentage = cap > 0 ? (value / cap) * 100 : 0
 
   return (
-    <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] p-4">
-      <p className="text-xs text-slate-400">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-white">{formatCurrency(value)}</p>
-      <div className={`overflow-hidden
-h-1.5 w-full
-mt-2
-rounded-full
-bg-white/[0.06]`}>
+    <div
+      className="rounded-lg p-4"
+      style={{
+        background: theme.surfaceBg,
+        border: `1px solid ${theme.surfaceBorder}`,
+      }}
+    >
+      <p className="text-xs" style={{ color: theme.textMuted }}>{label}</p>
+      <p className="mt-1 text-xl font-semibold" style={{ color: theme.textPrimary }}>
+        {formatCurrency(value)}
+      </p>
+      <div
+        className="overflow-hidden h-1.5 w-full mt-2 rounded-full"
+        style={{
+          background: isMonet ? 'rgba(155, 139, 180, 0.1)' : 'rgba(255, 255, 255, 0.06)',
+        }}
+      >
         <div
-          className="h-full rounded-full bg-emerald-500 transition-all"
-          style={{ width: `${percentage}%` }}
+          className="h-full rounded-full transition-all"
+          style={{
+            width: `${percentage}%`,
+            background: theme.sage,
+          }}
         />
       </div>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs" style={{ color: theme.textMuted }}>
         {formatCurrency(remaining)} remaining of ${cap.toLocaleString()} cap
       </p>
     </div>

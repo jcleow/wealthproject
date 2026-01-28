@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 
+import { useColorScheme } from '@/stores'
 import ScenarioMarker from '../ScenarioMarker'
 import PropertyScenarioMarker, { NestedMilestoneMarker, type NestedMilestoneData } from '../PropertyScenarioMarker'
 import { PropertyMarkerClickMenu } from './PropertyMarkerClickMenu'
@@ -84,6 +85,13 @@ export function ProjectionChart({
   currentPositionIndex,
   onCurrentPositionChange,
 }: ProjectionChartProps) {
+  // Theme
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
+
+  // Theme-aware axis color - medium grey for light mode
+  const axisColor = isMonet ? '#64748b' : chartColors.axis // slate-500 for Monet, slate-500 for dark
+
   // Track which property marker is expanded to show nested milestones
   const [expandedPropertyId, setExpandedPropertyId] = useState<string | null>(null)
 
@@ -303,7 +311,7 @@ export function ProjectionChart({
           ticks={ticks}
           allowDecimals={false}
           allowDataOverflow
-          stroke={chartColors.axis}
+          stroke={axisColor}
           tickLine={false}
           tick={
             <YearTick
@@ -327,7 +335,7 @@ export function ProjectionChart({
             (dataMax: number) => (dataMax > 0 ? Math.ceil(dataMax * 1.1) : 500000),
           ]}
           fontSize={12}
-          stroke={chartColors.axis}
+          stroke={axisColor}
           tickFormatter={(value) => {
             if (value <= 0) return ''
             if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`

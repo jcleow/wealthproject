@@ -27,6 +27,7 @@ import type { ScenarioMarkerData } from './useProjectionData'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { TimeResolution } from '@/types/timeline'
 import { DEFAULT_STARTING_AGE } from './types'
+import { useColorScheme } from '@/stores'
 
 // Register Chart.js components
 ChartJS.register(
@@ -112,6 +113,12 @@ export function ProjectionChartJS({
 }: ProjectionChartJSProps) {
   const chartRef = useRef<ChartJS<'line'> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Theme - colorScheme available for future theme-aware styling
+  useColorScheme()
+
+  // Theme-aware axis colors - medium grey for both modes
+  const axisColor = '#64748b' // slate-500 for both light and dark
 
   // Tooltip state
   const { tooltipState, handleTooltip, hideTooltip } = useChartJSTooltip()
@@ -269,8 +276,9 @@ export function ProjectionChartJS({
               0,
               chartArea.bottom
             )
-            gradient.addColorStop(0, 'rgba(79, 129, 255, 0.8)')
-            gradient.addColorStop(0.9, 'rgba(59, 130, 246, 0.05)')
+            gradient.addColorStop(0, 'rgba(79, 140, 255, 0.25)')
+            gradient.addColorStop(0.7, 'rgba(79, 140, 255, 0.08)')
+            gradient.addColorStop(1, 'rgba(79, 140, 255, 0.02)')
             return gradient
           },
           borderColor: chartColors.stroke,
@@ -314,7 +322,7 @@ export function ProjectionChartJS({
             display: false,
           },
           ticks: {
-            color: chartColors.axis,
+            color: axisColor,
             font: { size: 12 },
             callback: (value) => getXAxisLabel(value as number),
             maxTicksLimit: 10,
@@ -329,7 +337,7 @@ export function ProjectionChartJS({
             display: false,
           },
           ticks: {
-            color: chartColors.axis,
+            color: axisColor,
             font: { size: 12 },
             callback: (value) => {
               const numValue = value as number
@@ -454,6 +462,7 @@ export function ProjectionChartJS({
     onSelectYear,
     currentPositionIndex,
     onCurrentPositionChange,
+    axisColor,
   ])
 
   return (

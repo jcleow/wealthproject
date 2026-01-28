@@ -1,12 +1,13 @@
 import { memo } from 'react'
 import { Pencil, Trash2, Home, Info, ChevronRight, Star, GitBranch } from 'lucide-react'
 import * as Tooltip from '@radix-ui/react-tooltip'
+import clsx from 'clsx'
 import type { TimelineItem } from '@/types/timeline'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
 import type { ScenarioEvent } from '@/types/scenario'
 import { formatCurrency } from '@/lib/format'
-import { numericStyles } from '@/lib/utils'
+import { useColorScheme } from '@/stores'
 import { getIconByName, getItemId, getAnnualizationLabel } from '../utils'
 import type { AppliedImpact, FinancialCategory } from '../types'
 
@@ -121,6 +122,9 @@ export const LineItem = memo(function LineItem({
     }
   }
 
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
+
   return (
     <div>
       {/* Main line item row */}
@@ -128,16 +132,26 @@ export const LineItem = memo(function LineItem({
         data-line-item
         onClick={handleItemClick}
         onDoubleClick={handleDoubleClick}
-        className={`group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors ${isSelected ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}`}
+        className={clsx(
+          "group/item relative flex cursor-default items-center justify-between rounded-lg px-2 py-2 transition-colors",
+          isMonet
+            ? (isSelected ? "bg-slate-100" : "hover:bg-slate-50")
+            : (isSelected ? "bg-white/[0.08]" : "hover:bg-white/[0.04]")
+        )}
       >
         {/* Left side: name and person name */}
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex min-w-0 flex-col">
-            <span className={`truncate text-sm transition-colors ${isSelected ? 'text-slate-100' : 'text-slate-300'}`}>
+            <span className={clsx(
+              "truncate text-sm transition-colors",
+              isMonet
+                ? (isSelected ? "text-slate-800" : "text-slate-700")
+                : (isSelected ? "text-slate-100" : "text-slate-300")
+            )}>
               {item.name ?? 'Entry'}
             </span>
             {item.personName && (
-              <span className="truncate text-[10px] text-slate-500">{item.personName}</span>
+              <span className={clsx("truncate text-[10px]", isMonet ? "text-slate-500" : "text-slate-500")}>{item.personName}</span>
             )}
           </div>
           {/* Accumulator star */}
@@ -241,24 +255,32 @@ transition`}
         {/* Right side: amount with hover actions */}
         <div className="flex items-center gap-1">
           {/* Value */}
-          <span className={`${numericStyles.base} transition-opacity ${isSelected ? 'opacity-0' : 'opacity-100'}`}>
+          <span className={clsx(
+            "font-mono tabular-nums text-sm transition-opacity",
+            isMonet ? "text-slate-600" : "text-slate-300",
+            isSelected ? "opacity-0" : "opacity-100"
+          )}>
             {formatCurrency(getDisplayAmount(item))}
             {showMonthlyData && (category === 'income' || category === 'expense') && (
-              <span className="ml-1 text-xs text-slate-400">/mo</span>
+              <span className={clsx("ml-1 text-xs", isMonet ? "text-slate-500" : "text-slate-400")}>/mo</span>
             )}
           </span>
 
           {/* Actions - shown on click */}
-          <div className={`absolute right-2 flex items-center gap-0.5 transition-opacity ${isSelected ? 'opacity-100 pointer-events-auto' : 'pointer-events-none opacity-0'}`}>
+          <div className={clsx(
+            "absolute right-2 flex items-center gap-0.5 transition-opacity",
+            isSelected ? "opacity-100 pointer-events-auto" : "pointer-events-none opacity-0"
+          )}>
             {/* Set as accumulator button for cash accounts */}
             {item.itemType === 'cash_account' && !item.isAccumulator && onSetAccumulator && (
               <button
                 onClick={handleSetAccumulatorClick}
-                className={`p-1
-rounded
-hover:bg-amber-500/20
-text-slate-500 hover:text-amber-300
-transition-colors`}
+                className={clsx(
+                  "p-1 rounded transition-colors",
+                  isMonet
+                    ? "hover:bg-amber-100 text-slate-500 hover:text-amber-600"
+                    : "hover:bg-amber-500/20 text-slate-500 hover:text-amber-300"
+                )}
                 type="button"
                 title="Set as accumulator"
               >
@@ -272,11 +294,12 @@ transition-colors`}
                   e.stopPropagation()
                   onManageAllocations(item)
                 }}
-                className={`p-1
-rounded
-hover:bg-purple-500/20
-text-slate-500 hover:text-purple-300
-transition-colors`}
+                className={clsx(
+                  "p-1 rounded transition-colors",
+                  isMonet
+                    ? "hover:bg-purple-100 text-slate-500 hover:text-purple-600"
+                    : "hover:bg-purple-500/20 text-slate-500 hover:text-purple-300"
+                )}
                 type="button"
                 title="Manage allocations"
               >
@@ -285,11 +308,12 @@ transition-colors`}
             )}
             <button
               onClick={handleEditClick}
-              className={`p-1
-rounded
-hover:bg-blue-500/20
-text-slate-500 hover:text-blue-300
-transition-colors`}
+              className={clsx(
+                "p-1 rounded transition-colors",
+                isMonet
+                  ? "hover:bg-blue-100 text-slate-500 hover:text-blue-600"
+                  : "hover:bg-blue-500/20 text-slate-500 hover:text-blue-300"
+              )}
               type="button"
               title="Edit"
             >
@@ -297,11 +321,12 @@ transition-colors`}
             </button>
             <button
               onClick={handleDeleteClick}
-              className={`p-1
-rounded
-hover:bg-rose-500/20
-text-slate-500 hover:text-rose-300
-transition-colors`}
+              className={clsx(
+                "p-1 rounded transition-colors",
+                isMonet
+                  ? "hover:bg-rose-100 text-slate-500 hover:text-rose-600"
+                  : "hover:bg-rose-500/20 text-slate-500 hover:text-rose-300"
+              )}
               type="button"
               title="Delete"
             >

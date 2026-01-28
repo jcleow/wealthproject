@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { TrendingUp, TrendingDown, AlertTriangle, Plus, ChevronRight } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
+import { useTheme } from '@/lib/theme'
 import type { CPFISInvestment, InvestibleBalance } from '@/types/cpf'
 import { CPF_LIMITS } from '@/lib/cpf-mock-data'
 
@@ -41,6 +42,7 @@ export function CPFISInvestmentDashboard({
   className,
 }: CPFISInvestmentDashboardProps) {
   const [selectedAccount, setSelectedAccount] = useState<'all' | 'OA' | 'SA'>('all')
+  const { theme, isMonet } = useTheme()
 
   // Filter investments by account
   const filteredInvestments =
@@ -98,8 +100,19 @@ export function CPFISInvestmentDashboard({
       </div>
 
       {/* Asset Class Limits */}
-      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
-        <h3 className="mb-4 text-sm font-medium text-slate-300">OA Investment Limits</h3>
+      <div
+        className="rounded-xl p-5"
+        style={{
+          background: isMonet ? theme.cardBg : '#0a0a0a',
+          border: `1px solid ${theme.cardBorder}`,
+        }}
+      >
+        <h3
+          className="mb-4 text-sm font-medium"
+          style={{ color: theme.textSecondary }}
+        >
+          OA Investment Limits
+        </h3>
         <div className="grid gap-4 sm:grid-cols-2">
           <LimitBar
             label="Stocks / Property Funds"
@@ -120,40 +133,60 @@ export function CPFISInvestmentDashboard({
             color="bg-yellow-500"
           />
         </div>
-        <p className="mt-4 text-xs text-slate-500">
+        <p className="mt-4 text-xs" style={{ color: theme.textMuted }}>
           Unit trusts, ETFs, T-Bills, and SGS bonds have no percentage limit (100% of investible balance)
         </p>
       </div>
 
       {/* Investments List */}
-      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a]">
-        <div className={`flex items-center justify-between
-p-5
-border-b border-white/[0.04]`}>
-          <h3 className="text-sm font-medium text-slate-300">Your CPFIS Investments</h3>
+      <div
+        className="rounded-xl"
+        style={{
+          background: isMonet ? theme.cardBg : '#0a0a0a',
+          border: `1px solid ${theme.cardBorder}`,
+        }}
+      >
+        <div
+          className="flex items-center justify-between p-5"
+          style={{ borderBottom: `1px solid ${theme.surfaceBorder}` }}
+        >
+          <h3
+            className="text-sm font-medium"
+            style={{ color: theme.textSecondary }}
+          >
+            Your CPFIS Investments
+          </h3>
           <div className="flex items-center gap-2">
             {/* Account Filter */}
-            <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.02]">
+            <div
+              className="flex rounded-lg"
+              style={{
+                background: theme.surfaceBg,
+                border: `1px solid ${theme.cardBorder}`,
+              }}
+            >
               {(['all', 'OA', 'SA'] as const).map((account) => (
                 <button
                   key={account}
                   onClick={() => setSelectedAccount(account)}
-                  className={`px-3 py-1.5 text-xs font-medium transition ${
-                    selectedAccount === account
-                      ? 'bg-white/[0.08] text-white'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
+                  className="px-3 py-1.5 text-xs font-medium transition"
+                  style={{
+                    background: selectedAccount === account ? theme.activeBg : 'transparent',
+                    color: selectedAccount === account ? theme.textPrimary : theme.textMuted,
+                  }}
                 >
                   {account === 'all' ? 'All' : account}
                 </button>
               ))}
             </div>
-            <button className={`flex items-center
-gap-1.5 px-3 py-1.5
-rounded-lg border border-white/[0.08]
-bg-emerald-500/10 hover:bg-emerald-500/20
-text-xs font-medium text-emerald-400
-transition`}>
+            <button
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition"
+              style={{
+                background: isMonet ? 'rgba(127, 178, 133, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+                border: `1px solid ${theme.cardBorder}`,
+                color: theme.sage,
+              }}
+            >
               <Plus className="h-3.5 w-3.5" />
               Add Investment
             </button>
@@ -161,18 +194,23 @@ transition`}>
         </div>
 
         {filteredInvestments.length > 0 ? (
-          <div className="divide-y divide-white/[0.04]">
+          <div style={{ borderColor: theme.surfaceBorder }} className="divide-y divide-inherit">
             {filteredInvestments.map((investment) => (
               <InvestmentRow key={investment.id} investment={investment} />
             ))}
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="rounded-full bg-white/[0.04] p-4">
-              <TrendingUp className="h-8 w-8 text-slate-500" />
+            <div
+              className="rounded-full p-4"
+              style={{ background: theme.surfaceBg }}
+            >
+              <TrendingUp className="h-8 w-8" style={{ color: theme.textMuted }} />
             </div>
-            <p className="mt-4 text-sm text-slate-400">No investments found</p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-4 text-sm" style={{ color: theme.textMuted }}>
+              No investments found
+            </p>
+            <p className="mt-1 text-xs" style={{ color: theme.textMuted }}>
               Start investing your CPF to grow your retirement savings
             </p>
           </div>
@@ -180,11 +218,22 @@ transition`}>
       </div>
 
       {/* Approved Products Info */}
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+      <div
+        className="rounded-xl p-4"
+        style={{
+          background: isMonet ? 'rgba(212, 165, 116, 0.1)' : 'rgba(245, 158, 11, 0.05)',
+          border: `1px solid ${isMonet ? 'rgba(212, 165, 116, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`,
+        }}
+      >
         <div className="flex items-start gap-3">
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-400" />
-          <div className="text-xs text-slate-300">
-            <p className="font-medium text-amber-300">CPFIS Approved Products Only</p>
+          <AlertTriangle
+            className="mt-0.5 h-4 w-4 flex-shrink-0"
+            style={{ color: theme.amber }}
+          />
+          <div className="text-xs" style={{ color: theme.textSecondary }}>
+            <p className="font-medium" style={{ color: theme.amber }}>
+              CPFIS Approved Products Only
+            </p>
             <p className="mt-1">
               Only invest in CPFIS-approved products. Popular choices include STI ETF, Infinity
               Global Stock Index Fund, Singapore Savings Bonds, and T-Bills. SA investments are
@@ -212,29 +261,49 @@ function BalanceCard({
   total?: number
   isGainLoss?: boolean
 }) {
+  const { theme, isMonet } = useTheme()
   const isPositive = value >= 0
 
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-4">
-      <p className="text-xs text-slate-400">{label}</p>
+    <div
+      className="rounded-xl p-4"
+      style={{
+        background: isMonet ? theme.cardBg : '#0a0a0a',
+        border: `1px solid ${theme.cardBorder}`,
+      }}
+    >
+      <p className="text-xs" style={{ color: theme.textMuted }}>
+        {label}
+      </p>
       <p
-        className={`mt-1 text-xl font-semibold ${
-          isGainLoss ? (isPositive ? 'text-emerald-400' : 'text-rose-400') : 'text-white'
-        }`}
+        className="mt-1 text-xl font-semibold"
+        style={{
+          color: isGainLoss
+            ? isPositive
+              ? theme.sage
+              : isMonet
+                ? '#E57373'
+                : '#fb7185'
+            : theme.textPrimary,
+        }}
       >
         {isGainLoss && isPositive && '+'}
         {formatCurrency(value)}
       </p>
-      <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+      <p className="mt-1 text-xs" style={{ color: theme.textMuted }}>
+        {subtitle}
+      </p>
       {total !== undefined && (
-        <div className={`overflow-hidden
-h-1.5 w-full
-mt-2
-rounded-full
-bg-white/[0.06]`}>
+        <div
+          className="overflow-hidden h-1.5 w-full mt-2 rounded-full"
+          style={{ background: theme.surfaceBg }}
+        >
           <div
-            className="h-full rounded-full bg-blue-500"
-            style={{ width: `${Math.min(100, (value / total) * 100)}%` }}
+            className="h-full rounded-full"
+            style={{
+              width: `${Math.min(100, (value / total) * 100)}%`,
+              background: theme.blue,
+            }}
           />
         </div>
       )}
@@ -259,16 +328,24 @@ function LimitBar({
   limitLabel: string
   color: string
 }) {
+  const { theme } = useTheme()
   const isNearLimit = percentage >= 80
   const isOverLimit = percentage >= 100
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-white">{label}</p>
-        <p className="text-xs text-slate-400">{limitLabel}</p>
+        <p className="text-sm" style={{ color: theme.textPrimary }}>
+          {label}
+        </p>
+        <p className="text-xs" style={{ color: theme.textMuted }}>
+          {limitLabel}
+        </p>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-white/[0.06]">
+      <div
+        className="h-2 w-full overflow-hidden rounded-full"
+        style={{ background: theme.surfaceBg }}
+      >
         <div
           className={`h-full rounded-full transition-all ${
             isOverLimit ? 'bg-rose-500' : isNearLimit ? 'bg-amber-500' : color
@@ -277,10 +354,16 @@ function LimitBar({
         />
       </div>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-slate-400">
+        <span style={{ color: theme.textMuted }}>
           {formatCurrency(allocated)} / {formatCurrency(limit)}
         </span>
-        <span className={isNearLimit ? 'text-amber-400' : 'text-emerald-400'}>
+        <span
+          style={{
+            color: isNearLimit
+              ? theme.amber
+              : theme.sage,
+          }}
+        >
           {formatCurrency(available)} available
         </span>
       </div>
@@ -289,16 +372,28 @@ function LimitBar({
 }
 
 function InvestmentRow({ investment }: { investment: CPFISInvestment }) {
+  const { theme, isMonet } = useTheme()
   const gainLoss = investment.currentValue - investment.purchasePrice
   const gainLossPercent =
     investment.purchasePrice > 0 ? (gainLoss / investment.purchasePrice) * 100 : 0
   const isPositive = gainLoss >= 0
 
+  const positiveColor = theme.sage
+  const negativeColor = isMonet ? '#E57373' : '#fb7185'
+
   return (
-    <div className={`flex items-center justify-between
-p-4
-hover:bg-white/[0.02]
-transition`}>
+    <div
+      className="flex items-center justify-between p-4 transition"
+      style={{
+        borderBottom: `1px solid ${theme.surfaceBorder}`,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = theme.hoverBg
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent'
+      }}
+    >
       <div className="flex items-center gap-4">
         <div
           className={`flex h-10 w-10 items-center justify-center rounded-lg ${
@@ -310,9 +405,14 @@ transition`}>
           </span>
         </div>
         <div>
-          <p className="text-sm font-medium text-white">{investment.productName}</p>
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="rounded bg-white/[0.06] px-1.5 py-0.5">
+          <p className="text-sm font-medium" style={{ color: theme.textPrimary }}>
+            {investment.productName}
+          </p>
+          <div className="flex items-center gap-2 text-xs" style={{ color: theme.textMuted }}>
+            <span
+              className="rounded px-1.5 py-0.5"
+              style={{ background: theme.surfaceBg }}
+            >
               {PRODUCT_TYPE_LABELS[investment.productType]}
             </span>
             <span>{investment.units.toLocaleString()} units</span>
@@ -323,27 +423,40 @@ transition`}>
 
       <div className="flex items-center gap-6">
         <div className="text-right">
-          <p className="text-sm font-medium text-white">{formatCurrency(investment.currentValue)}</p>
-          <p className="text-xs text-slate-400">Cost: {formatCurrency(investment.purchasePrice)}</p>
+          <p className="text-sm font-medium" style={{ color: theme.textPrimary }}>
+            {formatCurrency(investment.currentValue)}
+          </p>
+          <p className="text-xs" style={{ color: theme.textMuted }}>
+            Cost: {formatCurrency(investment.purchasePrice)}
+          </p>
         </div>
         <div className="flex items-center gap-2 text-right">
           {isPositive ? (
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
+            <TrendingUp className="h-4 w-4" style={{ color: positiveColor }} />
           ) : (
-            <TrendingDown className="h-4 w-4 text-rose-400" />
+            <TrendingDown className="h-4 w-4" style={{ color: negativeColor }} />
           )}
           <div>
-            <p className={`text-sm font-medium ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <p
+              className="text-sm font-medium"
+              style={{ color: isPositive ? positiveColor : negativeColor }}
+            >
               {isPositive && '+'}
               {formatCurrency(gainLoss)}
             </p>
-            <p className={`text-xs ${isPositive ? 'text-emerald-400/70' : 'text-rose-400/70'}`}>
+            <p
+              className="text-xs"
+              style={{
+                color: isPositive ? positiveColor : negativeColor,
+                opacity: 0.7,
+              }}
+            >
               {isPositive && '+'}
               {gainLossPercent.toFixed(2)}%
             </p>
           </div>
         </div>
-        <ChevronRight className="h-4 w-4 text-slate-500" />
+        <ChevronRight className="h-4 w-4" style={{ color: theme.textMuted }} />
       </div>
     </div>
   )

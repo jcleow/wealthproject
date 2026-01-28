@@ -5,6 +5,7 @@ import type { CPFProfile, CPFAssumptions } from '@/types/cpf'
 import { DEFAULT_CPF_ASSUMPTIONS } from '@/types/cpf'
 import { CPFAssumptionsPanel } from './CPFAssumptionsPanel'
 import { useCpfBalanceProjectionQuery, useCpfConfigQuery } from '@/hooks/queries/useCpfQuery'
+import { useTheme } from '@/lib/theme'
 import {
   type ChartView,
   type AccountKey,
@@ -40,6 +41,7 @@ export function CPFProjectionChart({
   selectedAge: externalSelectedAge,
   onAgeChange,
 }: CPFProjectionChartProps) {
+  const { theme } = useTheme()
   const [assumptions, setAssumptions] = useState<CPFAssumptions>(DEFAULT_CPF_ASSUMPTIONS)
   const [chartView, setChartView] = useState<ChartView>('balance')
 
@@ -135,14 +137,24 @@ export function CPFProjectionChart({
   if (!projection || !retirement) {
     return (
       <div className={`space-y-6 ${className}`}>
-        <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
+        <div
+          className="rounded-xl p-5"
+          style={{
+            background: theme.cardBg,
+            border: `1px solid ${theme.cardBorder}`,
+          }}
+        >
           <div className="flex flex-col items-center justify-center h-80 gap-2">
             {isLoading ? (
-              <span className="text-slate-400 animate-pulse">Loading projection...</span>
+              <span className="animate-pulse" style={{ color: theme.textMuted }}>
+                Loading projection...
+              </span>
             ) : (
               <>
-                <span className="text-slate-400">No CPF account found</span>
-                <span className="text-xs text-slate-500">Create a CPF account to see projections</span>
+                <span style={{ color: theme.textMuted }}>No CPF account found</span>
+                <span className="text-xs" style={{ color: theme.textMuted }}>
+                  Create a CPF account to see projections
+                </span>
               </>
             )}
           </div>
@@ -178,7 +190,13 @@ export function CPFProjectionChart({
         />
       </div>
 
-      <div className="rounded-xl border border-white/[0.08] bg-[#0a0a0a] p-5">
+      <div
+        className="rounded-xl p-5"
+        style={{
+          background: theme.cardBg,
+          border: `1px solid ${theme.cardBorder}`,
+        }}
+      >
         <ChartHeader
           chartView={chartView}
           onChartViewChange={setChartView}
@@ -187,6 +205,7 @@ export function CPFProjectionChart({
           selectedPlan={assumptions.cpfLifePlan}
           isFetching={isFetching}
           hasError={!!error}
+          theme={theme}
         />
 
         <div className="h-80">
@@ -222,6 +241,7 @@ interface ChartHeaderProps {
   selectedPlan: 'standard' | 'basic' | 'escalating'
   isFetching: boolean
   hasError: boolean
+  theme: ReturnType<typeof useTheme>['theme']
 }
 
 function ChartHeader({
@@ -232,11 +252,20 @@ function ChartHeader({
   selectedPlan,
   isFetching,
   hasError,
+  theme,
 }: ChartHeaderProps) {
   return (
     <div className="mb-4 flex items-center justify-end gap-3">
-      {isFetching && <span className="text-[10px] text-slate-500 animate-pulse">Updating...</span>}
-      {!isFetching && hasError && <span className="text-[10px] text-amber-400">Using estimates</span>}
+      {isFetching && (
+        <span className="text-[10px] animate-pulse" style={{ color: theme.textMuted }}>
+          Updating...
+        </span>
+      )}
+      {!isFetching && hasError && (
+        <span className="text-[10px]" style={{ color: theme.warning }}>
+          Using estimates
+        </span>
+      )}
 
       {chartView === 'balance' ? (
         <BalanceLegend visibleAccounts={visibleAccounts} onToggleAccount={onToggleAccount} />
@@ -244,7 +273,7 @@ function ChartHeader({
         <PayoutLegend selectedPlan={selectedPlan} />
       )}
 
-      <div className="h-4 w-px bg-white/[0.08]" />
+      <div className="h-4 w-px" style={{ background: theme.cardBorder }} />
       <ChartViewToggle value={chartView} onChange={onChartViewChange} />
     </div>
   )

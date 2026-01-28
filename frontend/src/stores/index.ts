@@ -45,3 +45,11 @@ export {
   type CPFLifeEstimateInputs,
   type CPFLifeEstimateState,
 } from './cpfLifeEstimateStore'
+
+export {
+  useColorSchemeStore,
+  useColorScheme,
+  useColorSchemeActions,
+  type ColorScheme,
+  type ColorSchemeState,
+} from './colorSchemeStore'

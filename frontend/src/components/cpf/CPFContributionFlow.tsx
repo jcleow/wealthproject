@@ -5,6 +5,7 @@ import { Sankey, Tooltip, Layer, Rectangle, ResponsiveContainer } from 'recharts
 import { Info, DollarSign, GitBranch, BarChart3, ChevronDown } from 'lucide-react'
 
 import { formatCurrency } from '@/lib/format'
+import { useTheme, type AppTheme } from '@/lib/theme'
 import { CPFContributionWaterfall, type WaterfallView } from './CPFContributionWaterfall'
 import type { CPFProfile } from '@/types/cpf'
 import { CPF_LIMITS } from '@/lib/cpf-mock-data'
@@ -66,52 +67,57 @@ interface CPFContributionFlowProps {
   className?: string
 }
 
-// Custom node component for Sankey
-function CustomNode({ x, y, width, height, payload }: any) {
-  const colors: Record<string, string> = {
-    'Gross Salary': '#6366f1',
-    'Take-Home Pay': '#22c55e',
-    'Employer CPF': '#ec4899',
-    'Ordinary Account (OA)': '#3b82f6',
-    'Special Account (SA)': '#10b981',
-    'MediSave Account (MA)': '#f59e0b',
+// Factory function to create theme-aware Sankey node component
+function createCustomNode(theme: AppTheme) {
+  return function CustomNode({ x, y, width, height, payload }: any) {
+    const colors: Record<string, string> = {
+      'Gross Salary': '#6366f1',
+      'Take-Home Pay': theme.sage,
+      'Employer CPF': '#ec4899',
+      'Ordinary Account (OA)': theme.chartOA,
+      'Special Account (SA)': theme.chartSA,
+      'MediSave Account (MA)': theme.chartMA,
+    }
+
+    // Left side nodes get labels on left, right side nodes get labels on right
+    const isLeftNode = payload.name === 'Gross Salary' || payload.name === 'Employer CPF'
+
+    const textX = isLeftNode ? x - 8 : x + width + 8
+    const textY = y + height / 2
+    const textAnchor: 'start' | 'end' = isLeftNode ? 'end' : 'start'
+
+    return (
+      <Layer>
+        <Rectangle
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill={colors[payload.name] || '#64748b'}
+          fillOpacity={0.9}
+          rx={4}
+          ry={4}
+        />
+        <text
+          x={textX}
+          y={textY}
+          textAnchor={textAnchor}
+          dominantBaseline="middle"
+          fill={theme.textPrimary}
+          fontSize={12}
+          fontWeight={500}
+        >
+          {payload.name}
+        </text>
+      </Layer>
+    )
   }
-
-  // Left side nodes get labels on left, right side nodes get labels on right
-  const isLeftNode = payload.name === 'Gross Salary' || payload.name === 'Employer CPF'
-
-  const textX = isLeftNode ? x - 8 : x + width + 8
-  const textY = y + height / 2
-  const textAnchor: 'start' | 'end' = isLeftNode ? 'end' : 'start'
-
-  return (
-    <Layer>
-      <Rectangle
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        fill={colors[payload.name] || '#64748b'}
-        fillOpacity={0.9}
-        rx={4}
-        ry={4}
-      />
-      <text
-        x={textX}
-        y={textY}
-        textAnchor={textAnchor}
-        dominantBaseline="middle"
-        className="fill-white text-xs font-medium"
-      >
-        {payload.name}
-      </text>
-    </Layer>
-  )
 }
 
 type VisualizationMode = 'sankey' | 'waterfall'
 
 export function CPFContributionFlow({ profile, className }: CPFContributionFlowProps) {
+  const { theme, isMonet } = useTheme()
   const [selectedView, setSelectedView] = useState<'monthly' | 'annual'>('monthly')
   const [visualizationMode, setVisualizationMode] = useState<VisualizationMode>('sankey')
   const [waterfallView, setWaterfallView] = useState<WaterfallView>('salary')
@@ -120,6 +126,9 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
 
   const { monthlyIncome, annualBonus, age } = profile
   const derivedAgeGroup = getAgeGroup(age)
+
+  // Create theme-aware Sankey node component
+  const CustomNode = useMemo(() => createCustomNode(theme), [theme])
 
   // Sync rate group when age changes
   useEffect(() => {
@@ -212,31 +221,50 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
   }, [data])
 
   return (
-    <div className={`flex flex-col rounded-xl border border-white/[0.08] bg-[#0a0a0a] ${className}`}>
+    <div
+      className={`flex flex-col rounded-xl transition-colors duration-300 ${className}`}
+      style={{
+        background: theme.cardBg,
+        border: `1px solid ${theme.cardBorder}`,
+      }}
+    >
       {/* Header with view toggle */}
-      <div className="flex flex-col gap-4 border-b border-white/[0.04] p-5">
+      <div
+        className="flex flex-col gap-4 p-5 transition-colors duration-300"
+        style={{
+          borderBottom: `1px solid ${theme.surfaceBorder}`,
+        }}
+      >
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-blue-300">CPF Contribution Flow</p>
+            <p className="text-xs uppercase tracking-wide" style={{ color: theme.blue }}>
+              CPF Contribution Flow
+            </p>
           </div>
-          <div className="flex rounded-lg border border-white/10 bg-white/5 p-1">
+          <div
+            className="flex rounded-lg p-1 transition-colors duration-300"
+            style={{
+              background: theme.controlBg,
+              border: `1px solid ${theme.controlBorder}`,
+            }}
+          >
             <button
               onClick={() => setSelectedView('monthly')}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-                selectedView === 'monthly'
-                  ? 'bg-white/10 text-white'
-                  : 'text-slate-400 hover:text-white'
-              }`}
+              className="rounded-md px-4 py-1.5 text-sm font-medium transition-all duration-200"
+              style={{
+                background: selectedView === 'monthly' ? theme.activeBg : 'transparent',
+                color: selectedView === 'monthly' ? theme.textPrimary : theme.textMuted,
+              }}
             >
               Monthly
             </button>
             <button
               onClick={() => setSelectedView('annual')}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-                selectedView === 'annual'
-                  ? 'bg-white/10 text-white'
-                  : 'text-slate-400 hover:text-white'
-              }`}
+              className="rounded-md px-4 py-1.5 text-sm font-medium transition-all duration-200"
+              style={{
+                background: selectedView === 'annual' ? theme.activeBg : 'transparent',
+                color: selectedView === 'annual' ? theme.textPrimary : theme.textMuted,
+              }}
             >
               Annual
             </button>
@@ -246,25 +274,31 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
         {/* Visualization Mode Toggle */}
         <div className="flex w-full items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
+            <div
+              className="flex rounded-lg p-0.5 transition-colors duration-300"
+              style={{
+                background: theme.controlBg,
+                border: `1px solid ${theme.controlBorder}`,
+              }}
+            >
               <button
                 onClick={() => setVisualizationMode('sankey')}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                  visualizationMode === 'sankey'
-                    ? 'bg-white/[0.1] text-white'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200"
+                style={{
+                  background: visualizationMode === 'sankey' ? theme.activeBg : 'transparent',
+                  color: visualizationMode === 'sankey' ? theme.textPrimary : theme.textMuted,
+                }}
               >
                 <GitBranch className="h-3.5 w-3.5" />
                 Sankey
               </button>
               <button
                 onClick={() => setVisualizationMode('waterfall')}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                  visualizationMode === 'waterfall'
-                    ? 'bg-white/[0.1] text-white'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200"
+                style={{
+                  background: visualizationMode === 'waterfall' ? theme.activeBg : 'transparent',
+                  color: visualizationMode === 'waterfall' ? theme.textPrimary : theme.textMuted,
+                }}
               >
                 <BarChart3 className="h-3.5 w-3.5" />
                 Waterfall
@@ -274,25 +308,31 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
 
           {/* Waterfall View Toggle - only show when waterfall mode is active */}
           {visualizationMode === 'waterfall' && (
-            <div className="flex items-center gap-2">              
-              <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
+            <div className="flex items-center gap-2">
+              <div
+                className="flex rounded-lg p-0.5 transition-colors duration-300"
+                style={{
+                  background: theme.controlBg,
+                  border: `1px solid ${theme.controlBorder}`,
+                }}
+              >
                 <button
                   onClick={() => setWaterfallView('salary')}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                    waterfallView === 'salary'
-                      ? 'bg-white/[0.1] text-white'
-                      : 'text-slate-500 hover:text-slate-300'
-                  }`}
+                  className="rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200"
+                  style={{
+                    background: waterfallView === 'salary' ? theme.activeBg : 'transparent',
+                    color: waterfallView === 'salary' ? theme.textPrimary : theme.textMuted,
+                  }}
                 >
                   Salary Flow
                 </button>
                 <button
                   onClick={() => setWaterfallView('cpf')}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
-                    waterfallView === 'cpf'
-                      ? 'bg-white/[0.1] text-white'
-                      : 'text-slate-500 hover:text-slate-300'
-                  }`}
+                  className="rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-200"
+                  style={{
+                    background: waterfallView === 'cpf' ? theme.activeBg : 'transparent',
+                    color: waterfallView === 'cpf' ? theme.textPrimary : theme.textMuted,
+                  }}
                 >
                   CPF Allocation
                 </button>
@@ -305,42 +345,57 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
       {/* Chart Section */}
       <div className="relative flex-1 p-5">
         <div className="mb-4 flex items-center gap-2">
-          <DollarSign className="h-4 w-4 text-green-400" />
-          <h4 className="text-sm font-medium text-white">Money Flow Visualization</h4>
+          <DollarSign className="h-4 w-4" style={{ color: theme.sage }} />
+          <h4 className="text-sm font-medium" style={{ color: theme.textPrimary }}>
+            Money Flow Visualization
+          </h4>
         </div>
 
         {/* Compact Contribution Rates Overlay */}
-        <div className="absolute right-5 top-5 z-10 rounded-lg border border-white/[0.08] bg-slate-900/95 backdrop-blur-sm">
+        <div
+          className="absolute right-5 top-5 z-10 rounded-lg backdrop-blur-sm transition-colors duration-300"
+          style={{
+            background: isMonet ? 'rgba(255, 255, 255, 0.9)' : 'rgba(15, 23, 42, 0.95)',
+            border: `1px solid ${theme.cardBorder}`,
+          }}
+        >
           {/* Header - click to toggle */}
           <button
             onClick={() => setIsRatesDropdownOpen(!isRatesDropdownOpen)}
-            className="flex w-full items-center justify-between gap-4 px-3 py-2 hover:bg-white/[0.02] transition-colors"
+            className="flex w-full items-center justify-between gap-4 px-3 py-2 transition-colors"
+            style={{ color: theme.textMuted }}
           >
-            <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Rates</span>
-            <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${isRatesDropdownOpen ? 'rotate-180' : ''}`} />
+            <span className="text-[10px] font-medium uppercase tracking-wider">Rates</span>
+            <ChevronDown className={`h-3 w-3 transition-transform ${isRatesDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Rates display - collapsible */}
           {isRatesDropdownOpen && (
-            <div className="border-t border-white/[0.06] px-3 py-2 space-y-1">
+            <div
+              className="px-3 py-2 space-y-1"
+              style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}
+            >
               {/* Age group display */}
               <div className="flex items-center justify-between gap-4 mb-2">
-                <span className="text-xs text-slate-400">Age group</span>
-                <span className="text-xs font-medium text-blue-400">{AGE_GROUP_LABELS[selectedRateGroup]}</span>
+                <span className="text-xs" style={{ color: theme.textMuted }}>Age group</span>
+                <span className="text-xs font-medium" style={{ color: theme.blue }}>{AGE_GROUP_LABELS[selectedRateGroup]}</span>
               </div>
               {/* Rates */}
               <div className="space-y-0.5 text-xs">
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-400">Employee</span>
-                  <span className="font-mono font-medium text-purple-400">{(rates.employee * 100).toFixed(0)}%</span>
+                  <span style={{ color: theme.textMuted }}>Employee</span>
+                  <span className="font-mono font-medium" style={{ color: theme.purple }}>{(rates.employee * 100).toFixed(0)}%</span>
                 </div>
                 <div className="flex items-center justify-between gap-4">
-                  <span className="text-slate-400">Employer</span>
-                  <span className="font-mono font-medium text-pink-400">{(rates.employer * 100).toFixed(0)}%</span>
+                  <span style={{ color: theme.textMuted }}>Employer</span>
+                  <span className="font-mono font-medium" style={{ color: theme.accent }}>{(rates.employer * 100).toFixed(0)}%</span>
                 </div>
-                <div className="mt-1 flex items-center justify-between gap-4 border-t border-white/[0.06] pt-1">
-                  <span className="text-slate-300">Total</span>
-                  <span className="font-mono font-semibold text-white">{(rates.total * 100).toFixed(0)}%</span>
+                <div
+                  className="mt-1 flex items-center justify-between gap-4 pt-1"
+                  style={{ borderTop: `1px solid ${theme.surfaceBorder}` }}
+                >
+                  <span style={{ color: theme.textSecondary }}>Total</span>
+                  <span className="font-mono font-semibold" style={{ color: theme.textPrimary }}>{(rates.total * 100).toFixed(0)}%</span>
                 </div>
               </div>
             </div>
@@ -359,8 +414,8 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
                 linkCurvature={0.5}
                 margin={{ top: 40, right: 180, bottom: 20, left: 100 }}
                 link={{
-                  stroke: '#ffffff',
-                  strokeOpacity: 0.2,
+                  stroke: isMonet ? theme.primary : '#ffffff',
+                  strokeOpacity: isMonet ? 0.3 : 0.2,
                 }}
               >
                 <Tooltip
@@ -369,20 +424,32 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
                     const tooltipData = payload[0].payload
                     if (tooltipData.source && tooltipData.target) {
                       return (
-                        <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur">
-                          <p className="text-xs text-slate-400">
+                        <div
+                          className="rounded-lg px-3 py-2 shadow-xl backdrop-blur"
+                          style={{
+                            background: isMonet ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 40, 0.95)',
+                            border: `1px solid ${theme.cardBorder}`,
+                          }}
+                        >
+                          <p className="text-xs" style={{ color: theme.textMuted }}>
                             {tooltipData.source.name} → {tooltipData.target.name}
                           </p>
-                          <p className="text-lg font-semibold text-white">
+                          <p className="text-lg font-semibold" style={{ color: theme.textPrimary }}>
                             {formatCurrency(tooltipData.value)}
                           </p>
                         </div>
                       )
                     }
                     return (
-                      <div className="rounded-lg border border-white/10 bg-[#0f1728]/95 px-3 py-2 shadow-xl backdrop-blur">
-                        <p className="text-xs text-slate-400">{tooltipData.name}</p>
-                        <p className="text-lg font-semibold text-white">
+                      <div
+                        className="rounded-lg px-3 py-2 shadow-xl backdrop-blur"
+                        style={{
+                          background: isMonet ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 40, 0.95)',
+                          border: `1px solid ${theme.cardBorder}`,
+                        }}
+                      >
+                        <p className="text-xs" style={{ color: theme.textMuted }}>{tooltipData.name}</p>
+                        <p className="text-lg font-semibold" style={{ color: theme.textPrimary }}>
                           {formatCurrency(tooltipData.value)}
                         </p>
                       </div>
@@ -410,10 +477,20 @@ export function CPFContributionFlow({ profile, className }: CPFContributionFlowP
       </div>
 
       {/* Info Footer */}
-      <div className="border-t border-white/[0.04] px-5 py-4">
-        <div className="flex items-start gap-3 rounded-lg bg-blue-500/5 p-3">
-          <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-400" />
-          <div className="text-xs text-slate-300">
+      <div
+        className="px-5 py-4 transition-colors duration-300"
+        style={{
+          borderTop: `1px solid ${theme.surfaceBorder}`,
+        }}
+      >
+        <div
+          className="flex items-start gap-3 rounded-lg p-3 transition-colors duration-300"
+          style={{
+            background: isMonet ? `${theme.blue}10` : 'rgba(59, 130, 246, 0.05)',
+          }}
+        >
+          <Info className="mt-0.5 h-4 w-4 flex-shrink-0" style={{ color: theme.blue }} />
+          <div className="text-xs" style={{ color: theme.textSecondary }}>
             <p>
               CPF contribution rates vary by age group. Rates shown are for Singapore Citizens and
               3rd year+ Permanent Residents. The OW ceiling is ${CPF_LIMITS.owCeiling.toLocaleString()}/month

@@ -66,8 +66,6 @@ export default function ScenarioMarker({
             <circle
               r={markerRadius}
               fill={color}
-              stroke="rgba(255,255,255,0.3)"
-              strokeWidth={1}
             />
             {Icon ? (
               <foreignObject

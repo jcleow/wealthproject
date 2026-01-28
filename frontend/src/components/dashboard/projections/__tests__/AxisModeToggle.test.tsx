@@ -3,16 +3,16 @@ import { describe, it, expect, vi } from 'vitest'
 import { AxisModeToggle } from '../AxisModeToggle'
 
 describe('AxisModeToggle', () => {
-  it('displays "Age" when mode is age', () => {
+  it('displays "AGE" when mode is age', () => {
     render(<AxisModeToggle mode="age" onToggle={() => {}} />)
 
-    expect(screen.getByRole('button')).toHaveTextContent('Age')
+    expect(screen.getByRole('button')).toHaveTextContent('AGE')
   })
 
-  it('displays "Year" when mode is actual_year', () => {
+  it('displays "YEAR" when mode is actual_year', () => {
     render(<AxisModeToggle mode="actual_year" onToggle={() => {}} />)
 
-    expect(screen.getByRole('button')).toHaveTextContent('Year')
+    expect(screen.getByRole('button')).toHaveTextContent('YEAR')
   })
 
   it('calls onToggle when clicked', () => {

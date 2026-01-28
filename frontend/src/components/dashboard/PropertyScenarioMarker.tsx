@@ -62,12 +62,10 @@ export default function PropertyScenarioMarker({
         }
       }}
     >
-      {/* Filled circle (no outer rings - matching Chart.js style) */}
+      {/* Filled circle (no border for clean Stitch-style look) */}
       <circle
         r={innerRadius}
         fill={marker.iconColor}
-        stroke="rgba(255,255,255,0.3)"
-        strokeWidth={1}
       />
 
       {/* Icon - pointer-events: none so mouse events bubble to parent <g> */}
@@ -195,12 +193,10 @@ export function NestedMilestoneMarker({
         }
       } : undefined}
     >
-      {/* Filled circle (no outer ring - matching Chart.js style) */}
+      {/* Filled circle (no border for clean Stitch-style look) */}
       <circle
         r={radius}
         fill={milestone.iconColor}
-        stroke="rgba(255,255,255,0.25)"
-        strokeWidth={1}
       />
 
       {/* Icon */}
