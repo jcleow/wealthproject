@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
+import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield, Sun, Moon } from 'lucide-react'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -10,7 +10,7 @@ import { ScenarioEventModal } from '../modals/ScenarioEventModal/ScenarioEventMo
 import { ProfileSelectionModal } from '../modals/ProfileSelectionModal'
 import { NetWorthProjection } from './NetWorthProjection'
 import { UserMenu } from '../auth/UserMenu'
-import { useTimelineStore, useFeatureModulesStore } from '@/stores'
+import { useTimelineStore, useFeatureModulesStore, useColorScheme, useColorSchemeActions } from '@/stores'
 import { useShallow } from 'zustand/react/shallow'
 import type { ScenarioEvent } from '@/types/scenario'
 import clsx from 'clsx'
@@ -81,6 +81,11 @@ export function FinancialWorkspace({
   const { deleteAllFinancialData, refresh } = useFinancialData()
   const loadProfileMutation = useLoadSampleDataMutation()
   const moduleMenuRef = useRef<HTMLDivElement | null>(null)
+
+  // Theme toggle
+  const colorScheme = useColorScheme()
+  const { toggleColorScheme } = useColorSchemeActions()
+  const isMonet = colorScheme === 'monet'
 
   const clearPropertyData = async () => {
     if (typeof window === 'undefined') return
@@ -201,21 +206,28 @@ shrink-0`}>
         <div className={clsx(
           "flex items-center gap-3",
           "px-3 py-1.5",
-          "border border-white/[0.06] rounded-full",
-          "bg-white/[0.02]",
+          "rounded-full",
           "backdrop-blur-sm",
+          "transition-colors duration-200",
+          isMonet
+            ? "border border-[rgba(155,139,180,0.2)] bg-white/80"
+            : "border border-white/[0.06] bg-white/[0.02]",
         )}>
           {/* Search */}
-          <div className="flex items-center gap-2 border-r border-white/[0.06] pr-3">
-            <Search className="h-3.5 w-3.5 text-slate-500" />
+          <div className={clsx(
+            "flex items-center gap-2 pr-3 border-r",
+            isMonet ? "border-[rgba(155,139,180,0.15)]" : "border-white/[0.06]"
+          )}>
+            <Search className={clsx("h-3.5 w-3.5", isMonet ? "text-slate-500" : "text-slate-500")} />
             <input
               type="text"
               placeholder="Search..."
-              className={`w-48
-placeholder-slate-600
-focus:outline-none
-bg-transparent
-text-[13px] text-slate-300`}
+              className={clsx(
+                "w-48 focus:outline-none bg-transparent text-[13px]",
+                isMonet
+                  ? "text-slate-700 placeholder-slate-400"
+                  : "text-slate-300 placeholder-slate-600"
+              )}
             />
           </div>
 
@@ -226,10 +238,11 @@ text-[13px] text-slate-300`}
                 "flex items-center justify-center",
                 "h-7 w-7",
                 "rounded-full",
-                "hover:bg-white/5",
-                "hover:text-slate-300 text-slate-500",
                 "disabled:opacity-60",
                 "transition",
+                isMonet
+                  ? "hover:bg-[rgba(155,139,180,0.1)] text-slate-500 hover:text-slate-700"
+                  : "hover:bg-white/5 hover:text-slate-300 text-slate-500",
               )}
               title="Load a profile template"
               type="button"
@@ -243,10 +256,11 @@ text-[13px] text-slate-300`}
                 "flex items-center justify-center",
                 "h-7 w-7",
                 "rounded-full",
-                "hover:bg-rose-500/10",
-                "hover:text-rose-300 text-rose-400/70",
                 "disabled:opacity-60",
                 "transition",
+                isMonet
+                  ? "hover:bg-[rgba(232,168,152,0.15)] text-[#c97d6d] hover:text-[#b86a5a]"
+                  : "hover:bg-rose-500/10 hover:text-rose-300 text-rose-400/70",
               )}
               title="Delete all data"
               type="button"
@@ -256,7 +270,7 @@ text-[13px] text-slate-300`}
             </button>
           </div>
 
-          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className={clsx("h-4 w-px", isMonet ? "bg-[rgba(155,139,180,0.15)]" : "bg-white/[0.06]")} />
 
           <div className="relative z-[100]" ref={moduleMenuRef}>
             <button
@@ -265,8 +279,11 @@ text-[13px] text-slate-300`}
                 "flex items-center gap-1.5",
                 "px-2 py-1",
                 "rounded-lg",
-                "hover:bg-white/5",
-                "font-medium hover:text-slate-200 text-[11px] text-slate-400",
+                "font-medium text-[11px]",
+                "transition",
+                isMonet
+                  ? "hover:bg-[rgba(155,139,180,0.1)] text-slate-500 hover:text-slate-700"
+                  : "hover:bg-white/5 hover:text-slate-200 text-slate-400",
                 "transition",
               )}
               type="button"
@@ -425,7 +442,7 @@ text-purple-400`}>
             )}
           </div>
 
-          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className={clsx("h-4 w-px", isMonet ? "bg-[rgba(155,139,180,0.15)]" : "bg-white/[0.06]")} />
 
           {/* Layout toggle */}
           <button
@@ -435,13 +452,38 @@ text-purple-400`}>
               "flex items-center justify-center",
               "h-7 w-7",
               "rounded-full",
-              "hover:bg-white/5",
-              "hover:text-slate-300 text-slate-500",
+              isMonet
+                ? "hover:bg-slate-200 text-slate-500"
+                : "hover:bg-white/5 hover:text-slate-300 text-slate-500",
               "transition",
             )}
             title="Change layout"
           >
             <LayoutGrid className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Theme toggle */}
+          <button
+            type="button"
+            onClick={toggleColorScheme}
+            className={clsx(
+              "flex items-center justify-center",
+              "h-7 w-7",
+              "rounded-full",
+              "transition-all duration-200",
+              isMonet
+                ? "bg-amber-100 hover:bg-amber-200 text-amber-600"
+                : "hover:bg-white/5 text-slate-500 hover:text-slate-300",
+            )}
+            title={isMonet ? 'Switch to dark mode' : 'Switch to light mode (Monet)'}
+            aria-label={isMonet ? 'Switch to dark mode' : 'Switch to light mode'}
+            data-testid="theme-toggle"
+          >
+            {isMonet ? (
+              <Sun className="h-3.5 w-3.5" />
+            ) : (
+              <Moon className="h-3.5 w-3.5" />
+            )}
           </button>
 
           {/* Notification bell */}
@@ -451,9 +493,10 @@ text-purple-400`}>
               "flex items-center justify-center",
               "h-7 w-7",
               "rounded-full",
-              "hover:bg-white/5",
-              "hover:text-slate-300 text-slate-500",
               "transition",
+              isMonet
+                ? "hover:bg-[rgba(155,139,180,0.1)] text-slate-500 hover:text-slate-700"
+                : "hover:bg-white/5 hover:text-slate-300 text-slate-500",
             )}
           >
             <Bell className="h-3.5 w-3.5" />

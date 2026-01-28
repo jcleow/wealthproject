@@ -8,6 +8,7 @@ import { AuthProvider } from '@/components/auth/AuthProvider'
 import { AuthenticationGuard } from '@/components/auth/AuthGuard'
 import { PersonFilterProvider } from '@/contexts/PersonFilterContext'
 import { PersonsModalContainer } from '@/components/modals/PersonsModal'
+import { ThemeProvider } from '@/components/providers/ThemeProvider'
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -52,18 +53,20 @@ export default function RootLayout({
           </>
         )}
       </head>
-      <body className="antialiased bg-black text-white">
+      <body className="antialiased transition-colors duration-200">
         <QueryProvider>
           <AuthProvider>
-            <AuthenticationGuard>
-              <PersonFilterProvider>
-                {children}
-                <PersonsModalContainer />
-              </PersonFilterProvider>
-            </AuthenticationGuard>
+            <ThemeProvider>
+              <AuthenticationGuard>
+                <PersonFilterProvider>
+                  {children}
+                  <PersonsModalContainer />
+                </PersonFilterProvider>
+              </AuthenticationGuard>
+            </ThemeProvider>
           </AuthProvider>
         </QueryProvider>
-        <Toaster theme="dark" position="bottom-right" richColors />
+        <Toaster position="bottom-right" richColors />
       </body>
     </html>
   )

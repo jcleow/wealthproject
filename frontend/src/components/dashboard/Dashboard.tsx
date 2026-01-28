@@ -46,10 +46,13 @@ import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { generateUUID } from '@/lib/utils'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
-import { useTimelineStore, useFeatureModulesStore } from '@/stores'
+import { useTimelineStore, useFeatureModulesStore, useColorScheme } from '@/stores'
 import { useShallow } from 'zustand/react/shallow'
 
 export function Dashboard() {
+  // Theme state
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
   const chatIdRef = useRef<string>(generateUUID())
   const chatId = chatIdRef.current
   const queryClient = useQueryClient()
@@ -195,30 +198,28 @@ export function Dashboard() {
 
   return (
     <>
-      <div className={`relative
-overflow-hidden
-h-screen w-full
-bg-[#050505]
-font-sans text-slate-200`}>
+      <div className={clsx(
+        "relative overflow-hidden h-screen w-full font-sans transition-colors duration-300",
+        isMonet
+          ? "bg-[#f8f6f3] text-slate-700"
+          : "bg-[#050505] text-slate-200"
+      )}>
         {/* Ambient background orbs */}
-        <div className={`fixed left-[-10%] top-[-20%]
-h-[800px] w-[800px]
-pointer-events-none
-rounded-full
-bg-zinc-800/20
-opacity-40 blur-[120px]`} />
-        <div className={`fixed bottom-[-20%] right-[-10%]
-h-[600px] w-[600px]
-pointer-events-none
-rounded-full
-bg-slate-800/10
-opacity-30 blur-[100px]`} />
-        <div className={`fixed right-[20%] top-[20%]
-h-[400px] w-[400px]
-pointer-events-none
-rounded-full
-bg-white/5
-opacity-20 blur-[80px]`} />
+        {!isMonet && (
+          <>
+            <div className="fixed left-[-10%] top-[-20%] h-[800px] w-[800px] pointer-events-none rounded-full bg-zinc-800/20 opacity-40 blur-[120px]" />
+            <div className="fixed bottom-[-20%] right-[-10%] h-[600px] w-[600px] pointer-events-none rounded-full bg-slate-800/10 opacity-30 blur-[100px]" />
+            <div className="fixed right-[20%] top-[20%] h-[400px] w-[400px] pointer-events-none rounded-full bg-white/5 opacity-20 blur-[80px]" />
+          </>
+        )}
+        {isMonet && (
+          <>
+            {/* Monet-style ambient orbs - soft lavender/cream tones */}
+            <div className="fixed left-[-10%] top-[-20%] h-[800px] w-[800px] pointer-events-none rounded-full bg-[#9B8BB4]/10 opacity-40 blur-[120px]" />
+            <div className="fixed bottom-[-20%] right-[-10%] h-[600px] w-[600px] pointer-events-none rounded-full bg-[#7FB285]/10 opacity-30 blur-[100px]" />
+            <div className="fixed right-[20%] top-[20%] h-[400px] w-[400px] pointer-events-none rounded-full bg-[#E8A898]/10 opacity-20 blur-[80px]" />
+          </>
+        )}
 
         {/* Main content - side by side layout */}
         <div className="relative z-10 flex h-screen w-full overflow-hidden">
@@ -241,10 +242,12 @@ p-6 pr-3`}
                 transition: 'opacity 250ms cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
-              <div className={`flex flex-col overflow-hidden
-h-full
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
+              <div className={clsx(
+                "flex flex-col overflow-hidden h-full rounded-2xl border transition-colors",
+                isMonet
+                  ? "border-[rgba(155,139,180,0.15)] bg-white/90"
+                  : "border-white/[0.06] bg-[#0a0a0a]/80"
+              )}>
                 <Chat
                   chatId={chatId}
                   className="h-full min-h-0"
@@ -257,12 +260,12 @@ bg-[#0a0a0a]/80`}>
 
             {/* Collapsed sidebar */}
             <div
-              className={`absolute left-0 top-0
-flex flex-col items-center
-h-screen w-16
-pt-7
-border-r border-white/[0.06]
-bg-[#0a0a0a]/40`}
+              className={clsx(
+                "absolute left-0 top-0 flex flex-col items-center h-screen w-16 pt-7 border-r transition-colors",
+                isMonet
+                  ? "border-[rgba(155,139,180,0.15)] bg-white/60"
+                  : "border-white/[0.06] bg-[#0a0a0a]/40"
+              )}
               style={{
                 opacity: isChatCollapsed ? 1 : 0,
                 pointerEvents: isChatCollapsed ? 'auto' : 'none',
@@ -286,10 +289,12 @@ h-screen
 gap-6 p-6`}>
             {showCPFView ? (
               /* CPF Simulation View - takes over entire area */
-              <div className={`flex flex-1 flex-col overflow-hidden
-min-h-0
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
+              <div className={clsx(
+                "flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors",
+                isMonet
+                  ? "border-[rgba(155,139,180,0.15)] bg-white/90"
+                  : "border-white/[0.06] bg-[#0a0a0a]/80"
+              )}>
                 <CPFSimulationView onClose={closeCPFView} />
               </div>
             ) : showTaxPlanner ? (
@@ -300,10 +305,12 @@ bg-[#0a0a0a]/80`}>
                   <FinancialWorkspace headerOnly />
                 </div>
                 {/* Tax Planner content */}
-                <div className={`flex flex-1 flex-col overflow-hidden
-min-h-0
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
+                <div className={clsx(
+                  "flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors",
+                  isMonet
+                    ? "border-[rgba(155,139,180,0.15)] bg-white/90"
+                    : "border-white/[0.06] bg-[#0a0a0a]/80"
+                )}>
                   <TaxPlannerV2View onClose={closeTaxPlanner} />
                 </div>
               </>
@@ -315,10 +322,12 @@ bg-[#0a0a0a]/80`}>
                   <FinancialWorkspace headerOnly />
                 </div>
                 {/* Insurance Planner content */}
-                <div className={`flex flex-1 flex-col overflow-hidden
-min-h-0
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
+                <div className={clsx(
+                  "flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors",
+                  isMonet
+                    ? "border-[rgba(155,139,180,0.15)] bg-white/90"
+                    : "border-white/[0.06] bg-[#0a0a0a]/80"
+                )}>
                   <InsurancePlannerView onClose={closeInsurancePlanner} />
                 </div>
               </>

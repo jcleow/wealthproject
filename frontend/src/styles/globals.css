@@ -61,6 +61,283 @@
   --chart-5: 340 75% 55%;
 }
 
+/* ============================================
+   MONET THEME - Impressionist Light Mode
+   Inspired by Monet's water lilies and gardens
+   ============================================ */
+.monet {
+  /* Backgrounds - soft cream/ivory tones */
+  --background: 40 20% 97%;
+  --foreground: 0 0% 24%;
+
+  /* Cards - white with lavender undertones */
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 24%;
+
+  /* Popovers/Modals */
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 24%;
+
+  /* Primary - Wisteria/Lavender */
+  --primary: 270 20% 62%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Secondary - Soft sage */
+  --secondary: 130 20% 92%;
+  --secondary-foreground: 130 30% 30%;
+
+  /* Muted - Light lavender gray */
+  --muted: 270 10% 94%;
+  --muted-foreground: 0 0% 42%;
+
+  /* Accent - Coral rose */
+  --accent: 15 60% 75%;
+  --accent-foreground: 15 70% 25%;
+
+  /* Destructive */
+  --destructive: 0 65% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  /* Borders - Soft lavender */
+  --border: 270 15% 88%;
+  --input: 270 15% 88%;
+  --ring: 270 20% 62%;
+
+  /* Chart colors - Monet palette */
+  --chart-1: 210 50% 55%;   /* Soft blue - water */
+  --chart-2: 130 35% 50%;   /* Sage green - lily pads */
+  --chart-3: 35 60% 60%;    /* Soft amber - sunlight */
+  --chart-4: 270 30% 60%;   /* Lavender - wisteria */
+  --chart-5: 15 55% 65%;    /* Coral rose - water lilies */
+
+  /* Monet-specific tokens */
+  --monet-lavender: 270 20% 62%;
+  --monet-sage: 130 35% 50%;
+  --monet-coral: 15 60% 75%;
+  --monet-amber: 35 60% 60%;
+  --monet-blue: 210 50% 55%;
+  --monet-cream: 40 20% 97%;
+  --monet-shadow: 270 20% 50%;
+}
+
+/* Monet theme specific overrides */
+.monet body {
+  background: linear-gradient(180deg, hsl(40, 20%, 97%) 0%, hsl(40, 15%, 95%) 100%);
+}
+
+/* Monet theme glass card styling */
+.monet .glass-card,
+.monet [class*="bg-white/[0.0"] {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(155, 139, 180, 0.15) !important;
+}
+
+/* Monet scrollbar */
+.monet ::-webkit-scrollbar-thumb {
+  background: hsl(270, 15%, 80%);
+}
+
+.monet ::-webkit-scrollbar-thumb:hover {
+  background: hsl(270, 20%, 70%);
+}
+
+.monet * {
+  scrollbar-color: hsl(270, 15%, 80%) transparent;
+}
+
+/* Monet theme - auto-adapt common dark patterns */
+.monet .bg-black {
+  background-color: hsl(40, 20%, 97%) !important;
+}
+
+.monet .text-white {
+  color: hsl(0, 0%, 24%) !important;
+}
+
+.monet .text-slate-300 {
+  color: hsl(0, 0%, 35%) !important;
+}
+
+.monet .text-slate-400 {
+  color: hsl(0, 0%, 42%) !important;
+}
+
+.monet .text-slate-500 {
+  color: hsl(0, 0%, 50%) !important;
+}
+
+.monet .text-slate-600 {
+  color: hsl(0, 0%, 55%) !important;
+}
+
+/* Monet - glassmorphic backgrounds */
+.monet [class*="bg-white/[0.0"],
+.monet [class*="bg-white/5"],
+.monet [class*="bg-white/10"] {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.monet [class*="border-white/"] {
+  border-color: rgba(155, 139, 180, 0.2) !important;
+}
+
+/* Monet - hover states */
+.monet [class*="hover:bg-white/5"]:hover,
+.monet [class*="hover:bg-white/10"]:hover {
+  background-color: rgba(155, 139, 180, 0.1) !important;
+}
+
+/* Monet - emerald accents to sage */
+.monet .text-emerald-400,
+.monet .text-emerald-500 {
+  color: hsl(130, 35%, 45%) !important;
+}
+
+.monet .bg-emerald-500\/15,
+.monet [class*="bg-emerald-500/"] {
+  background-color: rgba(127, 178, 133, 0.15) !important;
+}
+
+.monet .border-emerald-500\/20,
+.monet [class*="border-emerald-500/"] {
+  border-color: rgba(127, 178, 133, 0.25) !important;
+}
+
+/* Monet - blue accents to soft blue */
+.monet .text-blue-400,
+.monet .text-blue-500 {
+  color: hsl(210, 50%, 50%) !important;
+}
+
+.monet [class*="bg-blue-500/"] {
+  background-color: rgba(123, 163, 201, 0.15) !important;
+}
+
+/* Monet - purple accents to lavender */
+.monet .text-purple-400,
+.monet .text-violet-400 {
+  color: hsl(270, 30%, 55%) !important;
+}
+
+/* Monet - amber/yellow accents */
+.monet .text-amber-400,
+.monet .text-yellow-400 {
+  color: hsl(35, 60%, 50%) !important;
+}
+
+/* Monet - rose/red accents to coral */
+.monet .text-rose-400,
+.monet .text-red-400 {
+  color: hsl(15, 55%, 55%) !important;
+}
+
+/* Monet - modal and panel backgrounds */
+.monet [class*="bg-slate-9"],
+.monet [class*="bg-zinc-9"],
+.monet [class*="bg-neutral-9"],
+.monet [class*="bg-gray-9"] {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+/* Monet - input styling */
+.monet input,
+.monet textarea,
+.monet select {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  border-color: rgba(155, 139, 180, 0.2) !important;
+  color: hsl(0, 0%, 24%) !important;
+}
+
+.monet input::placeholder,
+.monet textarea::placeholder {
+  color: hsl(0, 0%, 55%) !important;
+}
+
+.monet input:focus,
+.monet textarea:focus,
+.monet select:focus {
+  border-color: rgba(155, 139, 180, 0.4) !important;
+  outline-color: rgba(155, 139, 180, 0.4) !important;
+}
+
+/* Monet - button styling */
+.monet button[class*="bg-white/"] {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Monet - chart backgrounds */
+.monet [class*="bg-black/20"],
+.monet [class*="bg-black/30"] {
+  background-color: rgba(155, 139, 180, 0.08) !important;
+}
+
+/* Monet - common dark card patterns */
+.monet [class*="bg-[#0a0a0a]"],
+.monet [class*="bg-[#0c0c0c]"],
+.monet [class*="bg-[#050505]"],
+.monet [class*="bg-[#080808]"],
+.monet [class*="bg-[#111111]"],
+.monet [class*="bg-[#0f0f0f]"] {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Monet - card and panel backgrounds */
+.monet .rounded-2xl[class*="border"][class*="bg-"] {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(155, 139, 180, 0.15) !important;
+}
+
+.monet .rounded-xl[class*="border"][class*="bg-"] {
+  background-color: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(155, 139, 180, 0.15) !important;
+}
+
+/* Monet - summary/stat cards */
+.monet [class*="rounded-xl"][class*="border"][class*="p-"] {
+  background-color: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(155, 139, 180, 0.12) !important;
+}
+
+/* Monet - text color overrides for cards */
+.monet [class*="text-slate-100"],
+.monet [class*="text-slate-50"] {
+  color: hsl(0, 0%, 20%) !important;
+}
+
+.monet [class*="text-slate-200"] {
+  color: hsl(0, 0%, 28%) !important;
+}
+
+/* Monet - chart area */
+.monet canvas {
+  filter: brightness(1.05);
+}
+
+/* Monet - dropdown/select styling */
+.monet select,
+.monet [role="listbox"] {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(155, 139, 180, 0.2) !important;
+}
+
+.monet option {
+  background-color: white !important;
+  color: #3D3D3D !important;
+}
+
+/* Monet - tooltip styling */
+.monet [role="tooltip"],
+.monet .tooltip {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(155, 139, 180, 0.2) !important;
+  color: #3D3D3D !important;
+}
+
+/* Monet - loader/spinner */
+.monet .animate-spin {
+  color: hsl(270, 20%, 62%) !important;
+}
+
 @layer base {
   body {
     @apply bg-background text-foreground;
