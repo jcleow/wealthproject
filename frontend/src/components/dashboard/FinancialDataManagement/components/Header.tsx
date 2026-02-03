@@ -512,14 +512,14 @@ function MonthSelector({
       )} htmlFor="month-selector">
         Month
       </label>
-      <div className="relative w-[100px]">
+      <div className="relative">
         <button
           type="button"
           id="month-selector"
           onClick={() => !isDisabled && setIsOpen(!isOpen)}
           disabled={isDisabled}
           className={clsx(
-            "flex items-center justify-between gap-1 w-full",
+            "flex items-center gap-1",
             "appearance-none cursor-pointer bg-transparent",
             "text-sm font-medium focus:outline-none",
             "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -528,9 +528,9 @@ function MonthSelector({
               : (isOpen ? "text-blue-400" : "text-white")
           )}
         >
-          <span>{MONTH_NAMES[safeCalendarMonth - 1]}</span>
+          <span className="whitespace-nowrap">{MONTH_NAMES[safeCalendarMonth - 1]}</span>
           <ChevronDown className={clsx(
-            "h-3.5 w-3.5 transition-transform duration-200",
+            "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
             isMonet ? "text-slate-400" : "text-slate-400",
             isOpen && "rotate-180"
           )} />

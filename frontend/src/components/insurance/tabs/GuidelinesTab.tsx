@@ -2,11 +2,11 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import * as Slider from '@radix-ui/react-slider'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import {
   Info,
   Check,
   AlertCircle,
-  ChevronDown,
   ArrowRight,
   ArrowLeft,
   RotateCcw,
@@ -16,8 +16,9 @@ import {
   Briefcase,
   Sparkles,
   Plus,
+  User,
+  Edit3,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import { useColorScheme } from '@/stores'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
@@ -37,9 +38,9 @@ import {
   type WardClass,
 } from '@/types/insurance'
 import { PersonSelector } from '@/components/ui/PersonSelector'
+import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
-import { CoverageLayersInline } from '@/components/insurance/CoverageLayers'
 import { useQuestionnaireAutoPopulate } from '@/hooks/useQuestionnaireAutoPopulate'
 import type { Frequency } from '@/types/financial'
 
@@ -402,17 +403,29 @@ const coverageEducation: Record<GuidelineCoverageType, { title: string; points: 
 function CoverageMultiplierCard({
   coverageType,
   showEducation = false,
+  reasoning,
+  showInputs = false,
 }: {
   coverageType: GuidelineCoverageType
   showEducation?: boolean
+  reasoning?: string
+  showInputs?: boolean
 }) {
   const colorScheme = useColorScheme()
   const monetWizard = getInsuranceTheme(colorScheme)
 
-  const [isExpanded, setIsExpanded] = useState(false)
   const guidelines = useGuidelines()
   const targets = useGuidelineTargets()
-  const { setMultiplier, toggleCoverage, setHospitalizationPreferences } = useGuidelinesActions()
+  const answers = useQuestionnaireAnswers()
+  const {
+    setMultiplier,
+    toggleCoverage,
+    setHospitalizationPreferences,
+    setLifeTpdAnswers,
+    setCriticalIllnessAnswers,
+    setPersonalAccidentAnswers,
+    applyQuestionnaireRecommendations,
+  } = useGuidelinesActions()
 
   const config = guidelineCoverageConfig[coverageType]
   const coverage = guidelines.coverages[coverageType]
@@ -431,6 +444,25 @@ function CoverageMultiplierCard({
   }
 
   const accent = accentColorMap[config.color] || monetWizard.lavender
+
+  // Helper to parse currency input (removes $, commas)
+  const parseCurrency = (value: string): number => {
+    const cleaned = value.replace(/[$,]/g, '')
+    const num = parseFloat(cleaned)
+    return isNaN(num) ? 0 : num
+  }
+
+  // Helper to format number for input display
+  const formatInputCurrency = (value: number): string => {
+    if (value === 0) return ''
+    return value.toLocaleString()
+  }
+
+  // Recompute recommendations when inputs change
+  const handleInputChange = () => {
+    // Small delay to allow state to update
+    setTimeout(() => applyQuestionnaireRecommendations(), 0)
+  }
 
   return (
     <div
@@ -462,6 +494,53 @@ function CoverageMultiplierCard({
                   Optional
                 </span>
               )}
+              {/* Learn More Tooltip */}
+              {showEducation && (
+                <Tooltip.Provider delayDuration={200}>
+                  <Tooltip.Root>
+                    <Tooltip.Trigger asChild>
+                      <button
+                        type="button"
+                        className="p-0.5 rounded-full transition-opacity hover:opacity-70"
+                      >
+                        <Info className="h-3.5 w-3.5" style={{ color: monetWizard.textMuted }} />
+                      </button>
+                    </Tooltip.Trigger>
+                    <Tooltip.Portal>
+                      <Tooltip.Content
+                        side="bottom"
+                        align="start"
+                        sideOffset={8}
+                        className="z-[9999] max-w-xs rounded-xl p-4 shadow-xl animate-in fade-in-0 zoom-in-95"
+                        style={{
+                          background: colorScheme === 'monet' ? '#ffffff' : '#1a1a1a',
+                          border: `1px solid ${monetWizard.cardBorder}`,
+                        }}
+                      >
+                        <p
+                          className="text-xs font-medium mb-2"
+                          style={{ color: monetWizard.textSecondary }}
+                        >
+                          {education.title}
+                        </p>
+                        <ul className="space-y-1.5">
+                          {education.points.map((point, i) => (
+                            <li
+                              key={i}
+                              className="flex items-start gap-2 text-xs leading-relaxed"
+                              style={{ color: monetWizard.textMuted }}
+                            >
+                              <span style={{ color: accent }}>·</span>
+                              {point}
+                            </li>
+                          ))}
+                        </ul>
+                        <Tooltip.Arrow style={{ fill: colorScheme === 'monet' ? '#ffffff' : '#1a1a1a' }} />
+                      </Tooltip.Content>
+                    </Tooltip.Portal>
+                  </Tooltip.Root>
+                </Tooltip.Provider>
+              )}
             </div>
             <p
               className="text-xs mt-0.5"
@@ -492,51 +571,6 @@ function CoverageMultiplierCard({
           />
         </button>
       </div>
-
-      {/* Learn More - subtle link */}
-      {showEducation && (
-        <button
-          type="button"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1.5 mt-4 text-[11px] uppercase tracking-wider transition-all duration-200 hover:opacity-70"
-          style={{ color: monetWizard.textMuted }}
-        >
-          <span>{isExpanded ? 'Hide' : 'Learn more'}</span>
-          <ChevronDown
-            className={cn(
-              'h-3 w-3 transition-transform duration-300',
-              isExpanded && 'rotate-180'
-            )}
-          />
-        </button>
-      )}
-
-      {/* Expanded Education Section - clean */}
-      {showEducation && isExpanded && (
-        <div
-          className="mt-4 pt-4"
-          style={{ borderTop: `1px solid ${monetWizard.cardBorder}` }}
-        >
-          <p
-            className="text-xs font-medium mb-3"
-            style={{ color: monetWizard.textSecondary }}
-          >
-            {education.title}
-          </p>
-          <ul className="space-y-2">
-            {education.points.map((point, i) => (
-              <li
-                key={i}
-                className="flex items-start gap-2 text-xs leading-relaxed"
-                style={{ color: monetWizard.textMuted }}
-              >
-                <span style={{ color: accent }}>·</span>
-                {point}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {/* Content - when enabled */}
       {coverage.isEnabled && (
@@ -601,62 +635,377 @@ function CoverageMultiplierCard({
               </div>
             </div>
           ) : (
-            // Income-based: elegant slider
-            <div>
-              <div className="flex items-baseline justify-between mb-4">
-                <div className="flex items-baseline gap-1.5">
-                  <span
-                    className="text-3xl font-light tabular-nums"
-                    style={{
-                      color: monetWizard.textPrimary,
-                      fontFamily: "'Cormorant Garamond', Georgia, serif",
-                    }}
-                  >
-                    {multiplier}×
-                  </span>
-                  <span
-                    className="text-xs uppercase tracking-wider"
-                    style={{ color: monetWizard.textMuted }}
-                  >
-                    income
-                  </span>
-                </div>
-                <span
-                  className="text-sm font-mono tabular-nums"
-                  style={{ color: accent }}
-                >
-                  {formatCurrency(targetAmount as number)}
-                </span>
-              </div>
-
-              {/* Custom sleek slider */}
-              <div className="relative h-1 rounded-full" style={{ background: `${monetWizard.lavender}15` }}>
+            // Income-based: editable inputs layout
+            <div className="space-y-4">
+              {/* Editable Inputs - type-specific */}
+              {showInputs && coverageType === 'life_tpd' && (
                 <div
-                  className="absolute left-0 top-0 h-full rounded-full transition-all duration-200"
+                  className="rounded-xl p-4"
                   style={{
-                    width: `${((multiplier - 1) / 19) * 100}%`,
-                    background: `linear-gradient(90deg, ${accent}60, ${accent})`,
+                    background: monetWizard.surfaceBg,
+                    border: `1px solid ${accent}25`,
                   }}
-                />
-                <input
-                  type="range"
-                  min={1}
-                  max={20}
-                  step={1}
-                  value={multiplier}
-                  onChange={(e) => setMultiplier(coverageType, parseInt(e.target.value))}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </div>
+                >
+                  <p
+                    className="text-[10px] uppercase tracking-wider mb-3"
+                    style={{ color: accent }}
+                  >
+                    Your situation
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Dependents
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={10}
+                        value={answers.lifeTpd.dependentCount}
+                        onChange={(e) => {
+                          setLifeTpdAnswers({ dependentCount: parseInt(e.target.value) || 0 })
+                          handleInputChange()
+                        }}
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Years to support
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={30}
+                        value={answers.lifeTpd.yearsUntilIndependent}
+                        onChange={(e) => {
+                          setLifeTpdAnswers({ yearsUntilIndependent: parseInt(e.target.value) || 0 })
+                          handleInputChange()
+                        }}
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Mortgage ($)
+                      </label>
+                      <input
+                        type="text"
+                        value={formatInputCurrency(answers.lifeTpd.mortgageBalance)}
+                        onChange={(e) => {
+                          setLifeTpdAnswers({ mortgageBalance: parseCurrency(e.target.value) })
+                          handleInputChange()
+                        }}
+                        placeholder="0"
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Other debts ($)
+                      </label>
+                      <input
+                        type="text"
+                        value={formatInputCurrency(answers.lifeTpd.otherDebts)}
+                        onChange={(e) => {
+                          setLifeTpdAnswers({ otherDebts: parseCurrency(e.target.value) })
+                          handleInputChange()
+                        }}
+                        placeholder="0"
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Existing assets ($)
+                      </label>
+                      <input
+                        type="text"
+                        value={formatInputCurrency(answers.lifeTpd.existingAssets)}
+                        onChange={(e) => {
+                          setLifeTpdAnswers({ existingAssets: parseCurrency(e.target.value) })
+                          handleInputChange()
+                        }}
+                        placeholder="0"
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
-              <div
-                className="flex justify-between text-[10px] mt-2"
-                style={{ color: monetWizard.textMuted }}
-              >
-                <span>1×</span>
-                <span>10×</span>
-                <span>20×</span>
+              {showInputs && coverageType === 'critical_illness' && (
+                <div
+                  className="rounded-xl p-4"
+                  style={{
+                    background: monetWizard.surfaceBg,
+                    border: `1px solid ${accent}25`,
+                  }}
+                >
+                  <p
+                    className="text-[10px] uppercase tracking-wider mb-3"
+                    style={{ color: accent }}
+                  >
+                    Your situation
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Emergency fund (months)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={36}
+                        value={answers.criticalIllness.emergencyFundMonths}
+                        onChange={(e) => {
+                          setCriticalIllnessAnswers({ emergencyFundMonths: parseInt(e.target.value) || 0 })
+                          handleInputChange()
+                        }}
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Recovery period (months)
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={36}
+                        value={answers.criticalIllness.expectedRecoveryMonths}
+                        onChange={(e) => {
+                          setCriticalIllnessAnswers({ expectedRecoveryMonths: parseInt(e.target.value) || 0 })
+                          handleInputChange()
+                        }}
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Monthly expenses ($)
+                      </label>
+                      <input
+                        type="text"
+                        value={formatInputCurrency(answers.criticalIllness.monthlyExpenses)}
+                        onChange={(e) => {
+                          setCriticalIllnessAnswers({ monthlyExpenses: parseCurrency(e.target.value) })
+                          handleInputChange()
+                        }}
+                        placeholder="0"
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Existing coverage ($)
+                      </label>
+                      <input
+                        type="text"
+                        value={formatInputCurrency(answers.criticalIllness.existingCiCoverage)}
+                        onChange={(e) => {
+                          setCriticalIllnessAnswers({ existingCiCoverage: parseCurrency(e.target.value) })
+                          handleInputChange()
+                        }}
+                        placeholder="0"
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showInputs && coverageType === 'personal_accident' && (
+                <div
+                  className="rounded-xl p-4"
+                  style={{
+                    background: monetWizard.surfaceBg,
+                    border: `1px solid ${accent}25`,
+                  }}
+                >
+                  <p
+                    className="text-[10px] uppercase tracking-wider mb-3"
+                    style={{ color: accent }}
+                  >
+                    Your situation
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider block mb-1" style={{ color: monetWizard.textMuted }}>
+                        Occupation risk
+                      </label>
+                      <CustomDropdown
+                        value={answers.personalAccident.occupationRisk}
+                        onChange={(value) => {
+                          setPersonalAccidentAnswers({ occupationRisk: value as 'low' | 'medium' | 'high' })
+                          handleInputChange()
+                        }}
+                        options={[
+                          { value: 'low', label: 'Low (Office)' },
+                          { value: 'medium', label: 'Medium (Field)' },
+                          { value: 'high', label: 'High (Manual)' },
+                        ]}
+                        minWidth="100%"
+                        variant="monet"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] uppercase tracking-wider block mb-1" style={{ color: monetWizard.textMuted }}>
+                        Commute method
+                      </label>
+                      <CustomDropdown
+                        value={answers.personalAccident.commuteMethod}
+                        onChange={(value) => {
+                          setPersonalAccidentAnswers({ commuteMethod: value as 'public_transport' | 'car' | 'motorcycle' | 'cycling' | 'walking' })
+                          handleInputChange()
+                        }}
+                        options={[
+                          { value: 'public_transport', label: 'Public transport' },
+                          { value: 'car', label: 'Car' },
+                          { value: 'motorcycle', label: 'Motorcycle' },
+                          { value: 'cycling', label: 'Cycling' },
+                          { value: 'walking', label: 'Walking' },
+                        ]}
+                        minWidth="100%"
+                        variant="monet"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between col-span-2">
+                      <label className="text-xs" style={{ color: monetWizard.textMuted }}>
+                        Active lifestyle (sports, adventure)
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPersonalAccidentAnswers({ activeLifestyle: !answers.personalAccident.activeLifestyle })
+                          handleInputChange()
+                        }}
+                        className="relative h-5 w-10 rounded-full transition-all duration-300"
+                        style={{
+                          background: answers.personalAccident.activeLifestyle
+                            ? accent
+                            : `${monetWizard.lavender}25`,
+                        }}
+                      >
+                        <span
+                          className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all duration-300"
+                          style={{
+                            left: answers.personalAccident.activeLifestyle ? '22px' : '2px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                          }}
+                        />
+                      </button>
+                    </div>
+                    <div className="col-span-2">
+                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                        Existing PA coverage ($)
+                      </label>
+                      <input
+                        type="text"
+                        value={formatInputCurrency(answers.personalAccident.existingPaCoverage)}
+                        onChange={(e) => {
+                          setPersonalAccidentAnswers({ existingPaCoverage: parseCurrency(e.target.value) })
+                          handleInputChange()
+                        }}
+                        placeholder="0"
+                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                        style={{
+                          color: monetWizard.textPrimary,
+                          borderColor: monetWizard.cardBorder,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Target amount - editable input */}
+              <div>
+                <p
+                  className="text-[10px] uppercase tracking-wider mb-1"
+                  style={{ color: monetWizard.textMuted }}
+                >
+                  Coverage target
+                </p>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xl" style={{ color: accent }}>$</span>
+                  <input
+                    type="text"
+                    value={formatInputCurrency(targetAmount as number)}
+                    onChange={(e) => {
+                      const newTarget = parseCurrency(e.target.value)
+                      const income = guidelines.annualIncome || 1
+                      const newMultiplier = Math.max(1, Math.min(20, Math.round(newTarget / income)))
+                      setMultiplier(coverageType, newMultiplier)
+                    }}
+                    className="text-2xl font-light font-mono tabular-nums bg-transparent border-b-2 focus:outline-none transition-colors"
+                    style={{
+                      color: accent,
+                      fontFamily: "'Cormorant Garamond', Georgia, serif",
+                      borderColor: `${accent}30`,
+                      width: `${Math.max(3, String(targetAmount).length) + 1}ch`,
+                    }}
+                  />
+                </div>
+                <p
+                  className="text-[11px] mt-1.5"
+                  style={{ color: monetWizard.textMuted }}
+                >
+                  ≈ {multiplier}× your annual income
+                </p>
               </div>
+            </div>
+          )}
+
+          {/* Reasoning display - shows why this coverage was recommended */}
+          {reasoning && (
+            <div
+              className="flex items-start gap-2 mt-4 pt-4"
+              style={{ borderTop: `1px solid ${monetWizard.cardBorder}` }}
+            >
+              <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: monetWizard.lavender }} />
+              <p
+                className="text-xs leading-relaxed"
+                style={{ color: monetWizard.textSecondary }}
+              >
+                {reasoning}
+              </p>
             </div>
           )}
         </div>
@@ -901,7 +1250,6 @@ function HospitalizationQuestionnaire({
   const answers = useQuestionnaireAnswers()
   const { setHospitalizationAnswers } = useGuidelinesActions()
   const [subStep, setSubStep] = useState(0)
-  const [showLearnMore, setShowLearnMore] = useState(false)
 
   const hospitalPref = answers.hospitalization.hospitalPreference
 
@@ -971,66 +1319,71 @@ function HospitalizationQuestionnaire({
             color="emerald"
           />
 
-          {/* Collapsible Learn More section */}
-          <button
-            type="button"
-            onClick={() => setShowLearnMore(!showLearnMore)}
-            className="w-full mt-4 flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all"
+          {/* Learn More Tooltip */}
+          <div
+            className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm"
             style={{
               background: monetWizard.surfaceBg,
               border: `1px solid ${monetWizard.cardBorder}`,
               color: monetWizard.textSecondary,
             }}
           >
-            <span className="flex items-center gap-2">
-              <Info className="h-4 w-4" style={{ color: monetWizard.textMuted }} />
-              Learn more about hospital types & 2026 changes
-            </span>
-            <ChevronDown
-              className={cn('h-4 w-4 transition-transform', showLearnMore && 'rotate-180')}
-              style={{ color: monetWizard.textMuted }}
-            />
-          </button>
+            <Tooltip.Provider delayDuration={200}>
+              <Tooltip.Root>
+                <Tooltip.Trigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-2 transition-opacity hover:opacity-70"
+                  >
+                    <Info className="h-4 w-4" style={{ color: monetWizard.textMuted }} />
+                    <span>Learn more about hospital types & 2026 changes</span>
+                  </button>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content
+                    side="bottom"
+                    align="center"
+                    sideOffset={8}
+                    className="z-[9999] max-w-sm rounded-xl p-4 shadow-xl animate-in fade-in-0 zoom-in-95"
+                    style={{
+                      background: colorScheme === 'monet' ? '#ffffff' : '#1a1a1a',
+                      border: `1px solid ${monetWizard.cardBorder}`,
+                    }}
+                  >
+                    {/* What's the difference */}
+                    <div className="mb-3">
+                      <p className="text-xs font-medium mb-2" style={{ color: monetWizard.textPrimary }}>
+                        What's the real difference?
+                      </p>
+                      <ul className="text-xs space-y-1" style={{ color: monetWizard.textSecondary }}>
+                        <li>• <strong>Private:</strong> Choose your specialist, shorter wait (days vs months)</li>
+                        <li>• <strong>Public:</strong> All ward classes available (A, B1, B2+, C), government subsidies</li>
+                        <li>• Public Class A/B1 offers similar comfort at lower cost than private</li>
+                      </ul>
+                    </div>
 
-          {showLearnMore && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              {/* What's the difference */}
-              <div
-                className="p-4 rounded-2xl"
-                style={{
-                  background: monetWizard.surfaceBg,
-                  border: `1px solid ${monetWizard.cardBorder}`,
-                }}
-              >
-                <p className="text-xs font-medium mb-2" style={{ color: monetWizard.textPrimary }}>What's the real difference?</p>
-                <ul className="text-xs space-y-1" style={{ color: monetWizard.textSecondary }}>
-                  <li>• <strong>Private:</strong> Choose your specialist, shorter wait (days vs months)</li>
-                  <li>• <strong>Public:</strong> All ward classes available (A, B1, B2+, C), government subsidies</li>
-                  <li>• Public Class A/B1 offers similar comfort at lower cost than private</li>
-                </ul>
-              </div>
-
-              {/* 2026 Rules */}
-              <div
-                className="p-4 rounded-2xl"
-                style={{
-                  background: `${monetWizard.amberLight}30`,
-                  border: `1px solid ${monetWizard.amber}20`,
-                }}
-              >
-                <p className="text-xs font-medium mb-1" style={{ color: monetWizard.amber }}>
-                  New MOH Rules from April 2026
-                </p>
-                <p className="text-xs" style={{ color: monetWizard.textSecondary }}>
-                  New IP riders can no longer fully cover deductibles ($1,500-$3,500 minimum out-of-pocket).
-                  Existing policies bought before Nov 2025 are unaffected.
-                </p>
-              </div>
-
-              {/* Coverage layers */}
-              <CoverageLayersInline />
-            </div>
-          )}
+                    {/* 2026 Rules */}
+                    <div
+                      className="p-3 rounded-lg"
+                      style={{
+                        background: `${monetWizard.amberLight}30`,
+                        border: `1px solid ${monetWizard.amber}20`,
+                      }}
+                    >
+                      <p className="text-xs font-medium mb-1" style={{ color: monetWizard.amber }}>
+                        New MOH Rules from April 2026
+                      </p>
+                      <p className="text-xs" style={{ color: monetWizard.textSecondary }}>
+                        New IP riders can no longer fully cover deductibles ($1,500-$3,500 minimum out-of-pocket).
+                        Existing policies bought before Nov 2025 are unaffected.
+                      </p>
+                    </div>
+                    <Tooltip.Arrow style={{ fill: colorScheme === 'monet' ? '#ffffff' : '#1a1a1a' }} />
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            </Tooltip.Provider>
+          </div>
         </div>
       ) : hospitalPref === 'private' ? (
         // Step 1 (Private): Room type preference
@@ -2356,6 +2709,42 @@ function WizardStep3Summary({ onComplete, onBack }: WizardStep3Props) {
 }
 
 // ============================================================================
+// CONFIGURED VIEW COMPONENTS
+// ============================================================================
+
+/**
+ * Person selector dropdown for guidelines
+ */
+function PersonSelectorBar() {
+  const colorScheme = useColorScheme()
+  const monetWizard = getInsuranceTheme(colorScheme)
+  const selectedPersonId = useSelectedPersonId()
+  const { setSelectedPersonId } = useGuidelinesActions()
+
+  return (
+    <div
+      className="flex items-center gap-3 rounded-2xl px-5 py-3 mb-6"
+      style={{
+        background: `${monetWizard.lavender}08`,
+        border: `1px solid ${monetWizard.lavender}15`,
+      }}
+    >
+      <User className="h-4 w-4 shrink-0" style={{ color: monetWizard.lavender }} />
+      <span className="text-sm" style={{ color: monetWizard.textSecondary }}>
+        Coverage for
+      </span>
+      <PersonSelector
+        value={selectedPersonId}
+        onChange={setSelectedPersonId}
+        placeholder="Select person"
+        variant={colorScheme === 'monet' ? 'monet' : 'dark'}
+        showCreate={false}
+      />
+    </div>
+  )
+}
+
+// ============================================================================
 // CONFIGURED VIEW (Edit mode - after wizard completion)
 // ============================================================================
 
@@ -2369,7 +2758,8 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
 
   const guidelines = useGuidelines()
   const targets = useGuidelineTargets()
-  const { setMaxPremiumPercentage, resetToDefaults } = useGuidelinesActions()
+  const recommendations = useQuestionnaireRecommendations()
+  const { setMaxPremiumPercentage, resetToDefaults, unmarkAsConfigured } = useGuidelinesActions()
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   const percentage = Math.round(guidelines.maxPremiumPercentage * 100)
@@ -2404,6 +2794,15 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
             </h2>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={unmarkAsConfigured}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-medium uppercase tracking-wider transition-all duration-300 hover:opacity-70"
+              style={{ color: monetWizard.lavender }}
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+              Edit Answers
+            </button>
             <button
               type="button"
               onClick={() => setShowResetConfirm(true)}
@@ -2466,12 +2865,26 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
           </div>
         )}
 
+        {/* Person selector */}
+        <PersonSelectorBar />
+
         <div className="grid lg:grid-cols-12 gap-8">
           {/* Coverage cards - 8 columns */}
           <div className="lg:col-span-8 space-y-3">
-            {coverageTypes.map((type) => (
-              <CoverageMultiplierCard key={type} coverageType={type} showEducation />
-            ))}
+            {coverageTypes.map((type) => {
+              // Map coverage type to reasoning key
+              const reasoningKey = type === 'life_tpd' ? 'lifeTpd' : type === 'critical_illness' ? 'criticalIllness' : type === 'personal_accident' ? 'personalAccident' : type
+              const reasoning = recommendations.reasoning[reasoningKey as keyof typeof recommendations.reasoning]
+              return (
+                <CoverageMultiplierCard
+                  key={type}
+                  coverageType={type}
+                  showEducation
+                  reasoning={reasoning}
+                  showInputs
+                />
+              )
+            })}
           </div>
 
           {/* Summary sidebar - 4 columns, sticky */}

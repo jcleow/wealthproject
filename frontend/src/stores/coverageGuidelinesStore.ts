@@ -208,20 +208,16 @@ export function calculateRecommendedCoverage(
   }
 
   // Life/TPD: formula-based
-  // = (Annual income × years until independent) + debts + obligations - assets - spouse coverage
+  // = (Annual income × years until independent) + debts + obligations - assets
   const incomeReplacement = lifeTpd.dependentCount > 0
     ? annualIncome * lifeTpd.yearsUntilIndependent
-    : 0
-  const spouseContribution = lifeTpd.spouseHasIncome
-    ? lifeTpd.spouseIncome * lifeTpd.yearsUntilIndependent * 0.5 // Assume spouse covers 50% if working
     : 0
   const lifeTpdRaw =
     incomeReplacement +
     lifeTpd.mortgageBalance +
     lifeTpd.otherDebts +
     lifeTpd.futureObligations -
-    lifeTpd.existingAssets -
-    spouseContribution
+    lifeTpd.existingAssets
 
   // Apply self-insurance reduction
   let lifeTpdFinal = Math.max(0, lifeTpdRaw)
@@ -306,6 +302,7 @@ export interface CoverageGuidelinesState {
   resetToDefaults: () => void
   setIsEditing: (isEditing: boolean) => void
   markAsConfigured: () => void
+  unmarkAsConfigured: () => void
 
   // Questionnaire actions
   setHospitalizationAnswers: (answers: Partial<HospitalizationAnswers>) => void
@@ -477,6 +474,9 @@ export const useCoverageGuidelinesStore = create<CoverageGuidelinesState>()(
 
         markAsConfigured: () => set({ hasConfiguredGuidelines: true }),
 
+        // Return to wizard without clearing questionnaire answers
+        unmarkAsConfigured: () => set({ hasConfiguredGuidelines: false }),
+
         // Questionnaire actions
         setHospitalizationAnswers: (answers) =>
           set((state) => ({
@@ -617,6 +617,7 @@ export const useGuidelinesActions = () =>
       resetToDefaults: s.resetToDefaults,
       setIsEditing: s.setIsEditing,
       markAsConfigured: s.markAsConfigured,
+      unmarkAsConfigured: s.unmarkAsConfigured,
       // Questionnaire actions
       setHospitalizationAnswers: s.setHospitalizationAnswers,
       setLifeTpdAnswers: s.setLifeTpdAnswers,
