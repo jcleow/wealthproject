@@ -73,6 +73,6 @@ export default function RootLayout({
 }
 
 export const metadata = {
-  title: 'Financial Chat System',
-  description: 'AI-powered financial planning and chat system',
+  title: 'WealthProject',
+  description: 'Weath projection simulator',
 }

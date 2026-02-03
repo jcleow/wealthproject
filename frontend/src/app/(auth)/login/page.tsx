@@ -11,7 +11,7 @@ bg-black`}>
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">Welcome back</h1>
-          <p className="text-gray-400">Sign in to continue to Assetra</p>
+          <p className="text-gray-400">Sign in to continue to WealthProject</p>
         </div>
 
         {/* Form Card */}
