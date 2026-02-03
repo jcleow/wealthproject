@@ -36,19 +36,6 @@ export function HeroSection() {
         className="relative z-10 max-w-5xl mx-auto text-center"
         style={parallaxStyle}
       >
-        {/* Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/[0.06] bg-white/[0.03] mb-8"
-        >
-          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-          <span className="text-xs font-medium tracking-wider text-[#8A8F98] uppercase">
-            Financial Planning for Singapore
-          </span>
-        </motion.div>
-
         {/* Main Headline */}
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
@@ -100,32 +87,9 @@ export function HeroSection() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.7 }}
           className="mt-8 text-sm text-[#8A8F98]"
-        >
-          Trusted by{' '}
-          <span className="text-[#EDEDEF] font-medium">1,000+ Singaporeans</span>{' '}
-          planning their financial future
+        >          
         </motion.p>
-      </div>
-
-      {/* Scroll Indicator */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.6, delay: 1 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3"
-        style={{ opacity: 1 - scrollY * 2 }}
-      >
-        <span className="text-xs font-medium tracking-wider text-[#8A8F98] uppercase">
-          Scroll to explore
-        </span>
-        <motion.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          className="w-6 h-10 rounded-full border border-white/[0.1] flex items-start justify-center p-2"
-        >
-          <div className="w-1 h-2 rounded-full bg-blue-500" />
-        </motion.div>
-      </motion.div>
+      </div>    
     </section>
   )
 }

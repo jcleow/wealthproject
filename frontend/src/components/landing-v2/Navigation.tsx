@@ -66,7 +66,7 @@ export function Navigation() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                 <span className="text-white font-bold text-sm">A</span>
               </div>
-              <span>Assetra</span>
+              <span>WealthProject</span>
             </Link>
 
             {/* Desktop Navigation */}
