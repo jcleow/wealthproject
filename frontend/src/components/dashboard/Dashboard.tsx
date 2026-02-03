@@ -30,11 +30,6 @@ const CPFSimulationView = dynamic(
   { ssr: false, loading: FeatureModuleLoading }
 )
 
-const TaxPlannerV2View = dynamic(
-  () => import('@/app/tax-planner/page').then(mod => ({ default: mod.TaxPlannerV2View })),
-  { ssr: false, loading: FeatureModuleLoading }
-)
-
 const InsurancePlannerView = dynamic(
   () => import('@/app/insurance-planner/page').then(mod => ({ default: mod.InsurancePlannerView })),
   { ssr: false, loading: FeatureModuleLoading }
@@ -61,8 +56,6 @@ export function Dashboard() {
   const {
     showCPFView,
     closeCPFView,
-    showTaxPlanner,
-    closeTaxPlanner,
     showInsurancePlanner,
     closeInsurancePlanner,
     showPropertyPlanner,
@@ -84,8 +77,6 @@ export function Dashboard() {
     useShallow((s) => ({
       showCPFView: s.showCPFView,
       closeCPFView: s.closeCPFView,
-      showTaxPlanner: s.showTaxPlanner,
-      closeTaxPlanner: s.closeTaxPlanner,
       showInsurancePlanner: s.showInsurancePlanner,
       closeInsurancePlanner: s.closeInsurancePlanner,
       showPropertyPlanner: s.showPropertyPlanner,
@@ -314,25 +305,6 @@ gap-6 p-6`}>
               >
                 <CPFSimulationView onClose={closeCPFView} />
               </div>
-            ) : showTaxPlanner ? (
-              /* Tax Planner View - shows header + tax planner */
-              <>
-                {/* Header bar only - no chart */}
-                <div className="shrink-0">
-                  <FinancialWorkspace headerOnly />
-                </div>
-                {/* Tax Planner content */}
-                <div
-                  className={clsx(
-                    'flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors duration-300',
-                    isMonet
-                      ? 'border-[var(--monet-lavender)]/20 bg-white/60 backdrop-blur-xl'
-                      : 'border-white/[0.06] bg-[#0a0a0a]/80'
-                  )}
-                >
-                  <TaxPlannerV2View onClose={closeTaxPlanner} />
-                </div>
-              </>
             ) : showInsurancePlanner ? (
               /* Insurance Planner View - shows header + insurance planner */
               <>
@@ -408,7 +380,7 @@ gap-6 p-6`}>
       </div>
 
       {/* Picture-in-Picture mini chart - disabled in side-by-side layouts */}
-      {showPiP && !showCPFView && !showTaxPlanner && !showInsurancePlanner && !isSideBySide && (
+      {showPiP && !showCPFView && !showInsurancePlanner && !isSideBySide && (
         <MiniChart
           timelineYears={timeline.chartYears}
           timelineMonths={timeline.chartMonths}

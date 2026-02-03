@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
+import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
 import { ColorSchemeToggle } from '@/components/ui/ColorSchemeToggle'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
@@ -45,14 +45,12 @@ export function FinancialWorkspace({
   const {
     openCPFView,
     openPropertyPlanner,
-    openTaxPlanner,
     openInsurancePlanner,
     openLayoutModal,
   } = useFeatureModulesStore(
     useShallow((s) => ({
       openCPFView: s.openCPFView,
       openPropertyPlanner: s.openPropertyPlanner,
-      openTaxPlanner: s.openTaxPlanner,
       openInsurancePlanner: s.openInsurancePlanner,
       openLayoutModal: s.openLayoutModal,
     }))
@@ -308,23 +306,6 @@ export function FinancialWorkspace({
                     </div>
                   </div>
                 </div>
-                {/* Tax Module */}
-                <button
-                  onClick={() => {
-                    setIsModuleMenuOpen(false)
-                    openTaxPlanner()
-                  }}
-                  className={clsx(classes.menuItem.base, classes.menuItem.withBorder, classes.menuItem.hoverGold)}
-                  type="button"
-                >
-                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.amber)}>
-                    <Receipt className="h-4 w-4" />
-                  </span>
-                  <div className="space-y-0.5">
-                    <div className="font-medium">Tax Planner</div>
-                    <p className={classes.menuText.secondary}>Singapore tax calculations and scenario planning.</p>
-                  </div>
-                </button>
                 {/* Insurance Planner */}
                 <button
                   onClick={() => {
