@@ -126,14 +126,47 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
     <CpfAccountsStep key="cpf" isMonet={isMonet} />,
   ]
 
+  const handleBackFromSummary = useCallback(() => {
+    setShowSummary(false)
+    // Go back to the last step (CPF Accounts)
+    setAnimationDirection('back')
+    setCurrentStepIndex(3)
+    setStepStatuses(prev => {
+      const next = [...prev]
+      next[3] = 'active'
+      return next
+    })
+  }, [])
+
+  const handleStepClickFromSummary = useCallback((stepIndex: number) => {
+    setShowSummary(false)
+    setAnimationDirection('back')
+    setCurrentStepIndex(stepIndex)
+    setStepStatuses(prev => {
+      const next = [...prev]
+      next[stepIndex] = 'active'
+      return next
+    })
+  }, [])
+
   if (showSummary) {
     return (
       <FormProvider {...form}>
         <div className="flex flex-col h-full">
+          {/* Step Indicator — still visible so users can click back */}
+          <StepIndicator
+            currentStepIndex={-1}
+            stepStatuses={stepStatuses}
+            onStepClick={handleStepClickFromSummary}
+            isMonet={isMonet}
+          />
+          <div className={isMonet ? 'border-t border-[var(--monet-lavender)]/10' : 'border-t border-white/[0.06]'} />
+
           <div className="flex-1 overflow-y-auto">
             <SummaryStep
               stepStatuses={stepStatuses}
               onClose={onClose}
+              onBack={handleBackFromSummary}
               isMonet={isMonet}
             />
           </div>

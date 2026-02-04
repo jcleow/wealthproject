@@ -7,10 +7,11 @@ import { ONBOARDING_STEPS, type StepStatus, type OnboardingFormData } from '../t
 interface SummaryStepProps {
   stepStatuses: StepStatus[]
   onClose: () => void
+  onBack?: () => void
   isMonet: boolean
 }
 
-export function SummaryStep({ stepStatuses, onClose, isMonet }: SummaryStepProps) {
+export function SummaryStep({ stepStatuses, onClose, onBack, isMonet }: SummaryStepProps) {
   const { watch } = useFormContext<OnboardingFormData>()
   const persons = watch('persons')
   const incomes = watch('incomes')
@@ -151,19 +152,35 @@ export function SummaryStep({ stepStatuses, onClose, isMonet }: SummaryStepProps
         </p>
       </div>
 
-      {/* Go to Dashboard button */}
-      <button
-        type="button"
-        onClick={onClose}
-        className={cn(
-          'px-6 py-2.5 rounded-lg text-sm font-medium transition-all',
-          isMonet
-            ? 'bg-[var(--monet-sage)] text-white hover:bg-[var(--monet-sage)]/90'
-            : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/25'
+      {/* Action buttons */}
+      <div className="flex items-center gap-3">
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className={cn(
+              'px-4 py-2.5 rounded-lg text-sm font-medium transition-all',
+              isMonet
+                ? 'text-[var(--monet-text-secondary)] hover:bg-[var(--monet-lavender)]/10'
+                : 'text-slate-400 hover:bg-white/[0.05]'
+            )}
+          >
+            &larr; Back to Edit
+          </button>
         )}
-      >
-        Go to Dashboard &rarr;
-      </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className={cn(
+            'px-6 py-2.5 rounded-lg text-sm font-medium transition-all',
+            isMonet
+              ? 'bg-[var(--monet-sage)] text-white hover:bg-[var(--monet-sage)]/90'
+              : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/25'
+          )}
+        >
+          Go to Dashboard &rarr;
+        </button>
+      </div>
     </div>
   )
 }

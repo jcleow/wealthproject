@@ -73,7 +73,7 @@ export function StepIndicator({ currentStepIndex, stepStatuses, onStepClick, isM
               <div
                 className={cn(
                   'w-12 sm:w-20 h-px mx-2 mt-[-18px]',
-                  index < currentStepIndex
+                  (status === 'completed' || status === 'skipped')
                     ? isMonet ? 'bg-[var(--monet-sage)]/40' : 'bg-emerald-500/40'
                     : isMonet ? 'bg-[var(--monet-lavender)]/15' : 'bg-white/[0.06]'
                 )}

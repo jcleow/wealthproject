@@ -103,7 +103,7 @@ export function CategoryCardHeader({
 
       {/* Right side: Add button + Chevron */}
       <div className="flex items-center gap-2 shrink-0">
-        {showAssetDropdown ? (
+        {!isCollapsed && (showAssetDropdown ? (
           <div className="relative" ref={menuRef}>
             <button
               onClick={(e) => {
@@ -155,7 +155,7 @@ export function CategoryCardHeader({
           >
             <Plus className="h-4 w-4" />
           </button>
-        )}
+        ))}
 
         {/* Chevron at far right - Stitch style */}
         {onToggleCollapse && (

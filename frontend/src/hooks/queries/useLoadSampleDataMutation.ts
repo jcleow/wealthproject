@@ -1,16 +1,18 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi, propertyPlannerV2Api, personsApi, cashAccountsApi, fundFlowRulesApi } from '@/api/financial'
+import { financialApi, propertyPlannerV2Api, personsApi, cashAccountsApi, fundFlowRulesApi, settingsApi } from '@/api/financial'
 import type { CashAccount } from '@/types/financial'
 import type { CPFAccount } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { Person } from '@/types/person'
 import type { FundFlowRuleCreatePayload } from '@/types/fundFlowRules'
+import type { UserSettings } from '@/types/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { CPF_QUERY_KEY } from './useCpfQuery'
 import { propertyPlannerV2Keys } from './usePropertyPlannerV2Query'
 import { PERSONS_QUERY_KEY } from './usePersonsQuery'
 import { getProfileGenerator } from '@/components/modals/ProfileSelectionModal/profileGenerators'
+import { useFeatureModulesStore } from '@/stores/featureModulesStore'
 
 /**
  * Mutation hook for loading a financial profile template.
@@ -346,7 +348,31 @@ export function useLoadSampleDataMutation() {
         persons: createdPersons,
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // For blank profiles, reset onboardingCompleted and open the wizard directly
+      if (data.persons.length === 0) {
+        try {
+          const currentSettings = queryClient.getQueryData<UserSettings>(QUERY_KEYS.settings.user)
+          if (currentSettings?.onboardingCompleted) {
+            // Update cache immediately so Dashboard useEffect sees the change
+            queryClient.setQueryData<UserSettings>(QUERY_KEYS.settings.user, {
+              ...currentSettings,
+              onboardingCompleted: false,
+            })
+            // Persist to backend
+            settingsApi.updateUserSettings({
+              ...currentSettings,
+              onboardingCompleted: false,
+            })
+          }
+        } catch {
+          // Non-critical — wizard trigger will still work on next page load
+        }
+        // Open wizard directly via store — bypasses Dashboard ref guard
+        // which won't re-trigger if onboardingCompleted was already false
+        useFeatureModulesStore.getState().openOnboardingWizard()
+      }
+
       // Update all caches with the new data
       queryClient.setQueryData(QUERY_KEYS.financial.assets, data.assets)
       queryClient.setQueryData(QUERY_KEYS.financial.investments, data.investments)
