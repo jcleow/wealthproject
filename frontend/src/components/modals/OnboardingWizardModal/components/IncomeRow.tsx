@@ -99,7 +99,7 @@ export function IncomeRow({
       <div
         onClick={onToggle}
         className={cn(
-          'group relative flex items-center gap-3 pl-3 pr-0 py-2.5 rounded-xl cursor-pointer transition-all',
+          'group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all',
           hasAnyError
             ? 'border border-rose-500/30 bg-rose-500/5 hover:border-rose-500/40'
             : isMonet
@@ -124,7 +124,7 @@ export function IncomeRow({
           type="button"
           onClick={(e) => { e.stopPropagation(); onRemove() }}
           className={cn(
-            'absolute -right-1 top-1/2 -translate-y-1/2 p-1 rounded-lg transition-all opacity-0 group-hover:opacity-100',
+            'flex-shrink-0 p-1 rounded-lg transition-all opacity-0 group-hover:opacity-100',
             isMonet
               ? 'text-[var(--monet-text-muted)] hover:text-rose-500 hover:bg-rose-50'
               : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'

@@ -2,48 +2,41 @@ import { useFormContext } from 'react-hook-form'
 import { Trash2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { formatCurrency } from '@/lib/format'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import type { OnboardingFormData } from '../types'
-import {
-  EXPENSE_CATEGORY_LABELS,
-  FREQUENCY_LABELS,
-} from '../types'
-import { EXPENSE_CATEGORY_ICONS } from './incomeExpensesConstants'
-import { formatCollapsedLabel, formatCollapsedAmount } from './collapsedSummaryUtils'
+import { LIABILITY_CATEGORY_LABELS } from '../types'
+import { LIABILITY_CATEGORY_ICONS } from './incomeExpensesConstants'
 
-const EXPENSE_CATEGORY_OPTIONS = Object.entries(EXPENSE_CATEGORY_LABELS).map(([value, label]) => ({
+const LIABILITY_CATEGORY_OPTIONS = Object.entries(LIABILITY_CATEGORY_LABELS).map(([value, label]) => ({
   value,
-  label: `${EXPENSE_CATEGORY_ICONS[value] ?? ''} ${label}`,
+  label: `${LIABILITY_CATEGORY_ICONS[value] ?? ''} ${label}`,
 }))
 
-const FREQUENCY_OPTIONS = Object.entries(FREQUENCY_LABELS).map(([value, label]) => ({ value, label }))
-
-interface ExpenseRowProps {
+interface LiabilityRowProps {
   fieldIndex: number
   isExpanded: boolean
   onToggle: () => void
   onRemove: () => void
   isMonet: boolean
-  defaults: { growthRate: number; frequency: string }
 }
 
-export function ExpenseRow({
+export function LiabilityRow({
   fieldIndex,
   isExpanded,
   onToggle,
   onRemove,
   isMonet,
-  defaults,
-}: ExpenseRowProps) {
+}: LiabilityRowProps) {
   const { watch, setValue, register, formState: { errors } } = useFormContext<OnboardingFormData>()
-  const expense = watch(`expenses.${fieldIndex}`)
-  const fieldErrors = errors.expenses?.[fieldIndex]
+  const liability = watch(`liabilities.${fieldIndex}`)
+  const fieldErrors = errors.liabilities?.[fieldIndex]
 
-  if (!expense) return null
+  if (!liability) return null
 
-  const categoryIcon = EXPENSE_CATEGORY_ICONS[expense.category] ?? '📦'
-  const categoryLabel = EXPENSE_CATEGORY_LABELS[expense.category] ?? expense.category
+  const categoryIcon = LIABILITY_CATEGORY_ICONS[liability.category] ?? '📋'
+  const categoryLabel = LIABILITY_CATEGORY_LABELS[liability.category] ?? liability.category
 
   const getInputClass = (hasError?: boolean) => cn(
     'w-full py-2 px-3 rounded-lg text-sm transition-colors focus:outline-none',
@@ -54,13 +47,10 @@ export function ExpenseRow({
         : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-white/20'
   )
 
-  const matchesDefault = (field: 'growthRate' | 'frequency') => {
-    if (field === 'growthRate') return expense.growthRate === defaults.growthRate
-    return expense.frequency === defaults.frequency
-  }
-
   // ─── Collapsed row ────────────────────────────────────────────────────────
   const hasAnyError = !!fieldErrors
+  const displayName = liability.name || 'Untitled'
+  const displayAmount = liability.currentBalance > 0 ? `(${formatCurrency(liability.currentBalance)})` : '—'
 
   if (!isExpanded) {
     return (
@@ -80,13 +70,13 @@ export function ExpenseRow({
           'flex-1 text-sm truncate',
           isMonet ? 'text-[var(--monet-text-primary)]' : 'text-slate-200'
         )}>
-          {formatCollapsedLabel(expense.name, categoryLabel)}
+          {displayName} · {categoryLabel}
         </span>
         <span className={cn(
           'flex-shrink-0 text-sm font-mono tabular-nums',
           isMonet ? 'text-rose-500' : 'text-rose-400'
         )}>
-          {formatCollapsedAmount(expense.amount, expense.frequency)}
+          {displayAmount}
         </span>
         <button
           type="button"
@@ -121,80 +111,66 @@ export function ExpenseRow({
             : 'border-white/[0.08] bg-white/[0.02]'
         )}
       >
-        {/* Row 1: Name + Amount */}
+        {/* Row 1: Name + Balance */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className={cn('text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
               Name
             </label>
             <input
-              {...register(`expenses.${fieldIndex}.name`)}
-              placeholder="e.g. Monthly Rent"
+              {...register(`liabilities.${fieldIndex}.name`)}
+              placeholder="e.g. Home Mortgage"
               className={getInputClass(!!fieldErrors?.name)}
               autoFocus
             />
           </div>
           <div>
             <label className={cn('text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
-              Amount
+              Outstanding Balance
             </label>
             <CurrencyInput
-              value={expense.amount}
-              onChange={(val) => setValue(`expenses.${fieldIndex}.amount`, val)}
+              value={liability.currentBalance}
+              onChange={(val) => setValue(`liabilities.${fieldIndex}.currentBalance`, val)}
               size="sm"
             />
           </div>
         </div>
 
-        {/* Row 2: Frequency + Category */}
+        {/* Row 2: Category + APR */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className={cn(
-              'text-[10px] font-medium uppercase tracking-wider mb-1 block',
-              isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600'
-            )}>
-              Frequency
-              {matchesDefault('frequency') && (
-                <span className={cn('ml-1.5 normal-case tracking-normal', isMonet ? 'text-[var(--monet-text-muted)]/60' : 'text-slate-700')}>(default)</span>
-              )}
+            <label className={cn('text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
+              Category
             </label>
             <CustomDropdown
-              value={expense.frequency}
-              onChange={(val) => setValue(`expenses.${fieldIndex}.frequency`, val as any)}
-              options={FREQUENCY_OPTIONS}
+              value={liability.category}
+              onChange={(val) => setValue(`liabilities.${fieldIndex}.category`, val as any)}
+              options={LIABILITY_CATEGORY_OPTIONS}
               variant={isMonet ? 'monet' : 'dark'}
               minWidth="100%"
             />
           </div>
           <div>
             <label className={cn('text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
-              Category
+              Interest Rate (APR)
             </label>
-            <CustomDropdown
-              value={expense.category}
-              onChange={(val) => setValue(`expenses.${fieldIndex}.category`, val as any)}
-              options={EXPENSE_CATEGORY_OPTIONS}
-              variant={isMonet ? 'monet' : 'dark'}
-              minWidth="100%"
+            <CurrencyInput
+              value={liability.interestRateApr}
+              onChange={(val) => setValue(`liabilities.${fieldIndex}.interestRateApr`, val)}
+              isPercentage
+              size="sm"
             />
           </div>
         </div>
 
-        {/* Row 3: Growth Rate */}
+        {/* Row 3: Minimum Payment */}
         <div className="max-w-[200px]">
-          <label className={cn(
-            'text-[10px] font-medium uppercase tracking-wider mb-1 block',
-            isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600'
-          )}>
-            Annual Inflation
-            {matchesDefault('growthRate') && (
-              <span className={cn('ml-1.5 normal-case tracking-normal', isMonet ? 'text-[var(--monet-text-muted)]/60' : 'text-slate-700')}>(default)</span>
-            )}
+          <label className={cn('text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
+            Min. Monthly Payment
           </label>
           <CurrencyInput
-            value={expense.growthRate}
-            onChange={(val) => setValue(`expenses.${fieldIndex}.growthRate`, val)}
-            isPercentage
+            value={liability.minimumPayment}
+            onChange={(val) => setValue(`liabilities.${fieldIndex}.minimumPayment`, val)}
             size="sm"
           />
         </div>
