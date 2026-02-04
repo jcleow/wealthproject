@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
+import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
 import { ColorSchemeToggle } from '@/components/ui/ColorSchemeToggle'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
@@ -292,6 +292,17 @@ export function FinancialWorkspace({
                     </span>
                     <div className="space-y-0.5">
                       <div className={clsx("font-medium", classes.menuText.disabled)}>Vehicle Purchase</div>
+                      <p className={classes.menuText.disabledSecondary}>Coming soon</p>
+                    </div>
+                  </div>
+                </div>
+                <div className={classes.menuItem.disabled}>
+                  <div className="flex items-start w-full gap-3 px-4 py-3 text-left text-sm">
+                    <span className={clsx(classes.iconBadge.base, classes.iconBadge.disabled)}>
+                      <Receipt className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className={clsx("font-medium", classes.menuText.disabled)}>Tax Projections</div>
                       <p className={classes.menuText.disabledSecondary}>Coming soon</p>
                     </div>
                   </div>
