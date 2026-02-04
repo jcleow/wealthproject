@@ -1,20 +1,17 @@
+import { useState } from 'react'
 import { useFormContext, useFieldArray } from 'react-hook-form'
-import { Plus, Trash2, Info } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { generateUUID } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
-import { CurrencyInput } from '@/components/ui/CurrencyInput'
-import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import type { OnboardingFormData, OnboardingAsset, OnboardingLiability } from '../types'
-import { ASSET_CATEGORY_LABELS, LIABILITY_CATEGORY_LABELS } from '../types'
+import { AssetRow } from './AssetRow'
+import { LiabilityRow } from './LiabilityRow'
 
 interface AssetsLiabilitiesStepProps {
   isMonet: boolean
 }
-
-const ASSET_CATEGORY_OPTIONS = Object.entries(ASSET_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
-const LIABILITY_CATEGORY_OPTIONS = Object.entries(LIABILITY_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
 
 function createEmptyAsset(): OnboardingAsset {
   return {
@@ -47,251 +44,163 @@ const rowAnimation = {
 }
 
 export function AssetsLiabilitiesStep({ isMonet }: AssetsLiabilitiesStepProps) {
-  const { watch, setValue, register, control } = useFormContext<OnboardingFormData>()
+  const { watch, control } = useFormContext<OnboardingFormData>()
   const { fields: assetFields, append: appendAsset, remove: removeAsset } = useFieldArray({ control, name: 'assets' })
   const { fields: liabilityFields, append: appendLiability, remove: removeLiability } = useFieldArray({ control, name: 'liabilities' })
 
   const assets = watch('assets')
   const liabilities = watch('liabilities')
 
+  // ─── Accordion state ────────────────────────────────────────────────────
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+
   const assetTotal = assets.reduce((sum, a) => sum + (a.currentValue ?? 0), 0)
   const liabilityTotal = liabilities.reduce((sum, l) => sum + (l.currentBalance ?? 0), 0)
 
-  const headerLabelClass = cn(
-    'text-[10px] font-medium uppercase tracking-wider',
-    isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600'
-  )
+  // ─── Add handlers (new rows start expanded) ────────────────────────────
+  const handleAddAsset = () => {
+    appendAsset(createEmptyAsset())
+    setExpandedRowId(`asset-${assetFields.length}`)
+  }
 
-  const inputClass = cn(
-    'w-full py-2 px-3 rounded-lg text-sm transition-colors focus:outline-none',
-    isMonet
-      ? 'bg-[var(--monet-lavender)]/5 border border-[var(--monet-lavender)]/15 text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)] focus:border-[var(--monet-sage)]/40'
-      : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-white/20'
-  )
+  const handleAddLiability = () => {
+    appendLiability(createEmptyLiability())
+    setExpandedRowId(`liability-${liabilityFields.length}`)
+  }
 
-  const rowCardClass = cn(
-    'group rounded-xl border p-3 transition-colors',
-    isMonet
-      ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/[0.03] hover:bg-[var(--monet-lavender)]/[0.06]'
-      : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]'
-  )
+  const handleRemoveAsset = (index: number) => {
+    if (expandedRowId === `asset-${index}`) setExpandedRowId(null)
+    removeAsset(index)
+  }
 
-  const deleteButtonClass = cn(
-    'p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100',
-    isMonet
-      ? 'text-[var(--monet-text-muted)] hover:text-rose-500 hover:bg-rose-50'
-      : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-  )
+  const handleRemoveLiability = (index: number) => {
+    if (expandedRowId === `liability-${index}`) setExpandedRowId(null)
+    removeLiability(index)
+  }
 
   const addButtonClass = cn(
-    'w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-dashed transition-all text-sm font-medium',
-    isMonet
-      ? 'border-[var(--monet-lavender)]/20 text-[var(--monet-sage)] hover:border-[var(--monet-sage)]/30 hover:bg-[var(--monet-lavender)]/5'
-      : 'border-white/[0.08] text-slate-400 hover:text-slate-300 hover:border-white/[0.12] hover:bg-white/[0.02]'
+    'flex items-center gap-1.5 text-xs font-medium transition-colors mt-3',
+    isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400 hover:text-emerald-300'
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* ─── Assets ────────────────────────────────────────────────────────── */}
-      <div>
+      <div className={cn(
+        'rounded-2xl border p-4',
+        isMonet
+          ? 'border-[var(--monet-lavender)]/10 bg-[var(--monet-lavender)]/3'
+          : 'border-white/[0.06] bg-white/[0.02]'
+      )}>
         <div className="flex items-center justify-between mb-1">
           <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
             Assets
           </h3>
-          <span className={cn('text-xs font-mono tabular-nums', isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400')}>
-            Total: {formatCurrency(assetTotal)}
+          <span className={cn(
+            'text-lg font-semibold font-mono tabular-nums',
+            isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400'
+          )}>
+            {formatCurrency(assetTotal)}
           </span>
         </div>
-        <p className={cn('text-xs mb-3', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+        <p className={cn('text-xs mb-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
           What you own — savings, investments, property, etc.
         </p>
 
-        {/* Column headers (visible when rows exist) */}
-        {assetFields.length > 0 && (
-          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-2 px-3 mb-1.5 hidden sm:grid">
-            <span className={headerLabelClass}>Name</span>
-            <span className={headerLabelClass}>Category</span>
-            <span className={headerLabelClass}>Current Value</span>
-            <span className={headerLabelClass}>Growth Rate</span>
-            <span />
-          </div>
-        )}
-
-        {/* Asset rows */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <AnimatePresence mode="popLayout">
             {assetFields.map((field, index) => (
-              <motion.div key={field.id} layout {...rowAnimation} className={rowCardClass}>
-                <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_1fr_32px] gap-2 items-center">
-                  <div>
-                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Name</span>
-                    <input {...register(`assets.${index}.name`)} placeholder="Asset name" className={inputClass} />
-                  </div>
-                  <div>
-                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Category</span>
-                    <CustomDropdown
-                      value={assets[index]?.category ?? 'cash_savings'}
-                      onChange={(val) => setValue(`assets.${index}.category`, val as any)}
-                      options={ASSET_CATEGORY_OPTIONS}
-                      variant={isMonet ? 'monet' : 'dark'}
-                      minWidth="100%"
-                    />
-                  </div>
-                  <div>
-                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Value</span>
-                    <CurrencyInput
-                      value={assets[index]?.currentValue ?? 0}
-                      onChange={(val) => setValue(`assets.${index}.currentValue`, val)}
-                      size="sm"
-                    />
-                  </div>
-                  <div>
-                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Growth</span>
-                    <CurrencyInput
-                      value={assets[index]?.growthRate ?? 3}
-                      onChange={(val) => setValue(`assets.${index}.growthRate`, val)}
-                      isPercentage
-                      size="sm"
-                    />
-                  </div>
-                  <div className="flex justify-end col-span-2 sm:col-span-1">
-                    <button type="button" onClick={() => removeAsset(index)} className={deleteButtonClass}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
+              <motion.div key={field.id} {...rowAnimation}>
+                <AssetRow
+                  fieldIndex={index}
+                  isExpanded={expandedRowId === `asset-${index}`}
+                  onToggle={() =>
+                    setExpandedRowId(
+                      expandedRowId === `asset-${index}` ? null : `asset-${index}`
+                    )
+                  }
+                  onRemove={() => handleRemoveAsset(index)}
+                  isMonet={isMonet}
+                />
               </motion.div>
             ))}
           </AnimatePresence>
 
+          {/* Empty state */}
           {assetFields.length === 0 && (
             <div className={cn(
-              'text-center py-6 rounded-xl border border-dashed',
+              'text-center py-4 rounded-xl border border-dashed',
               isMonet ? 'border-[var(--monet-lavender)]/15 text-[var(--monet-text-muted)]' : 'border-white/[0.08] text-slate-600'
             )}>
-              <p className="text-xs">No assets added yet</p>
+              <p className="text-xs">No assets added yet. Add your savings or investments to track your net worth.</p>
             </div>
           )}
         </div>
 
-        <button type="button" onClick={() => appendAsset(createEmptyAsset())} className={cn(addButtonClass, 'mt-2')}>
-          <Plus className="w-4 h-4" />
-          Add Asset
+        <button type="button" onClick={handleAddAsset} className={addButtonClass}>
+          <Plus className="w-3.5 h-3.5" />
+          Add asset
         </button>
       </div>
 
-      {/* ─── Divider ───────────────────────────────────────────────────────── */}
-      <div className={cn('border-t', isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.04]')} />
-
       {/* ─── Liabilities ───────────────────────────────────────────────────── */}
-      <div>
+      <div className={cn(
+        'rounded-2xl border p-4',
+        isMonet
+          ? 'border-[var(--monet-lavender)]/10 bg-[var(--monet-lavender)]/3'
+          : 'border-white/[0.06] bg-white/[0.02]'
+      )}>
         <div className="flex items-center justify-between mb-1">
           <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
             Liabilities
           </h3>
-          <span className={cn('text-xs font-mono tabular-nums', isMonet ? 'text-rose-500' : 'text-rose-400')}>
-            Total: ({formatCurrency(liabilityTotal)})
+          <span className={cn(
+            'text-lg font-semibold font-mono tabular-nums',
+            isMonet ? 'text-rose-500' : 'text-rose-400'
+          )}>
+            ({formatCurrency(liabilityTotal)})
           </span>
         </div>
-        <p className={cn('text-xs mb-3', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+        <p className={cn('text-xs mb-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
           What you owe — mortgages, loans, credit cards, etc.
         </p>
 
-        {/* Column headers */}
-        {liabilityFields.length > 0 && (
-          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-2 px-3 mb-1.5 hidden sm:grid">
-            <span className={headerLabelClass}>Name</span>
-            <span className={headerLabelClass}>Category</span>
-            <span className={headerLabelClass}>Balance</span>
-            <span className={headerLabelClass}>APR</span>
-            <span className={headerLabelClass}>Min Payment</span>
-            <span />
-          </div>
-        )}
-
-        {/* Liability rows */}
-        <div className="space-y-2">
+        <div className="space-y-1">
           <AnimatePresence mode="popLayout">
             {liabilityFields.map((field, index) => (
-              <motion.div key={field.id} layout {...rowAnimation} className={rowCardClass}>
-                <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-2 items-center">
-                  <div>
-                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Name</span>
-                    <input {...register(`liabilities.${index}.name`)} placeholder="Liability name" className={inputClass} />
-                  </div>
-                  <div>
-                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Category</span>
-                    <CustomDropdown
-                      value={liabilities[index]?.category ?? 'mortgage'}
-                      onChange={(val) => setValue(`liabilities.${index}.category`, val as any)}
-                      options={LIABILITY_CATEGORY_OPTIONS}
-                      variant={isMonet ? 'monet' : 'dark'}
-                      minWidth="100%"
-                    />
-                  </div>
-                  <div>
-                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Balance</span>
-                    <CurrencyInput
-                      value={liabilities[index]?.currentBalance ?? 0}
-                      onChange={(val) => setValue(`liabilities.${index}.currentBalance`, val)}
-                      size="sm"
-                    />
-                  </div>
-                  <div>
-                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>APR</span>
-                    <CurrencyInput
-                      value={liabilities[index]?.interestRateApr ?? 0}
-                      onChange={(val) => setValue(`liabilities.${index}.interestRateApr`, val)}
-                      isPercentage
-                      size="sm"
-                    />
-                  </div>
-                  <div>
-                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Min Payment</span>
-                    <CurrencyInput
-                      value={liabilities[index]?.minimumPayment ?? 0}
-                      onChange={(val) => setValue(`liabilities.${index}.minimumPayment`, val)}
-                      size="sm"
-                    />
-                  </div>
-                  <div className="flex justify-end col-span-2 sm:col-span-1">
-                    <button type="button" onClick={() => removeLiability(index)} className={deleteButtonClass}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
+              <motion.div key={field.id} {...rowAnimation}>
+                <LiabilityRow
+                  fieldIndex={index}
+                  isExpanded={expandedRowId === `liability-${index}`}
+                  onToggle={() =>
+                    setExpandedRowId(
+                      expandedRowId === `liability-${index}` ? null : `liability-${index}`
+                    )
+                  }
+                  onRemove={() => handleRemoveLiability(index)}
+                  isMonet={isMonet}
+                />
               </motion.div>
             ))}
           </AnimatePresence>
 
+          {/* Empty state */}
           {liabilityFields.length === 0 && (
             <div className={cn(
-              'text-center py-6 rounded-xl border border-dashed',
+              'text-center py-4 rounded-xl border border-dashed',
               isMonet ? 'border-[var(--monet-lavender)]/15 text-[var(--monet-text-muted)]' : 'border-white/[0.08] text-slate-600'
             )}>
-              <p className="text-xs">No liabilities added yet</p>
+              <p className="text-xs">No liabilities added yet. Track your debts for a complete financial picture.</p>
             </div>
           )}
         </div>
 
-        <button type="button" onClick={() => appendLiability(createEmptyLiability())} className={cn(addButtonClass, 'mt-2')}>
-          <Plus className="w-4 h-4" />
-          Add Liability
+        <button type="button" onClick={handleAddLiability} className={addButtonClass}>
+          <Plus className="w-3.5 h-3.5" />
+          Add liability
         </button>
       </div>
 
-      {/* ─── Info Banner ───────────────────────────────────────────────────── */}
-      <div className={cn(
-        'flex items-start gap-2.5 px-4 py-3 rounded-xl border',
-        isMonet
-          ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/5'
-          : 'border-blue-500/15 bg-blue-500/5'
-      )}>
-        <Info className={cn('w-4 h-4 mt-0.5 flex-shrink-0', isMonet ? 'text-[var(--monet-sage)]' : 'text-blue-400')} />
-        <p className={cn('text-xs', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400')}>
-          No assets yet? That&apos;s okay! You can add them later from the dashboard. This step is completely optional.
-        </p>
-      </div>
     </div>
   )
 }

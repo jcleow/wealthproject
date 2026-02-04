@@ -169,7 +169,7 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
         <div className={isMonet ? 'border-t border-[var(--monet-lavender)]/10' : 'border-t border-white/[0.06]'} />
 
         {/* Step Content */}
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-5">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStepIndex}

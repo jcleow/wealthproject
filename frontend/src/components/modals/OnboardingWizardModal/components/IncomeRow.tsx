@@ -1,6 +1,5 @@
-import { useState } from 'react'
 import { useFormContext } from 'react-hook-form'
-import { Trash2, ChevronRight } from 'lucide-react'
+import { Trash2, Info } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
@@ -46,7 +45,6 @@ export function IncomeRow({
 }: IncomeRowProps) {
   const { watch, setValue, register, formState: { errors } } = useFormContext<OnboardingFormData>()
   const income = watch(`incomes.${fieldIndex}`)
-  const [showCpfAdvanced, setShowCpfAdvanced] = useState(false)
   const fieldErrors = errors.incomes?.[fieldIndex]
 
   if (!income) return null
@@ -61,7 +59,6 @@ export function IncomeRow({
       setValue(`incomes.${fieldIndex}.cpfWageType`, defaultType)
     } else {
       setValue(`incomes.${fieldIndex}.cpfWageType`, null)
-      setShowCpfAdvanced(false)
     }
   }
 
@@ -218,92 +215,89 @@ export function IncomeRow({
             <label className={cn('text-[10px] font-medium uppercase tracking-wider block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
               CPF Contribution
             </label>
-            {/* Toggle: CPF applies? */}
-            <div className={cn(
-              'inline-flex rounded-lg p-0.5 border',
-              isMonet
-                ? 'bg-[var(--monet-lavender)]/5 border-[var(--monet-lavender)]/15'
-                : 'bg-white/[0.03] border-white/[0.08]'
-            )}>
-              <button
-                type="button"
-                onClick={() => handleCpfToggle(true)}
-                className={cn(
-                  'px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
-                  cpfApplies
-                    ? isMonet
-                      ? 'bg-[var(--monet-sage)]/15 text-[var(--monet-sage)] shadow-sm'
-                      : 'bg-emerald-500/15 text-emerald-400 shadow-sm'
-                    : isMonet
-                      ? 'text-[var(--monet-text-muted)]'
-                      : 'text-slate-500 hover:text-slate-300'
-                )}
-              >
-                Yes
-              </button>
-              <button
-                type="button"
-                onClick={() => handleCpfToggle(false)}
-                className={cn(
-                  'px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
-                  !cpfApplies
-                    ? isMonet
-                      ? 'bg-[var(--monet-lavender)]/15 text-[var(--monet-text-primary)] shadow-sm'
-                      : 'bg-white/[0.1] text-white shadow-sm'
-                    : isMonet
-                      ? 'text-[var(--monet-text-muted)]'
-                      : 'text-slate-500 hover:text-slate-300'
-                )}
-              >
-                No
-              </button>
-            </div>
-
-            {/* Advanced: CPF Wage Type (only when CPF applies) */}
-            <AnimatePresence>
-              {cpfApplies && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                  className="overflow-hidden"
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Toggle: CPF applies? */}
+              <div className={cn(
+                'inline-flex rounded-lg p-0.5 border',
+                isMonet
+                  ? 'bg-[var(--monet-lavender)]/5 border-[var(--monet-lavender)]/15'
+                  : 'bg-white/[0.03] border-white/[0.08]'
+              )}>
+                <button
+                  type="button"
+                  onClick={() => handleCpfToggle(true)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
+                    cpfApplies
+                      ? isMonet
+                        ? 'bg-[var(--monet-sage)]/15 text-[var(--monet-sage)] shadow-sm'
+                        : 'bg-emerald-500/15 text-emerald-400 shadow-sm'
+                      : isMonet
+                        ? 'text-[var(--monet-text-muted)]'
+                        : 'text-slate-500 hover:text-slate-300'
+                  )}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setShowCpfAdvanced(!showCpfAdvanced)}
-                    className={cn(
-                      'flex items-center gap-1 text-xs transition-colors mt-1',
-                      isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500 hover:text-slate-400'
-                    )}
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCpfToggle(false)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
+                    !cpfApplies
+                      ? isMonet
+                        ? 'bg-[var(--monet-lavender)]/15 text-[var(--monet-text-primary)] shadow-sm'
+                        : 'bg-white/[0.1] text-white shadow-sm'
+                      : isMonet
+                        ? 'text-[var(--monet-text-muted)]'
+                        : 'text-slate-500 hover:text-slate-300'
+                  )}
+                >
+                  No
+                </button>
+              </div>
+
+              {/* Wage Type dropdown (inline, right of toggle) */}
+              <AnimatePresence>
+                {cpfApplies && (
+                  <motion.div
+                    initial={{ width: 0, opacity: 0 }}
+                    animate={{ width: 'auto', opacity: 1 }}
+                    exit={{ width: 0, opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="overflow-hidden"
                   >
-                    <ChevronRight className={cn('w-3 h-3 transition-transform', showCpfAdvanced && 'rotate-90')} />
-                    CPF Wage Type
-                  </button>
-                  <AnimatePresence>
-                    {showCpfAdvanced && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="mt-2 max-w-[200px]">
-                          <CustomDropdown
-                            value={income.cpfWageType ?? 'ow'}
-                            onChange={(val) => setValue(`incomes.${fieldIndex}.cpfWageType`, val as any)}
-                            options={CPF_WAGE_OPTIONS}
-                            variant={isMonet ? 'monet' : 'dark'}
-                            minWidth="100%"
-                          />
+                    <div className="flex items-center gap-2">
+                      <CustomDropdown
+                        value={income.cpfWageType ?? 'ow'}
+                        onChange={(val) => setValue(`incomes.${fieldIndex}.cpfWageType`, val as any)}
+                        options={CPF_WAGE_OPTIONS}
+                        variant={isMonet ? 'monet' : 'dark'}
+                        minWidth="180px"
+                      />
+                      <div className="relative group">
+                        <Info className={cn(
+                          'w-3.5 h-3.5 cursor-help',
+                          isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600'
+                        )} />
+                        <div className={cn(
+                          'absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 rounded-lg text-[11px] leading-relaxed',
+                          'opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-opacity z-50',
+                          isMonet
+                            ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-secondary)] shadow-lg'
+                            : 'bg-[#1a1a2e] border border-white/10 text-slate-300 shadow-xl'
+                        )}>
+                          <p className="font-semibold mb-1">OW — Ordinary Wages</p>
+                          <p className="mb-1.5">Regular monthly salary. Subject to the OW ceiling ($6,800/mo) for CPF contributions.</p>
+                          <p className="font-semibold mb-1">AW — Additional Wages</p>
+                          <p>Bonuses, commissions, etc. Subject to a separate annual AW ceiling.</p>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         )}
 

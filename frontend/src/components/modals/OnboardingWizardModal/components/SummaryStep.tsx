@@ -12,13 +12,8 @@ interface SummaryStepProps {
 }
 
 export function SummaryStep({ stepStatuses, onClose, onBack, isMonet }: SummaryStepProps) {
-  const { watch } = useFormContext<OnboardingFormData>()
-  const persons = watch('persons')
-  const incomes = watch('incomes')
-  const expenses = watch('expenses')
-  const assets = watch('assets')
-  const liabilities = watch('liabilities')
-  const cpfAccounts = watch('cpfAccounts')
+  const { getValues } = useFormContext<OnboardingFormData>()
+  const { persons, incomes, expenses, assets, liabilities, cpfAccounts } = getValues()
 
   // Only count non-empty entries
   const personCount = persons.filter(p => p.name.trim()).length
