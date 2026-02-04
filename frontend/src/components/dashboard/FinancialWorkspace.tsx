@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
+import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
 import { ColorSchemeToggle } from '@/components/ui/ColorSchemeToggle'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
@@ -203,16 +203,6 @@ export function FinancialWorkspace({
           "flex items-center gap-3 px-3 py-1.5 rounded-full transition-colors duration-300",
           classes.toolbar.container,
         )}>
-          {/* Search */}
-          <div className={clsx("flex items-center gap-2 border-r pr-3", classes.toolbar.divider)}>
-            <Search className={clsx("h-3.5 w-3.5", classes.icon.search)} />
-            <input
-              type="text"
-              placeholder="Search..."
-              className={clsx("w-48 focus:outline-none text-[13px]", classes.input.base)}
-            />
-          </div>
-
           <div className="hidden items-center gap-1 md:flex">
             <button
               onClick={() => setIsProfileModalOpen(true)}

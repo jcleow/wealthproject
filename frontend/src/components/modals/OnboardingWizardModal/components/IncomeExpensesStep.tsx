@@ -9,7 +9,6 @@ import type { OnboardingFormData } from '../types'
 import { RELATIONSHIP_LABELS } from '../types'
 import { IncomeRow } from './IncomeRow'
 import { ExpenseRow } from './ExpenseRow'
-import { DefaultAssumptions } from './DefaultAssumptions'
 
 interface IncomeExpensesStepProps {
   isMonet: boolean
@@ -43,10 +42,10 @@ export function IncomeExpensesStep({ isMonet }: IncomeExpensesStepProps) {
   // ─── Accordion state ────────────────────────────────────────────────────
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
-  // ─── Default assumptions (local, not persisted) ─────────────────────────
-  const [incomeGrowthDefault, setIncomeGrowthDefault] = useState(3)
-  const [expenseGrowthDefault, setExpenseGrowthDefault] = useState(2)
-  const [frequencyDefault, setFrequencyDefault] = useState<string>('monthly')
+  // ─── Default assumptions for new rows ──────────────────────────────────
+  const incomeGrowthDefault = 3
+  const expenseGrowthDefault = 2
+  const frequencyDefault = 'monthly'
 
   // ─── Monthly equivalent helper ──────────────────────────────────────────
   const toMonthly = (amount: number, frequency: string) =>
@@ -112,17 +111,6 @@ export function IncomeExpensesStep({ isMonet }: IncomeExpensesStepProps) {
 
   return (
     <div className="space-y-5">
-      {/* ─── Default Assumptions Bar ───────────────────────────────────────── */}
-      <DefaultAssumptions
-        incomeGrowthDefault={incomeGrowthDefault}
-        setIncomeGrowthDefault={setIncomeGrowthDefault}
-        expenseGrowthDefault={expenseGrowthDefault}
-        setExpenseGrowthDefault={setExpenseGrowthDefault}
-        frequencyDefault={frequencyDefault}
-        setFrequencyDefault={setFrequencyDefault}
-        isMonet={isMonet}
-      />
-
       {/* ─── Income Sources ────────────────────────────────────────────────── */}
       <div className={cn(
         'rounded-2xl border p-4',
