@@ -21,7 +21,10 @@ export function SummaryStep({ stepStatuses, onClose, onBack, isMonet }: SummaryS
   const expenseCount = expenses.filter(e => e.amount > 0).length
   const assetCount = assets.filter(a => a.currentValue > 0).length
   const liabilityCount = liabilities.filter(l => l.currentBalance > 0).length
-  const cpfCount = cpfAccounts.filter(c => c.oaBalance > 0 || c.saBalance > 0 || c.maBalance > 0 || c.raBalance > 0).length
+  const cpfPersonCount = cpfAccounts.filter(c => c.oaBalance > 0 || c.saBalance > 0 || c.maBalance > 0 || c.raBalance > 0).length
+  const cpfSubAccountCount = cpfAccounts.reduce((count, c) => {
+    return count + (c.oaBalance > 0 ? 1 : 0) + (c.saBalance > 0 ? 1 : 0) + (c.maBalance > 0 ? 1 : 0) + (c.raBalance > 0 ? 1 : 0)
+  }, 0)
 
   // Totals
   const incomeMonthlyTotal = incomes.reduce((sum, inc) => {
@@ -63,7 +66,7 @@ export function SummaryStep({ stepStatuses, onClose, onBack, isMonet }: SummaryS
     { icon: CreditCard, label: `${expenseCount} Recurring Expense${expenseCount !== 1 ? 's' : ''}`, detail: `${formatCurrency(expenseMonthlyTotal)}/mo total`, show: expenseCount > 0 },
     { icon: TrendingUp, label: `${assetCount} Asset${assetCount !== 1 ? 's' : ''}`, detail: `${formatCurrency(assetTotal)} total`, show: assetCount > 0 },
     { icon: TrendingDown, label: `${liabilityCount} Liabilit${liabilityCount !== 1 ? 'ies' : 'y'}`, detail: `(${formatCurrency(liabilityTotal)}) total`, show: liabilityCount > 0 },
-    { icon: Landmark, label: `${cpfCount} CPF Account${cpfCount !== 1 ? 's' : ''}`, detail: `${formatCurrency(cpfTotal)} combined`, show: cpfCount > 0 },
+    { icon: Landmark, label: `${cpfSubAccountCount} CPF Sub-account${cpfSubAccountCount !== 1 ? 's' : ''}`, detail: `${formatCurrency(cpfTotal)} combined`, show: cpfPersonCount > 0 },
   ]
 
   return (

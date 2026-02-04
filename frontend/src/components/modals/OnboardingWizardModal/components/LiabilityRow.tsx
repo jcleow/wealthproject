@@ -44,7 +44,7 @@ export function LiabilityRow({
       ? 'border border-rose-500/40 bg-rose-500/5 text-white placeholder:text-slate-600 focus:border-rose-500/60'
       : isMonet
         ? 'bg-[var(--monet-lavender)]/5 border border-[var(--monet-lavender)]/15 text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)] focus:border-[var(--monet-sage)]/40'
-        : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-white/20'
+        : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-blue-500/30 focus:bg-blue-500/[0.06]'
   )
 
   // ─── Collapsed row ────────────────────────────────────────────────────────

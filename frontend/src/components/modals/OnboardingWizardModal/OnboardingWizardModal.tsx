@@ -114,7 +114,7 @@ export function OnboardingWizardModal({ isOpen, onClose }: OnboardingWizardModal
       onClose={handleCloseAttempt}
       overlayClassName={isMonet ? 'bg-black/30 backdrop-blur-sm' : 'bg-black/60 backdrop-blur-sm'}
       className={cn(
-        'w-full max-w-[900px] min-h-[80vh] max-h-[90vh] mx-4 sm:mx-6 rounded-2xl border overflow-hidden flex flex-col relative',
+        'w-full max-w-[900px] max-h-[90vh] mx-4 sm:mx-6 rounded-2xl border overflow-hidden flex flex-col relative',
         isMonet
           ? 'border-[var(--monet-lavender)]/20 bg-white'
           : 'border-white/[0.08] bg-[#0a0a0a]'

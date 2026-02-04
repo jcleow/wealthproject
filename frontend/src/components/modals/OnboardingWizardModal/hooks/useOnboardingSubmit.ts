@@ -184,6 +184,8 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
 
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.assets })
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.liabilities })
+    // cash_savings assets are routed to cash accounts table on the backend
+    queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashAccounts })
     return true
   }, [form, queryClient])
 

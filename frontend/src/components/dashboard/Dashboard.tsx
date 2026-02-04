@@ -155,6 +155,7 @@ export function Dashboard() {
   useEffect(() => {
     if (
       !onboardingTriggeredRef.current &&
+      !showPostResetChoice &&
       personsData !== undefined &&
       userSettings !== undefined &&
       personsData.length === 0 &&
@@ -163,7 +164,7 @@ export function Dashboard() {
       onboardingTriggeredRef.current = true
       openOnboardingWizard()
     }
-  }, [personsData, userSettings, openOnboardingWizard])
+  }, [personsData, userSettings, showPostResetChoice, openOnboardingWizard])
 
   // Mutation for updating layout preference
   const updateLayoutMutation = useMutation({
@@ -455,7 +456,16 @@ gap-6 p-6`}>
       {/* Post-reset choice: Dashboard vs Wizard */}
       <PostResetChoiceModal
         isOpen={showPostResetChoice}
-        onDashboard={closePostResetChoice}
+        onDashboard={() => {
+          closePostResetChoice()
+          // Mark onboarding completed so the auto-trigger doesn't reopen the wizard
+          onboardingTriggeredRef.current = true
+          if (userSettings) {
+            const updated = { ...userSettings, onboardingCompleted: true }
+            queryClient.setQueryData(QUERY_KEYS.settings.user, updated)
+            settingsApi.updateUserSettings(updated)
+          }
+        }}
         onWizard={() => {
           closePostResetChoice()
           openOnboardingWizard()

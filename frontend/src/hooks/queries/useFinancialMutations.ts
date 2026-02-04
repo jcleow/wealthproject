@@ -4,6 +4,7 @@ import { QUERY_KEYS } from '@/lib/queryKeys'
 import { propertyPlannerV2Keys } from './usePropertyPlannerV2Query'
 import { PERSONS_QUERY_KEY } from './usePersonsQuery'
 import type { UserSettings } from '@/types/financial'
+import { useFeatureModulesStore } from '@/stores/featureModulesStore'
 
 export { useLoadSampleDataMutation } from './useLoadSampleDataMutation'
 
@@ -38,6 +39,9 @@ export function useDeleteAllFinancialDataMutation() {
 
       // Invalidate all financial queries with single call
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.all })
+
+      // Show post-reset choice modal (Dashboard vs Wizard)
+      useFeatureModulesStore.getState().openPostResetChoice()
     },
   })
 }

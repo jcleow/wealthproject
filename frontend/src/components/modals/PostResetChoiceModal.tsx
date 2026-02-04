@@ -41,23 +41,23 @@ export function PostResetChoiceModal({ isOpen, onDashboard, onWizard }: PostRese
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2, ease: 'easeOut' }}
-            className="w-full max-w-md mx-4"
+            className="w-full max-w-lg mx-4"
           >
-            <div className="rounded-2xl border border-white/[0.08] bg-[#0a0f1a] p-6 shadow-2xl">
-              <h2 className="text-lg font-semibold text-white text-center mb-1">
+            <div className="rounded-2xl border border-white/[0.08] bg-[#060a12] p-8 shadow-2xl">
+              <h2 className="text-xl font-semibold text-white text-center mb-2">
                 Fresh start — what's next?
               </h2>
-              <p className="text-sm text-slate-400 text-center mb-6">
+              <p className="text-sm text-slate-400 text-center mb-8">
                 Your data has been cleared. How would you like to proceed?
               </p>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 {/* Dashboard option */}
                 <button
                   type="button"
                   onClick={onDashboard}
                   className={cn(
-                    'group flex flex-col items-center gap-3 rounded-xl border p-5 transition-all',
+                    'group flex flex-col items-center gap-3 rounded-xl border p-6 transition-all',
                     'border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12] hover:bg-white/[0.04]'
                   )}
                 >
@@ -75,7 +75,7 @@ export function PostResetChoiceModal({ isOpen, onDashboard, onWizard }: PostRese
                   type="button"
                   onClick={onWizard}
                   className={cn(
-                    'group flex flex-col items-center gap-3 rounded-xl border p-5 transition-all',
+                    'group flex flex-col items-center gap-3 rounded-xl border p-6 transition-all',
                     'border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/30 hover:bg-emerald-500/10'
                   )}
                 >

@@ -51,7 +51,7 @@ export function PersonalInfoStep({ isMonet }: PersonalInfoStepProps) {
     'w-full py-2 px-3 rounded-lg text-sm transition-colors focus:outline-none',
     isMonet
       ? 'bg-[var(--monet-lavender)]/5 border border-[var(--monet-lavender)]/15 text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)] focus:border-[var(--monet-sage)]/40'
-      : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-white/20'
+      : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-blue-500/30 focus:bg-blue-500/[0.06]'
   )
 
   return (
