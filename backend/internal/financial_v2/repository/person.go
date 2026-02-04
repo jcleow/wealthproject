@@ -12,7 +12,7 @@ func (s *Store) ListPersons(ctx context.Context, userID string) ([]Person, error
 	query := `
 	SELECT id, user_id, name, display_color, is_included,
 	       date_of_birth, gender, residency_status, pr_grant_date,
-	       created_at, updated_at
+	       relationship, created_at, updated_at
 	FROM persons
 	WHERE user_id = $1
 	ORDER BY created_at ASC`
@@ -31,7 +31,7 @@ func (s *Store) ListPersons(ctx context.Context, userID string) ([]Person, error
 		if err := rows.Scan(
 			&p.ID, &p.UserID, &p.Name, &p.DisplayColor, &p.IsIncluded,
 			&p.DateOfBirth, &p.Gender, &p.ResidencyStatus, &p.PRGrantDate,
-			&p.CreatedAt, &p.UpdatedAt,
+			&p.Relationship, &p.CreatedAt, &p.UpdatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan person: %w", err)
 		}
@@ -51,7 +51,7 @@ func (s *Store) ListPersonsWithStats(ctx context.Context, userID string) ([]Pers
 	SELECT
 		p.id, p.user_id, p.name, p.display_color, p.is_included,
 		p.date_of_birth, p.gender, p.residency_status, p.pr_grant_date,
-		p.created_at, p.updated_at,
+		p.relationship, p.created_at, p.updated_at,
 		COALESCE(income_counts.count, 0) as income_count,
 		COALESCE(cpf_counts.count, 0) as cpf_count
 	FROM persons p
@@ -84,7 +84,7 @@ func (s *Store) ListPersonsWithStats(ctx context.Context, userID string) ([]Pers
 		if err := rows.Scan(
 			&p.ID, &p.UserID, &p.Name, &p.DisplayColor, &p.IsIncluded,
 			&p.DateOfBirth, &p.Gender, &p.ResidencyStatus, &p.PRGrantDate,
-			&p.CreatedAt, &p.UpdatedAt, &p.IncomeCount, &p.CPFCount,
+			&p.Relationship, &p.CreatedAt, &p.UpdatedAt, &p.IncomeCount, &p.CPFCount,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan person with stats: %w", err)
 		}
@@ -103,7 +103,7 @@ func (s *Store) GetPerson(ctx context.Context, userID, id string) (*Person, erro
 	query := `
 	SELECT id, user_id, name, display_color, is_included,
 	       date_of_birth, gender, residency_status, pr_grant_date,
-	       created_at, updated_at
+	       relationship, created_at, updated_at
 	FROM persons
 	WHERE user_id = $1 AND id = $2`
 
@@ -113,7 +113,7 @@ func (s *Store) GetPerson(ctx context.Context, userID, id string) (*Person, erro
 	err := s.pool.QueryRow(ctx, query, userID, id).Scan(
 		&p.ID, &p.UserID, &p.Name, &p.DisplayColor, &p.IsIncluded,
 		&p.DateOfBirth, &p.Gender, &p.ResidencyStatus, &p.PRGrantDate,
-		&p.CreatedAt, &p.UpdatedAt,
+		&p.Relationship, &p.CreatedAt, &p.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
@@ -130,11 +130,11 @@ func (s *Store) CreatePerson(ctx context.Context, userID string, p Person) (*Per
 	query := `
 	INSERT INTO persons (user_id, name, display_color, is_included,
 	                     date_of_birth, gender, residency_status, pr_grant_date,
-	                     created_at, updated_at)
-	VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8, NOW(), NOW())
+	                     relationship, created_at, updated_at)
+	VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8, $9, NOW(), NOW())
 	RETURNING id, user_id, name, display_color, is_included,
 	          date_of_birth, gender, residency_status, pr_grant_date,
-	          created_at, updated_at`
+	          relationship, created_at, updated_at`
 
 	displayColor := ""
 	if p.DisplayColor != nil {
@@ -153,7 +153,13 @@ func (s *Store) CreatePerson(ctx context.Context, userID string, p Person) (*Per
 		gender = "male"
 	}
 
-	args := []any{userID, p.Name, displayColor, true, p.DateOfBirth, gender, residencyStatus, p.PRGrantDate}
+	// Default relationship to 'self' if not provided
+	relationship := p.Relationship
+	if relationship == "" {
+		relationship = "self"
+	}
+
+	args := []any{userID, p.Name, displayColor, true, p.DateOfBirth, gender, residencyStatus, p.PRGrantDate, relationship}
 
 	logQuery(query, args)
 
@@ -161,7 +167,7 @@ func (s *Store) CreatePerson(ctx context.Context, userID string, p Person) (*Per
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
 		&created.ID, &created.UserID, &created.Name, &created.DisplayColor,
 		&created.IsIncluded, &created.DateOfBirth, &created.Gender, &created.ResidencyStatus, &created.PRGrantDate,
-		&created.CreatedAt, &created.UpdatedAt,
+		&created.Relationship, &created.CreatedAt, &created.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create person: %w", err)
@@ -181,11 +187,12 @@ func (s *Store) UpdatePerson(ctx context.Context, userID, id string, p Person) (
 	    gender = COALESCE(NULLIF($7, ''), gender),
 	    residency_status = COALESCE(NULLIF($8, ''), residency_status),
 	    pr_grant_date = $9,
+	    relationship = COALESCE(NULLIF($10, ''), relationship),
 	    updated_at = NOW()
 	WHERE user_id = $1 AND id = $2
 	RETURNING id, user_id, name, display_color, is_included,
 	          date_of_birth, gender, residency_status, pr_grant_date,
-	          created_at, updated_at`
+	          relationship, created_at, updated_at`
 
 	displayColor := ""
 	if p.DisplayColor != nil {
@@ -198,7 +205,7 @@ func (s *Store) UpdatePerson(ctx context.Context, userID, id string, p Person) (
 		dateOfBirth = p.DateOfBirth
 	}
 
-	args := []any{userID, id, p.Name, displayColor, p.IsIncluded, dateOfBirth, p.Gender, p.ResidencyStatus, p.PRGrantDate}
+	args := []any{userID, id, p.Name, displayColor, p.IsIncluded, dateOfBirth, p.Gender, p.ResidencyStatus, p.PRGrantDate, p.Relationship}
 
 	logQuery(query, args)
 
@@ -206,7 +213,7 @@ func (s *Store) UpdatePerson(ctx context.Context, userID, id string, p Person) (
 	err := s.pool.QueryRow(ctx, query, args...).Scan(
 		&updated.ID, &updated.UserID, &updated.Name, &updated.DisplayColor,
 		&updated.IsIncluded, &updated.DateOfBirth, &updated.Gender, &updated.ResidencyStatus, &updated.PRGrantDate,
-		&updated.CreatedAt, &updated.UpdatedAt,
+		&updated.Relationship, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound
@@ -245,7 +252,7 @@ func (s *Store) TogglePersonIncluded(ctx context.Context, userID, id string) (*P
 	WHERE user_id = $1 AND id = $2
 	RETURNING id, user_id, name, display_color, is_included,
 	          date_of_birth, gender, residency_status, pr_grant_date,
-	          created_at, updated_at`
+	          relationship, created_at, updated_at`
 
 	logQuery(query, []any{userID, id})
 
@@ -253,7 +260,7 @@ func (s *Store) TogglePersonIncluded(ctx context.Context, userID, id string) (*P
 	err := s.pool.QueryRow(ctx, query, userID, id).Scan(
 		&updated.ID, &updated.UserID, &updated.Name, &updated.DisplayColor,
 		&updated.IsIncluded, &updated.DateOfBirth, &updated.Gender, &updated.ResidencyStatus, &updated.PRGrantDate,
-		&updated.CreatedAt, &updated.UpdatedAt,
+		&updated.Relationship, &updated.CreatedAt, &updated.UpdatedAt,
 	)
 	if err == pgx.ErrNoRows {
 		return nil, ErrNotFound

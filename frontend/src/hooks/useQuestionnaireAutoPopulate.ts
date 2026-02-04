@@ -33,7 +33,7 @@ function calculateAge(dateOfBirth: string): number {
   if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
     age--
   }
-  return age
+  return Math.max(0, age)
 }
 
 /**
@@ -152,19 +152,22 @@ export function useQuestionnaireAutoPopulate(selectedPersonId: string | null): A
     // Other persons (potential spouse + dependents)
     const otherPersons = includedPersons.filter(p => p.id !== primaryPerson?.id)
 
-    // Identify spouse (assume second adult is spouse - persons with age >= 18)
-    // and dependents (persons with age < 18 or still in education)
+    // Compute age for each person
     const personsWithAge = otherPersons.map(p => ({
       ...p,
       age: calculateAge(p.dateOfBirth),
     }))
 
-    // Adults (18+) could be spouse
-    const adults = personsWithAge.filter(p => p.age >= 18)
-    const spouse = adults[0] // First other adult is assumed to be spouse
+    // Identify spouse using relationship field, fallback to first adult (18+) if no relationship set
+    const spouse = personsWithAge.find(p => p.relationship === 'spouse')
+      ?? personsWithAge.find(p => p.age >= 18 && (!p.relationship || p.relationship === 'self'))
+      ?? null
 
-    // Dependents: children (< 22, assuming education) or all non-primary persons if we want to be inclusive
-    const dependents = personsWithAge.filter(p => p.age < 22)
+    // Dependents: persons with relationship 'child', or fallback to age < 22 if no relationship set
+    const dependents = personsWithAge.filter(p =>
+      p.relationship === 'child'
+      || ((!p.relationship || p.relationship === 'self') && p.age < 22 && p.id !== spouse?.id)
+    )
 
     const youngestDependent = dependents.length > 0
       ? dependents.reduce((youngest, p) => p.age < youngest.age ? p : youngest)
@@ -241,6 +244,7 @@ export function useQuestionnaireAutoPopulate(selectedPersonId: string | null): A
 
     // Life/TPD answers
     const lifeTpdData: Partial<LifeTpdAnswers> = {
+      dependentPersonIds: dependents.map(d => d.id),
       dependentCount: dependents.length,
       youngestDependentAge: youngestDependent?.age ?? null,
       yearsUntilIndependent: youngestDependent
@@ -249,6 +253,7 @@ export function useQuestionnaireAutoPopulate(selectedPersonId: string | null): A
       mortgageBalance: totalMortgage,
       otherDebts: totalOtherDebts,
       existingAssets: totalAssets,
+      spousePersonId: spouse?.id ?? null,
       spouseHasIncome,
       spouseIncome: spouseHasIncome ? spouseIncome : 0,
     }

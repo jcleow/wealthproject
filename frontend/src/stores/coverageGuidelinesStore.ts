@@ -37,6 +37,8 @@ export interface HospitalizationAnswers {
  * Core question: Who depends on my income?
  */
 export interface LifeTpdAnswers {
+  /** Selected dependent person IDs */
+  dependentPersonIds: string[]
   /** Number of financial dependents (not self-sufficient) */
   dependentCount: number
   /** Age of youngest dependent */
@@ -51,7 +53,9 @@ export interface LifeTpdAnswers {
   futureObligations: number
   /** Existing assets that could cover expenses (savings, investments) */
   existingAssets: number
-  /** Spouse has own income? */
+  /** Selected spouse person ID */
+  spousePersonId: string | null
+  /** Spouse has own income? (derived from spousePersonId's incomes) */
   spouseHasIncome: boolean
   /** Spouse's annual income if applicable */
   spouseIncome: number
@@ -122,6 +126,7 @@ export function createDefaultQuestionnaireAnswers(): CoverageQuestionnaireAnswer
       hospitalPreference: null,
     },
     lifeTpd: {
+      dependentPersonIds: [],
       dependentCount: 0,
       youngestDependentAge: null,
       yearsUntilIndependent: 0,
@@ -129,6 +134,7 @@ export function createDefaultQuestionnaireAnswers(): CoverageQuestionnaireAnswer
       otherDebts: 0,
       futureObligations: 0,
       existingAssets: 0,
+      spousePersonId: null,
       spouseHasIncome: false,
       spouseIncome: 0,
     },
@@ -275,6 +281,8 @@ export function calculateRecommendedCoverage(
 // TYPES
 // ============================================
 
+export type ReferenceMode = 'income' | 'expenses'
+
 export interface CoverageGuidelinesState {
   // Guidelines data
   guidelines: UserCoverageGuidelines
@@ -286,9 +294,11 @@ export interface CoverageGuidelinesState {
 
   // UI state
   isEditing: boolean
+  referenceMode: ReferenceMode
 
   // Actions
   setSelectedPersonId: (personId: string | null) => void
+  setReferenceMode: (mode: ReferenceMode) => void
   setAnnualIncome: (income: number) => void
   setMaxPremiumPercentage: (percentage: number) => void
   applyPreset: (preset: Exclude<GuidelinesPreset, 'custom'>) => void
@@ -323,6 +333,7 @@ const initialState = {
   selectedPersonId: null as string | null,
   questionnaireAnswers: createDefaultQuestionnaireAnswers(),
   isEditing: false,
+  referenceMode: 'income' as ReferenceMode,
 }
 
 export const useCoverageGuidelinesStore = create<CoverageGuidelinesState>()(
@@ -333,6 +344,9 @@ export const useCoverageGuidelinesStore = create<CoverageGuidelinesState>()(
 
         // Person selection
         setSelectedPersonId: (personId) => set({ selectedPersonId: personId }),
+
+        // Reference mode toggle
+        setReferenceMode: (mode) => set({ referenceMode: mode }),
 
         // Income and budget
         setAnnualIncome: (income) =>
@@ -567,6 +581,7 @@ export const useCoverageGuidelinesStore = create<CoverageGuidelinesState>()(
           hasConfiguredGuidelines: state.hasConfiguredGuidelines,
           selectedPersonId: state.selectedPersonId,
           questionnaireAnswers: state.questionnaireAnswers,
+          referenceMode: state.referenceMode,
         }),
       }
     ),
@@ -584,6 +599,7 @@ export const useHasConfiguredGuidelines = () =>
 export const useSelectedPersonId = () =>
   useCoverageGuidelinesStore((s) => s.selectedPersonId)
 export const useIsEditingGuidelines = () => useCoverageGuidelinesStore((s) => s.isEditing)
+export const useReferenceMode = () => useCoverageGuidelinesStore((s) => s.referenceMode)
 
 // Computed selector for target amounts
 export const useGuidelineTargets = () => {
@@ -607,6 +623,7 @@ export const useGuidelinesActions = () =>
   useCoverageGuidelinesStore(
     useShallow((s) => ({
       setSelectedPersonId: s.setSelectedPersonId,
+      setReferenceMode: s.setReferenceMode,
       setAnnualIncome: s.setAnnualIncome,
       setMaxPremiumPercentage: s.setMaxPremiumPercentage,
       applyPreset: s.applyPreset,

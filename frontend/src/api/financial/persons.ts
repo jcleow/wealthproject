@@ -1,5 +1,5 @@
 import { apiClient } from '../client'
-import type { Person, PersonCreatePayload, PersonUpdatePayload } from '@/types/person'
+import type { Person, PersonCreatePayload, PersonUpdatePayload, Relationship } from '@/types/person'
 import type { ResidencyStatus } from '@/types/cpf'
 import type {
   Person as ApiPerson,
@@ -21,6 +21,7 @@ function toPerson(data: ApiPerson): Person {
     gender: ((data as { gender?: string }).gender ?? 'male') as 'male' | 'female',
     residencyStatus: (data.residencyStatus ?? 'citizen') as ResidencyStatus,
     prGrantDate: data.prGrantDate ?? null,
+    relationship: ((data as { relationship?: string }).relationship ?? 'self') as Relationship,
     createdAt: data.createdAt ?? '',
     updatedAt: data.updatedAt ?? '',
     incomeCount: data.incomeCount ?? 0,
@@ -48,13 +49,14 @@ export async function getPerson(id: string): Promise<Person> {
  * Create a new person
  */
 export async function createPerson(payload: PersonCreatePayload): Promise<Person> {
-  const body: PersonV2CreateInput & { gender?: string } = {
+  const body: PersonV2CreateInput & { gender?: string; relationship?: string } = {
     name: payload.name,
     dateOfBirth: payload.dateOfBirth,
     residencyStatus: payload.residencyStatus,
     displayColor: payload.displayColor ?? undefined,
     prGrantDate: payload.prGrantDate ?? undefined,
     gender: payload.gender,
+    relationship: payload.relationship,
   }
   const data = await apiClient.post<ApiPerson>('/persons', body, { baseUrl: '/api/v2' })
   return toPerson(data)
@@ -64,13 +66,14 @@ export async function createPerson(payload: PersonCreatePayload): Promise<Person
  * Update an existing person
  */
 export async function updatePerson(id: string, payload: PersonUpdatePayload): Promise<Person> {
-  const body: PersonV2UpdateInput = {
+  const body: PersonV2UpdateInput & { relationship?: string } = {
     name: payload.name,
     dateOfBirth: payload.dateOfBirth,
     residencyStatus: payload.residencyStatus,
     displayColor: payload.displayColor ?? undefined,
     prGrantDate: payload.prGrantDate ?? undefined,
     isIncluded: payload.isIncluded,
+    relationship: payload.relationship,
   }
   const data = await apiClient.put<ApiPerson>(`/persons/${id}`, body, { baseUrl: '/api/v2' })
   return toPerson(data)

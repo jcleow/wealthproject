@@ -28,9 +28,11 @@ import {
   useGuidelineTargets,
   useHasConfiguredGuidelines,
   useSelectedPersonId,
+  useReferenceMode,
   useQuestionnaireAnswers,
   useQuestionnaireRecommendations,
 } from '@/stores/coverageGuidelinesStore'
+import type { ReferenceMode } from '@/stores/coverageGuidelinesStore'
 import {
   guidelineCoverageConfig,
   wardClassConfig,
@@ -41,6 +43,7 @@ import { PersonSelector } from '@/components/ui/PersonSelector'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
+import { useExpensesQuery } from '@/hooks/queries/useExpensesQuery'
 import { useQuestionnaireAutoPopulate } from '@/hooks/useQuestionnaireAutoPopulate'
 import type { Frequency } from '@/types/financial'
 
@@ -74,6 +77,87 @@ function calculateAnnualIncomeForPerson(
       const multiplier = frequencyMultipliers[income.frequency] || 0
       return total + income.amount * multiplier
     }, 0)
+}
+
+/**
+ * Calculate total annual expenses (household-level, no personId filtering).
+ * Only includes active expenses (no endDate or future endDate).
+ */
+function calculateAnnualExpenses(
+  expenses: { amount: number; frequency: Frequency; endDate?: string }[]
+): number {
+  const currentYear = new Date().getFullYear()
+  return expenses
+    .filter((expense) => {
+      if (expense.endDate) {
+        const endYear = new Date(expense.endDate).getFullYear()
+        if (endYear < currentYear) return false
+      }
+      return true
+    })
+    .reduce((total, expense) => {
+      const multiplier = frequencyMultipliers[expense.frequency] || 0
+      return total + expense.amount * multiplier
+    }, 0)
+}
+
+/**
+ * TODO(human): Format a coverage target amount as a multiplier of expenses.
+ * Decides whether to show annual or monthly comparison,
+ * how to round the multiplier, and what text to display.
+ */
+function formatExpenseMultiplier(
+  targetAmount: number,
+  annualExpenses: number
+): string {
+  // Placeholder — human will implement this
+  if (annualExpenses <= 0) return 'Add expenses to see this comparison'
+  const multiplier = targetAmount / annualExpenses
+  return `≈ ${multiplier.toFixed(1)}× your annual expenses`
+}
+
+// ============================================================================
+// REFERENCE MODE TOGGLE
+// ============================================================================
+
+function ReferenceModeToggle() {
+  const colorScheme = useColorScheme()
+  const monetWizard = getInsuranceTheme(colorScheme)
+  const referenceMode = useReferenceMode()
+  const { setReferenceMode } = useGuidelinesActions()
+
+  const options: { value: ReferenceMode; label: string }[] = [
+    { value: 'income', label: 'vs Income' },
+    { value: 'expenses', label: 'vs Expenses' },
+  ]
+
+  return (
+    <div
+      className="inline-flex rounded-lg p-0.5"
+      style={{
+        background: `${monetWizard.lavender}08`,
+        border: `1px solid ${monetWizard.cardBorder}`,
+      }}
+    >
+      {options.map((option) => {
+        const isActive = referenceMode === option.value
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => setReferenceMode(option.value)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150"
+            style={{
+              background: isActive ? `${monetWizard.lavender}18` : 'transparent',
+              color: isActive ? monetWizard.textPrimary : monetWizard.textMuted,
+            }}
+          >
+            {option.label}
+          </button>
+        )
+      })}
+    </div>
+  )
 }
 
 // ============================================================================
@@ -216,7 +300,6 @@ function WizardStep1Income({ onNext }: WizardStep1Props) {
           className="text-2xl font-light tracking-tight mb-2"
           style={{
             color: monetWizard.textPrimary,
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
           }}
         >
           Who are we planning for?
@@ -276,8 +359,7 @@ function WizardStep1Income({ onNext }: WizardStep1Props) {
               className="text-3xl font-light tabular-nums"
               style={{
                 color: monetWizard.textPrimary,
-                fontFamily: "'Cormorant Garamond', Georgia, serif",
-              }}
+                  }}
             >
               {formatCurrency(calculatedIncome)}
             </div>
@@ -405,17 +487,20 @@ function CoverageMultiplierCard({
   showEducation = false,
   reasoning,
   showInputs = false,
+  annualExpenses = 0,
 }: {
   coverageType: GuidelineCoverageType
   showEducation?: boolean
   reasoning?: string
   showInputs?: boolean
+  annualExpenses?: number
 }) {
   const colorScheme = useColorScheme()
   const monetWizard = getInsuranceTheme(colorScheme)
 
   const guidelines = useGuidelines()
   const targets = useGuidelineTargets()
+  const referenceMode = useReferenceMode()
   const answers = useQuestionnaireAnswers()
   const {
     setMultiplier,
@@ -445,17 +530,17 @@ function CoverageMultiplierCard({
 
   const accent = accentColorMap[config.color] || monetWizard.lavender
 
-  // Helper to parse currency input (removes $, commas)
+  // Helper to parse currency input (removes $, commas, and other non-numeric chars except . and -)
   const parseCurrency = (value: string): number => {
-    const cleaned = value.replace(/[$,]/g, '')
+    const cleaned = value.replace(/[^0-9.\-]/g, '')
     const num = parseFloat(cleaned)
-    return isNaN(num) ? 0 : num
+    return isNaN(num) ? 0 : Math.round(num)
   }
 
   // Helper to format number for input display
   const formatInputCurrency = (value: number): string => {
     if (value === 0) return ''
-    return value.toLocaleString()
+    return Math.round(value).toLocaleString()
   }
 
   // Recompute recommendations when inputs change
@@ -885,53 +970,6 @@ function CoverageMultiplierCard({
                         variant="monet"
                       />
                     </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider block mb-1" style={{ color: monetWizard.textMuted }}>
-                        Commute method
-                      </label>
-                      <CustomDropdown
-                        value={answers.personalAccident.commuteMethod}
-                        onChange={(value) => {
-                          setPersonalAccidentAnswers({ commuteMethod: value as 'public_transport' | 'car' | 'motorcycle' | 'cycling' | 'walking' })
-                          handleInputChange()
-                        }}
-                        options={[
-                          { value: 'public_transport', label: 'Public transport' },
-                          { value: 'car', label: 'Car' },
-                          { value: 'motorcycle', label: 'Motorcycle' },
-                          { value: 'cycling', label: 'Cycling' },
-                          { value: 'walking', label: 'Walking' },
-                        ]}
-                        minWidth="100%"
-                        variant="monet"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between col-span-2">
-                      <label className="text-xs" style={{ color: monetWizard.textMuted }}>
-                        Active lifestyle (sports, adventure)
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPersonalAccidentAnswers({ activeLifestyle: !answers.personalAccident.activeLifestyle })
-                          handleInputChange()
-                        }}
-                        className="relative h-5 w-10 rounded-full transition-all duration-300"
-                        style={{
-                          background: answers.personalAccident.activeLifestyle
-                            ? accent
-                            : `${monetWizard.lavender}25`,
-                        }}
-                      >
-                        <span
-                          className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all duration-300"
-                          style={{
-                            left: answers.personalAccident.activeLifestyle ? '22px' : '2px',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                          }}
-                        />
-                      </button>
-                    </div>
                     <div className="col-span-2">
                       <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
                         Existing PA coverage ($)
@@ -957,12 +995,15 @@ function CoverageMultiplierCard({
 
               {/* Target amount - editable input */}
               <div>
-                <p
-                  className="text-[10px] uppercase tracking-wider mb-1"
-                  style={{ color: monetWizard.textMuted }}
-                >
-                  Coverage target
-                </p>
+                <div className="flex items-center justify-between mb-1">
+                  <p
+                    className="text-[10px] uppercase tracking-wider"
+                    style={{ color: monetWizard.textMuted }}
+                  >
+                    Coverage target
+                  </p>
+                  <ReferenceModeToggle />
+                </div>
                 <div className="flex items-baseline gap-1">
                   <span className="text-xl" style={{ color: accent }}>$</span>
                   <input
@@ -977,8 +1018,7 @@ function CoverageMultiplierCard({
                     className="text-2xl font-light font-mono tabular-nums bg-transparent border-b-2 focus:outline-none transition-colors"
                     style={{
                       color: accent,
-                      fontFamily: "'Cormorant Garamond', Georgia, serif",
-                      borderColor: `${accent}30`,
+                                borderColor: `${accent}30`,
                       width: `${Math.max(3, String(targetAmount).length) + 1}ch`,
                     }}
                   />
@@ -987,7 +1027,9 @@ function CoverageMultiplierCard({
                   className="text-[11px] mt-1.5"
                   style={{ color: monetWizard.textMuted }}
                 >
-                  ≈ {multiplier}× your annual income
+                  {referenceMode === 'expenses'
+                    ? formatExpenseMultiplier(targetAmount as number, annualExpenses)
+                    : `≈ ${multiplier}× your annual income`}
                 </p>
               </div>
             </div>
@@ -1057,25 +1099,26 @@ function OptionCard({
   const monetWizard = getInsuranceTheme(colorScheme)
 
   // Monet-inspired color mapping
+  // Hex alpha: 18 ≈ 9%, 30 ≈ 19%, 60 ≈ 38%
   const colorStyles: Record<string, { bg: string; border: string; accent: string }> = {
     emerald: {
-      bg: `${monetWizard.sageLight}50`,
-      border: `${monetWizard.sage}50`,
+      bg: `${monetWizard.sage}18`,
+      border: `${monetWizard.sage}60`,
       accent: monetWizard.sage,
     },
     blue: {
-      bg: `${monetWizard.blueLight}50`,
-      border: `${monetWizard.blue}50`,
+      bg: `${monetWizard.blue}18`,
+      border: `${monetWizard.blue}60`,
       accent: monetWizard.blue,
     },
     purple: {
-      bg: `${monetWizard.purpleLight}50`,
-      border: `${monetWizard.purple}50`,
+      bg: `${monetWizard.purple}18`,
+      border: `${monetWizard.purple}60`,
       accent: monetWizard.purple,
     },
     amber: {
-      bg: `${monetWizard.amberLight}50`,
-      border: `${monetWizard.amber}50`,
+      bg: `${monetWizard.amber}18`,
+      border: `${monetWizard.amber}60`,
       accent: monetWizard.amber,
     },
   }
@@ -1100,9 +1143,9 @@ function OptionCard({
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
           style={{
             background: isSelected
-              ? `linear-gradient(135deg, ${styles.accent}, ${styles.accent}80)`
-              : monetWizard.surfaceBg,
-            boxShadow: isSelected ? `0 2px 8px ${monetWizard.shadowSoft}` : 'none',
+              ? `${styles.accent}30`
+              : `${monetWizard.textMuted}12`,
+            border: `1px solid ${isSelected ? `${styles.accent}40` : `${monetWizard.textMuted}15`}`,
           }}
         >
           {icon}
@@ -1112,7 +1155,6 @@ function OptionCard({
             className="font-medium"
             style={{
               color: isSelected ? monetWizard.textPrimary : monetWizard.textSecondary,
-              fontFamily: "'DM Sans', system-ui, sans-serif",
             }}
           >
             {title}
@@ -1279,17 +1321,67 @@ function HospitalizationQuestionnaire({
     <div className="max-w-xl mx-auto">
       <SectionProgressDots current={subStep} total={totalSubSteps} />
 
-      {/* Header - Monet style */}
+      {/* Header with inline info button */}
       <div className="text-center mb-8">
-        <h2
-          className="text-2xl font-semibold mb-3"
-          style={{
-            color: monetWizard.textPrimary,
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
-          }}
-        >
-          Hospitalization Coverage
-        </h2>
+        <div className="flex items-center justify-center gap-2 mb-3">
+          <h2
+            className="text-2xl font-semibold"
+            style={{ color: monetWizard.textPrimary }}
+          >
+            Hospitalization Coverage
+          </h2>
+          <Tooltip.Provider delayDuration={200}>
+            <Tooltip.Root>
+              <Tooltip.Trigger asChild>
+                <button
+                  type="button"
+                  className="p-1 rounded-full transition-opacity hover:opacity-70"
+                >
+                  <Info className="h-4 w-4" style={{ color: monetWizard.textMuted }} />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal>
+                <Tooltip.Content
+                  side="bottom"
+                  align="center"
+                  sideOffset={8}
+                  className="z-[9999] max-w-sm rounded-xl p-4 shadow-xl animate-in fade-in-0 zoom-in-95"
+                  style={{
+                    background: colorScheme === 'monet' ? '#ffffff' : '#1a1a1a',
+                    border: `1px solid ${monetWizard.cardBorder}`,
+                  }}
+                >
+                  <div className="mb-3">
+                    <p className="text-xs font-medium mb-2" style={{ color: monetWizard.textPrimary }}>
+                      Private vs Public
+                    </p>
+                    <ul className="text-xs space-y-1" style={{ color: monetWizard.textSecondary }}>
+                      <li>• <strong>Private:</strong> Choose your specialist, shorter wait (days vs months)</li>
+                      <li>• <strong>Public:</strong> All ward classes (A, B1, B2+, C), government subsidies</li>
+                      <li>• Public Class A/B1 offers similar comfort at lower cost</li>
+                    </ul>
+                  </div>
+                  <div
+                    className="p-3 rounded-lg"
+                    style={{
+                      background: `${monetWizard.amber}15`,
+                      border: `1px solid ${monetWizard.amber}20`,
+                    }}
+                  >
+                    <p className="text-xs font-medium mb-1" style={{ color: monetWizard.amber }}>
+                      MOH Rules from April 2026
+                    </p>
+                    <p className="text-xs" style={{ color: monetWizard.textSecondary }}>
+                      New IP riders can no longer fully cover deductibles ($1,500–$3,500 minimum out-of-pocket).
+                      Existing policies bought before Nov 2025 are unaffected.
+                    </p>
+                  </div>
+                  <Tooltip.Arrow style={{ fill: colorScheme === 'monet' ? '#ffffff' : '#1a1a1a' }} />
+                </Tooltip.Content>
+              </Tooltip.Portal>
+            </Tooltip.Root>
+          </Tooltip.Provider>
+        </div>
         <p style={{ color: monetWizard.textSecondary }}>
           {subStep === 0
             ? 'Where would you prefer to be treated?'
@@ -1318,72 +1410,6 @@ function HospitalizationQuestionnaire({
             description="Government subsidies, same medical quality. Lower premiums."
             color="emerald"
           />
-
-          {/* Learn More Tooltip */}
-          <div
-            className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm"
-            style={{
-              background: monetWizard.surfaceBg,
-              border: `1px solid ${monetWizard.cardBorder}`,
-              color: monetWizard.textSecondary,
-            }}
-          >
-            <Tooltip.Provider delayDuration={200}>
-              <Tooltip.Root>
-                <Tooltip.Trigger asChild>
-                  <button
-                    type="button"
-                    className="flex items-center gap-2 transition-opacity hover:opacity-70"
-                  >
-                    <Info className="h-4 w-4" style={{ color: monetWizard.textMuted }} />
-                    <span>Learn more about hospital types & 2026 changes</span>
-                  </button>
-                </Tooltip.Trigger>
-                <Tooltip.Portal>
-                  <Tooltip.Content
-                    side="bottom"
-                    align="center"
-                    sideOffset={8}
-                    className="z-[9999] max-w-sm rounded-xl p-4 shadow-xl animate-in fade-in-0 zoom-in-95"
-                    style={{
-                      background: colorScheme === 'monet' ? '#ffffff' : '#1a1a1a',
-                      border: `1px solid ${monetWizard.cardBorder}`,
-                    }}
-                  >
-                    {/* What's the difference */}
-                    <div className="mb-3">
-                      <p className="text-xs font-medium mb-2" style={{ color: monetWizard.textPrimary }}>
-                        What's the real difference?
-                      </p>
-                      <ul className="text-xs space-y-1" style={{ color: monetWizard.textSecondary }}>
-                        <li>• <strong>Private:</strong> Choose your specialist, shorter wait (days vs months)</li>
-                        <li>• <strong>Public:</strong> All ward classes available (A, B1, B2+, C), government subsidies</li>
-                        <li>• Public Class A/B1 offers similar comfort at lower cost than private</li>
-                      </ul>
-                    </div>
-
-                    {/* 2026 Rules */}
-                    <div
-                      className="p-3 rounded-lg"
-                      style={{
-                        background: `${monetWizard.amberLight}30`,
-                        border: `1px solid ${monetWizard.amber}20`,
-                      }}
-                    >
-                      <p className="text-xs font-medium mb-1" style={{ color: monetWizard.amber }}>
-                        New MOH Rules from April 2026
-                      </p>
-                      <p className="text-xs" style={{ color: monetWizard.textSecondary }}>
-                        New IP riders can no longer fully cover deductibles ($1,500-$3,500 minimum out-of-pocket).
-                        Existing policies bought before Nov 2025 are unaffected.
-                      </p>
-                    </div>
-                    <Tooltip.Arrow style={{ fill: colorScheme === 'monet' ? '#ffffff' : '#1a1a1a' }} />
-                  </Tooltip.Content>
-                </Tooltip.Portal>
-              </Tooltip.Root>
-            </Tooltip.Provider>
-          </div>
         </div>
       ) : hospitalPref === 'private' ? (
         // Step 1 (Private): Room type preference
@@ -1497,6 +1523,59 @@ function LifeTpdQuestionnaire({
   const [subStep, setSubStep] = useState(0)
   const selectedPersonId = useSelectedPersonId()
   const autoPopulate = useQuestionnaireAutoPopulate(selectedPersonId)
+  const { includedPersons } = usePersonFilter()
+  const { data: incomes = [] } = useIncomesQuery()
+
+  // Other persons (excluding primary) as potential dependents
+  const otherPersons = useMemo(() => {
+    return includedPersons
+      .filter((p) => p.id !== selectedPersonId)
+      .map((p) => {
+        const today = new Date()
+        const birth = new Date(p.dateOfBirth)
+        let age = today.getFullYear() - birth.getFullYear()
+        const monthDiff = today.getMonth() - birth.getMonth()
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+          age--
+        }
+        return { ...p, age: Math.max(0, age) }
+      })
+  }, [includedPersons, selectedPersonId])
+
+  // Derive dependent count and youngest age from selected person IDs
+  const handleDependentSelection = (personId: string) => {
+    const currentIds = answers.lifeTpd.dependentPersonIds || []
+    const isSelected = currentIds.includes(personId)
+    const newIds = isSelected
+      ? currentIds.filter((id) => id !== personId)
+      : [...currentIds, personId]
+
+    // Calculate youngest age from selected dependents
+    const selectedDependents = otherPersons.filter((p) => newIds.includes(p.id))
+    const youngestAge = selectedDependents.length > 0
+      ? Math.min(...selectedDependents.map((p) => p.age))
+      : null
+    const yearsUntilIndependent = youngestAge !== null ? Math.max(0, 22 - youngestAge) : 0
+
+    // If the deselected person was the spouse, clear spouse too
+    const spouseCleared = isSelected && personId === answers.lifeTpd.spousePersonId
+      ? { spousePersonId: null, spouseHasIncome: false, spouseIncome: 0 }
+      : {}
+
+    setLifeTpdAnswers({
+      dependentPersonIds: newIds,
+      dependentCount: newIds.length,
+      youngestDependentAge: youngestAge,
+      yearsUntilIndependent,
+      ...spouseCleared,
+    })
+  }
+
+  // Auto-calculate spouse income when spouse is selected
+  const spouseIncome = useMemo(() => {
+    if (!answers.lifeTpd.spousePersonId) return 0
+    return calculateAnnualIncomeForPerson(incomes, answers.lifeTpd.spousePersonId)
+  }, [incomes, answers.lifeTpd.spousePersonId])
 
   const totalSubSteps = 2 // Dependents, then finances
 
@@ -1516,15 +1595,15 @@ function LifeTpdQuestionnaire({
     }
   }
 
-  // Calculate recommended coverage based on answers
+  // Calculate recommended coverage based on answers + financial data
   const incomeReplacement = answers.lifeTpd.dependentCount > 0
     ? guidelines.annualIncome * answers.lifeTpd.yearsUntilIndependent
     : 0
   const totalNeeded = incomeReplacement +
-    answers.lifeTpd.mortgageBalance +
-    answers.lifeTpd.otherDebts +
+    autoPopulate.computed.totalMortgage +
+    autoPopulate.computed.totalOtherDebts +
     answers.lifeTpd.futureObligations -
-    answers.lifeTpd.existingAssets
+    autoPopulate.computed.totalAssets
 
   return (
     <div className="max-w-xl mx-auto">
@@ -1536,7 +1615,6 @@ function LifeTpdQuestionnaire({
           className="text-2xl font-semibold mb-3"
           style={{
             color: monetWizard.textPrimary,
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
           }}
         >
           Life / TPD Coverage
@@ -1549,103 +1627,130 @@ function LifeTpdQuestionnaire({
       </div>
 
       {subStep === 0 ? (
-        // Step 0: Dependents
+        // Step 0: Dependents — select from persons list
         <div className="space-y-5 mb-8">
           <div>
             <label className="block text-sm mb-3" style={{ color: monetWizard.textSecondary }}>
-              How many people financially depend on you?
+              Who financially depends on you?
             </label>
-            <div className="grid grid-cols-5 gap-2">
-              {[0, 1, 2, 3, 4].map((count) => (
-                <button
-                  key={count}
-                  type="button"
-                  onClick={() => setLifeTpdAnswers({ dependentCount: count })}
-                  className="rounded-xl py-3 text-center font-medium transition-all duration-200"
-                  style={{
-                    background: answers.lifeTpd.dependentCount === count
-                      ? `${monetWizard.blueLight}60`
-                      : monetWizard.surfaceBg,
-                    border: `1px solid ${answers.lifeTpd.dependentCount === count ? monetWizard.blue + '50' : monetWizard.cardBorder}`,
-                    color: answers.lifeTpd.dependentCount === count ? monetWizard.textPrimary : monetWizard.textSecondary,
-                  }}
-                >
-                  {count === 4 ? '4+' : count}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs mt-2" style={{ color: monetWizard.textMuted }}>
-              Include spouse (if not working), children, elderly parents you support
-            </p>
-          </div>
 
-          {answers.lifeTpd.dependentCount > 0 && (
-            <>
-              <NumberInput
-                label="Age of youngest dependent"
-                value={answers.lifeTpd.youngestDependentAge || 0}
-                onChange={(value) => {
-                  setLifeTpdAnswers({
-                    youngestDependentAge: value,
-                    yearsUntilIndependent: Math.max(0, 22 - value), // Assume independence at 22
-                  })
-                }}
-                placeholder="0"
-                prefix=""
-                helpText="We'll calculate years of support needed until financial independence (usually 22)"
-              />
-
+            {otherPersons.length > 0 ? (
+              <div className="space-y-2">
+                {otherPersons.map((person) => {
+                  const isSelected = (answers.lifeTpd.dependentPersonIds || []).includes(person.id)
+                  return (
+                    <button
+                      key={person.id}
+                      type="button"
+                      onClick={() => handleDependentSelection(person.id)}
+                      className="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-all duration-200"
+                      style={{
+                        background: isSelected ? `${monetWizard.blue}18` : monetWizard.surfaceBg,
+                        border: `1px solid ${isSelected ? `${monetWizard.blue}60` : monetWizard.cardBorder}`,
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium"
+                          style={{
+                            background: person.displayColor || monetWizard.blue,
+                            color: '#fff',
+                          }}
+                        >
+                          {person.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="text-left">
+                          <p className="text-sm font-medium" style={{ color: monetWizard.textPrimary }}>
+                            {person.name}
+                          </p>
+                          <p className="text-xs" style={{ color: monetWizard.textMuted }}>
+                            Age {person.age}
+                            {person.relationship && person.relationship !== 'self'
+                              ? ` · ${person.relationship.charAt(0).toUpperCase() + person.relationship.slice(1)}`
+                              : person.age < 18 ? ' · Child' : person.age >= 65 ? ' · Elderly' : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div
+                        className="h-5 w-5 rounded-md flex items-center justify-center transition-all"
+                        style={{
+                          background: isSelected ? monetWizard.blue : 'transparent',
+                          border: `1.5px solid ${isSelected ? monetWizard.blue : monetWizard.cardBorder}`,
+                        }}
+                      >
+                        {isSelected && <Check className="h-3 w-3 text-white" />}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
               <div
-                className="flex items-center gap-3 p-4 rounded-2xl"
+                className="p-4 rounded-2xl text-center"
                 style={{
                   background: monetWizard.surfaceBg,
                   border: `1px solid ${monetWizard.cardBorder}`,
                 }}
               >
-                <button
-                  type="button"
-                  onClick={() => setLifeTpdAnswers({ spouseHasIncome: !answers.lifeTpd.spouseHasIncome })}
-                  className="relative h-6 w-11 rounded-full transition-colors shrink-0"
-                  style={{
-                    background: answers.lifeTpd.spouseHasIncome ? monetWizard.sage : monetWizard.cardBorder,
-                  }}
-                >
-                  <span
-                    className="absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all shadow-sm"
-                    style={{
-                      left: answers.lifeTpd.spouseHasIncome ? '22px' : '2px',
-                    }}
-                  />
-                </button>
-                <div>
-                  <p className="text-sm" style={{ color: monetWizard.textPrimary }}>Spouse has their own income</p>
-                  <p className="text-xs" style={{ color: monetWizard.textMuted }}>This reduces the coverage needed</p>
-                </div>
+                <p className="text-sm" style={{ color: monetWizard.textMuted }}>
+                  No other persons added. Add family members in the main app to select them here.
+                </p>
               </div>
+            )}
 
-              {answers.lifeTpd.spouseHasIncome && (
-                <NumberInput
-                  label="Spouse's annual income"
-                  value={answers.lifeTpd.spouseIncome}
-                  onChange={(value) => setLifeTpdAnswers({ spouseIncome: value })}
-                  placeholder="0"
-                  helpText="Used to reduce coverage needed (assumes spouse covers 50% of expenses)"
-                  preFilled={autoPopulate.sources.income && autoPopulate.computed.spouseIncome > 0}
-                  preFilledSource="From incomes"
-                />
-              )}
-            </>
+            {(answers.lifeTpd.dependentPersonIds || []).length > 0 && (
+              <p className="text-xs mt-2" style={{ color: monetWizard.textMuted }}>
+                {answers.lifeTpd.dependentCount} dependent{answers.lifeTpd.dependentCount !== 1 ? 's' : ''} selected
+                {answers.lifeTpd.youngestDependentAge !== null && (
+                  <> · Youngest age {answers.lifeTpd.youngestDependentAge} · {answers.lifeTpd.yearsUntilIndependent} years until independent</>
+                )}
+              </p>
+            )}
+          </div>
+
+          {(answers.lifeTpd.dependentPersonIds || []).length > 0 && (
+            <div>
+              <label className="text-[10px] uppercase tracking-wider block mb-2" style={{ color: monetWizard.textMuted }}>
+                Spouse / Partner (has own income)
+              </label>
+              <PersonSelector
+                value={answers.lifeTpd.spousePersonId}
+                onChange={(personId) => {
+                  const hasIncome = personId ? calculateAnnualIncomeForPerson(incomes, personId) > 0 : false
+                  const income = personId ? calculateAnnualIncomeForPerson(incomes, personId) : 0
+                  setLifeTpdAnswers({
+                    spousePersonId: personId,
+                    spouseHasIncome: hasIncome,
+                    spouseIncome: income,
+                  })
+                }}
+                placeholder="None"
+                variant={colorScheme === 'monet' ? 'monet' : 'dark'}
+                showCreate={false}
+                excludePersonIds={[
+                  ...(selectedPersonId ? [selectedPersonId] : []),
+                  ...otherPersons.filter((p) => p.relationship === 'child').map((p) => p.id),
+                ]}
+              />
+              <p className="text-xs mt-1.5" style={{ color: monetWizard.textMuted }}>
+                {answers.lifeTpd.spousePersonId
+                  ? spouseIncome > 0
+                    ? `Annual income: ${formatCurrency(spouseIncome)} — reduces coverage needed`
+                    : 'No income found for this person'
+                  : 'Select if spouse/partner has their own income — this reduces coverage needed'}
+              </p>
+            </div>
           )}
 
-          {answers.lifeTpd.dependentCount === 0 && (
+          {(answers.lifeTpd.dependentPersonIds || []).length === 0 && otherPersons.length > 0 && (
             <div
               className="p-4 rounded-2xl"
               style={{
-                background: `${monetWizard.sageLight}40`,
+                background: `${monetWizard.sage}12`,
                 border: `1px solid ${monetWizard.sage}25`,
               }}
             >
-              <p className="text-sm" style={{ color: monetWizard.sageDark }}>
+              <p className="text-sm" style={{ color: monetWizard.textSecondary }}>
                 <strong>No dependents?</strong> You may only need minimal coverage for final expenses
                 (funeral costs, outstanding debts). Consider if this changes in the future.
               </p>
@@ -1655,61 +1760,63 @@ function LifeTpdQuestionnaire({
       ) : (
         // Step 1: Financial obligations
         <div className="space-y-5 mb-6">
-          {/* Pre-filled data banner - Monet style */}
-          {autoPopulate.sources.liabilities && autoPopulate.computed.totalMortgage > 0 && (
-            <div
-              className="p-4 rounded-2xl flex items-center gap-2"
-              style={{
-                background: `${monetWizard.sageLight}40`,
-                border: `1px solid ${monetWizard.sage}25`,
-              }}
-            >
-              <Check className="h-4 w-4" style={{ color: monetWizard.sage }} />
-              <p className="text-xs" style={{ color: monetWizard.sageDark }}>
-                We found financial data from your profile. Fields marked with{' '}
-                <span
-                  className="px-1 rounded text-[10px]"
-                  style={{ background: `${monetWizard.sage}20`, color: monetWizard.sageDark }}
-                >
-                  Pre-filled
-                </span>{' '}
-                are auto-populated — feel free to adjust.
+          {/* Auto-fetched financial summary */}
+          <div
+            className="rounded-2xl p-4 space-y-3"
+            style={{
+              background: monetWizard.surfaceBg,
+              border: `1px solid ${monetWizard.cardBorder}`,
+            }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Check className="h-3.5 w-3.5" style={{ color: monetWizard.sage }} />
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.sage }}>
+                From your financial data
               </p>
             </div>
-          )}
 
-          <NumberInput
-            label="Outstanding mortgage balance"
-            value={answers.lifeTpd.mortgageBalance}
-            onChange={(value) => setLifeTpdAnswers({ mortgageBalance: value })}
-            placeholder="0"
-            helpText="Life insurance can pay off the mortgage so family keeps the home"
-            preFilled={autoPopulate.sources.liabilities}
-            preFilledSource="From liabilities"
-          />
+            <div className="flex items-center justify-between">
+              <span className="text-sm" style={{ color: monetWizard.textSecondary }}>
+                Outstanding mortgage
+              </span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: monetWizard.textPrimary }}>
+                {formatCurrency(autoPopulate.computed.totalMortgage)}
+              </span>
+            </div>
 
-          <NumberInput
-            label="Other debts (car loans, education loans, etc.)"
-            value={answers.lifeTpd.otherDebts}
-            onChange={(value) => setLifeTpdAnswers({ otherDebts: value })}
-            preFilled={autoPopulate.sources.liabilities}
-            preFilledSource="From liabilities"
-          />
+            <div className="flex items-center justify-between">
+              <span className="text-sm" style={{ color: monetWizard.textSecondary }}>
+                Other debts
+              </span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: monetWizard.textPrimary }}>
+                {formatCurrency(autoPopulate.computed.totalOtherDebts)}
+              </span>
+            </div>
+
+            <div
+              className="flex items-center justify-between pt-3"
+              style={{ borderTop: `1px solid ${monetWizard.cardBorder}` }}
+            >
+              <span className="text-sm" style={{ color: monetWizard.textSecondary }}>
+                Existing assets
+              </span>
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: monetWizard.textPrimary }}>
+                {formatCurrency(autoPopulate.computed.totalAssets)}
+              </span>
+            </div>
+
+            {!autoPopulate.sources.liabilities && !autoPopulate.sources.assets && (
+              <p className="text-xs" style={{ color: monetWizard.textMuted }}>
+                No financial data found. Add liabilities and assets in the main app for automatic calculation.
+              </p>
+            )}
+          </div>
 
           <NumberInput
             label="Future obligations (children's education fund, etc.)"
-            value={answers.lifeTpd.futureObligations}
-            onChange={(value) => setLifeTpdAnswers({ futureObligations: value })}
+            value={Math.max(0, answers.lifeTpd.futureObligations)}
+            onChange={(value) => setLifeTpdAnswers({ futureObligations: Math.max(0, value) })}
             helpText="University education in Singapore costs ~$50-100K per child"
-          />
-
-          <NumberInput
-            label="Existing savings/investments that could cover expenses"
-            value={answers.lifeTpd.existingAssets}
-            onChange={(value) => setLifeTpdAnswers({ existingAssets: value })}
-            helpText="Assets that could be liquidated if needed (reduces coverage needed)"
-            preFilled={autoPopulate.sources.assets}
-            preFilledSource="From assets"
           />
 
           {/* Calculated recommendation - Monet style */}
@@ -1728,9 +1835,9 @@ function LifeTpdQuestionnaire({
             </div>
             <p className="text-xs font-mono tabular-nums" style={{ color: monetWizard.textSecondary }}>
               = {formatCurrency(incomeReplacement)} (income replacement) +
-              {formatCurrency(answers.lifeTpd.mortgageBalance + answers.lifeTpd.otherDebts)} (debts) +
+              {formatCurrency(autoPopulate.computed.totalMortgage + autoPopulate.computed.totalOtherDebts)} (debts) +
               {formatCurrency(answers.lifeTpd.futureObligations)} (obligations) -
-              {formatCurrency(answers.lifeTpd.existingAssets)} (assets)
+              {formatCurrency(autoPopulate.computed.totalAssets)} (assets)
             </p>
           </div>
         </div>
@@ -1800,7 +1907,6 @@ function CriticalIllnessQuestionnaire({
           className="text-2xl font-semibold mb-3"
           style={{
             color: monetWizard.textPrimary,
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
           }}
         >
           Critical Illness Coverage
@@ -2102,7 +2208,6 @@ function PersonalAccidentQuestionnaire({
           className="text-2xl font-semibold mb-3"
           style={{
             color: monetWizard.textPrimary,
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
           }}
         >
           Personal Accident Coverage
@@ -2217,7 +2322,6 @@ function SelfInsuranceQuestionnaire({
           className="text-2xl font-semibold mb-3"
           style={{
             color: monetWizard.textPrimary,
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
           }}
         >
           Self-Insurance Capability
@@ -2444,7 +2548,6 @@ function WizardStep2Questionnaire({ onNext, onBack }: WizardStep2Props) {
             >
               <span
                 className="font-medium"
-                style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
               >
                 {config.title}
               </span>
@@ -2519,7 +2622,6 @@ function WizardStep3Summary({ onComplete, onBack }: WizardStep3Props) {
           className="text-2xl font-light tracking-tight mb-3"
           style={{
             color: monetWizard.textPrimary,
-            fontFamily: "'Cormorant Garamond', Georgia, serif",
           }}
         >
           Review your guidelines
@@ -2759,8 +2861,34 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
   const guidelines = useGuidelines()
   const targets = useGuidelineTargets()
   const recommendations = useQuestionnaireRecommendations()
-  const { setMaxPremiumPercentage, resetToDefaults, unmarkAsConfigured } = useGuidelinesActions()
+  const referenceMode = useReferenceMode()
+  const selectedPersonId = useSelectedPersonId()
+  const { setMaxPremiumPercentage, resetToDefaults, unmarkAsConfigured, setLifeTpdAnswers } = useGuidelinesActions()
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+
+  // Fetch expenses for "vs Expenses" mode
+  const { data: expenses = [] } = useExpensesQuery()
+  const annualExpenses = useMemo(() => calculateAnnualExpenses(expenses), [expenses])
+
+  // Keep mortgage/assets in sync with current financial data
+  const autoPopulateData = useQuestionnaireAutoPopulate(selectedPersonId)
+  useEffect(() => {
+    if (!autoPopulateData.isLoading && (autoPopulateData.sources.liabilities || autoPopulateData.sources.assets)) {
+      setLifeTpdAnswers({
+        mortgageBalance: autoPopulateData.computed.totalMortgage,
+        otherDebts: autoPopulateData.computed.totalOtherDebts,
+        existingAssets: autoPopulateData.computed.totalAssets,
+      })
+    }
+  }, [
+    autoPopulateData.isLoading,
+    autoPopulateData.computed.totalMortgage,
+    autoPopulateData.computed.totalOtherDebts,
+    autoPopulateData.computed.totalAssets,
+    autoPopulateData.sources.liabilities,
+    autoPopulateData.sources.assets,
+    setLifeTpdAnswers,
+  ])
 
   const percentage = Math.round(guidelines.maxPremiumPercentage * 100)
 
@@ -2787,8 +2915,7 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
               className="text-2xl font-light tracking-tight"
               style={{
                 color: monetWizard.textPrimary,
-                fontFamily: "'Cormorant Garamond', Georgia, serif",
-              }}
+                  }}
             >
               My Coverage Targets
             </h2>
@@ -2882,6 +3009,7 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
                   showEducation
                   reasoning={reasoning}
                   showInputs
+                  annualExpenses={annualExpenses}
                 />
               )
             })}
@@ -2899,12 +3027,15 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
                   boxShadow: '0 8px 32px rgba(155, 139, 180, 0.08)',
                 }}
               >
-                <p
-                  className="text-[10px] font-medium uppercase tracking-[0.2em] mb-4"
-                  style={{ color: monetWizard.textMuted }}
-                >
-                  Your Targets
-                </p>
+                <div className="flex items-center justify-between mb-4">
+                  <p
+                    className="text-[10px] font-medium uppercase tracking-[0.2em]"
+                    style={{ color: monetWizard.textMuted }}
+                  >
+                    Your Targets
+                  </p>
+                  <ReferenceModeToggle />
+                </div>
                 <div className="space-y-3">
                   {coverageTypes.map((type) => {
                     const config = guidelineCoverageConfig[type]
@@ -2928,15 +3059,28 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
                         >
                           {config.shortLabel}
                         </span>
-                        <span
-                          className="text-sm font-mono tabular-nums"
-                          style={{ color: monetWizard.textPrimary }}
-                        >
-                          {isHospitalization
-                            ? wardClassConfig[guidelines.coverages.hospitalization.preferredWardClass]
-                                .label
-                            : formatCurrency(targets[type as keyof typeof targets] as number)}
-                        </span>
+                        <div className="text-right">
+                          <span
+                            className="text-sm font-mono tabular-nums"
+                            style={{ color: monetWizard.textPrimary }}
+                          >
+                            {isHospitalization
+                              ? wardClassConfig[guidelines.coverages.hospitalization.preferredWardClass]
+                                  .label
+                              : formatCurrency(targets[type as keyof typeof targets] as number)}
+                          </span>
+                          {!isHospitalization && referenceMode === 'expenses' && (
+                            <p
+                              className="text-[10px] mt-0.5"
+                              style={{ color: monetWizard.textMuted }}
+                            >
+                              {formatExpenseMultiplier(
+                                targets[type as keyof typeof targets] as number,
+                                annualExpenses
+                              )}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     )
                   })}
@@ -2963,8 +3107,7 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
                     className="text-2xl font-light tabular-nums"
                     style={{
                       color: monetWizard.textPrimary,
-                      fontFamily: "'Cormorant Garamond', Georgia, serif",
-                    }}
+                              }}
                   >
                     {percentage}%
                   </span>

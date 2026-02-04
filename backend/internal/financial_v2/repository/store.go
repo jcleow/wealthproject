@@ -257,6 +257,7 @@ type Person struct {
 	Gender          string     `json:"gender"`          // 'male' or 'female' - required for CPF LIFE calculations
 	ResidencyStatus string     `json:"residencyStatus"` // 'citizen' or 'pr' (PR year computed from prGrantDate)
 	PRGrantDate     *time.Time `json:"prGrantDate,omitempty"`
+	Relationship    string     `json:"relationship"` // 'self', 'spouse', 'child', 'parent', 'sibling', 'other'
 	CreatedAt       time.Time  `json:"createdAt"`
 	UpdatedAt       time.Time  `json:"updatedAt"`
 	// Stats populated by GetPersonsWithStats

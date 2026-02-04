@@ -18,6 +18,8 @@ interface PersonSelectorProps {
   variant?: 'dark' | 'monet'
   /** Whether to show the "Add new person" option */
   showCreate?: boolean
+  /** Person IDs to exclude from the dropdown */
+  excludePersonIds?: string[]
 }
 
 /**
@@ -49,9 +51,13 @@ export function PersonSelector({
   error = false,
   variant = 'dark',
   showCreate = true,
+  excludePersonIds = [],
 }: PersonSelectorProps) {
   const isMonet = variant === 'monet'
-  const { includedPersons, persons } = usePersonFilter()
+  const { includedPersons: allIncludedPersons, persons } = usePersonFilter()
+  const includedPersons = excludePersonIds.length > 0
+    ? allIncludedPersons.filter((p) => !excludePersonIds.includes(p.id))
+    : allIncludedPersons
   const createMutation = useCreatePersonMutation()
 
   const [isOpen, setIsOpen] = useState(false)
@@ -154,6 +160,14 @@ export function PersonSelector({
               >
                 {selectedPerson.name}
               </span>
+              {selectedPerson.relationship && selectedPerson.relationship !== 'self' && (
+                <span
+                  className="text-[10px] flex-shrink-0"
+                  style={{ color: isMonet ? monetTheme.textMuted : '#6b7280' }}
+                >
+                  ({selectedPerson.relationship})
+                </span>
+              )}
             </>
           ) : (
             <span style={{ color: isMonet ? monetTheme.textMuted : '#6b7280' }}>
@@ -241,6 +255,14 @@ export function PersonSelector({
                     style={{ backgroundColor: person.displayColor || '#64748b' }}
                   />
                   <span className="truncate">{person.name}</span>
+                  {person.relationship && person.relationship !== 'self' && (
+                    <span
+                      className="text-[10px] ml-1 flex-shrink-0"
+                      style={{ color: isMonet ? monetTheme.textMuted : '#6b7280' }}
+                    >
+                      ({person.relationship})
+                    </span>
+                  )}
                 </button>
               )
             })}
