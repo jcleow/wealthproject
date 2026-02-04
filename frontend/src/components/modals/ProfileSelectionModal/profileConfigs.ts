@@ -32,6 +32,15 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         },
       },
     ],
+    liabilities: [
+      {
+        name: 'University Tuition Loan',
+        category: 'student_loan',
+        currentBalance: 20000,
+        interestRateApr: 4.75,
+        minimumPayment: 300,
+      },
+    ],
   },
   {
     id: 'dink',
@@ -69,6 +78,15 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
           growthRate: 4.0,
           cpfWageType: 'ow',
         },
+      },
+    ],
+    liabilities: [
+      {
+        name: 'BTO Flat Mortgage',
+        category: 'mortgage',
+        currentBalance: 350000,
+        interestRateApr: 2.6,
+        minimumPayment: 1500,
       },
     ],
   },
@@ -111,6 +129,15 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         },
       },
     ],
+    liabilities: [
+      {
+        name: 'HDB Mortgage',
+        category: 'mortgage',
+        currentBalance: 400000,
+        interestRateApr: 2.6,
+        minimumPayment: 1800,
+      },
+    ],
   },
   {
     id: 'single-income-family',
@@ -145,6 +172,22 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         // No income - stay-at-home parent
       },
     ],
+    liabilities: [
+      {
+        name: 'HDB Executive Flat Mortgage',
+        category: 'mortgage',
+        currentBalance: 450000,
+        interestRateApr: 2.6,
+        minimumPayment: 2000,
+      },
+      {
+        name: 'Car Loan',
+        category: 'car_loan',
+        currentBalance: 65000,
+        interestRateApr: 2.78,
+        minimumPayment: 900,
+      },
+    ],
   },
   {
     id: 'fire-focused',
@@ -169,6 +212,15 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
           growthRate: 5.0,
           cpfWageType: 'ow',
         },
+      },
+    ],
+    liabilities: [
+      {
+        name: 'Condo Mortgage',
+        category: 'mortgage',
+        currentBalance: 280000,
+        interestRateApr: 3.5,
+        minimumPayment: 2500,
       },
     ],
   },

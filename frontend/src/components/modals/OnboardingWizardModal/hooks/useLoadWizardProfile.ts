@@ -3,13 +3,14 @@ import type { UseFormReturn } from 'react-hook-form'
 import { generateUUID } from '@/lib/utils'
 import { PERSON_COLORS } from '@/types/person'
 import { FINANCIAL_PROFILES } from '../../ProfileSelectionModal/profileConfigs'
-import type { ProfilePersonConfig } from '../../ProfileSelectionModal/types'
+import type { ProfilePersonConfig, ProfileLiabilityConfig } from '../../ProfileSelectionModal/types'
 import type {
   OnboardingFormData,
   OnboardingPerson,
   OnboardingIncome,
   OnboardingExpense,
   OnboardingAsset,
+  OnboardingLiability,
   OnboardingCpf,
 } from '../types'
 
@@ -103,6 +104,20 @@ function mapCpf(
   }
 }
 
+// ─── Liability mapping ──────────────────────────────────────────────────────
+
+function mapLiability(liability: ProfileLiabilityConfig): OnboardingLiability {
+  return {
+    tempId: generateUUID(),
+    serverId: null,
+    name: liability.name,
+    category: liability.category,
+    currentBalance: liability.currentBalance,
+    interestRateApr: liability.interestRateApr,
+    minimumPayment: liability.minimumPayment,
+  }
+}
+
 // ─── Full conversion ─────────────────────────────────────────────────────────
 
 function profileToFormData(profileId: string): OnboardingFormData | null {
@@ -140,13 +155,16 @@ function profileToFormData(profileId: string): OnboardingFormData | null {
       }]
     : []
 
+  // Map liabilities from profile config
+  const liabilities: OnboardingLiability[] = (profile.liabilities ?? []).map(mapLiability)
+
   return {
     persons,
     projectionYears: 30,
     incomes,
     expenses,
     assets,
-    liabilities: [],
+    liabilities,
     cpfAccounts,
   }
 }

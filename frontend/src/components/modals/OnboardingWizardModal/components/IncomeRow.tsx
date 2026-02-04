@@ -104,7 +104,6 @@ export function IncomeRow({
               : 'hover:bg-white/[0.02] border border-transparent hover:border-white/[0.06]'
         )}
       >
-        <span className="text-base flex-shrink-0">{categoryIcon}</span>
         <span className={cn(
           'flex-1 text-sm truncate',
           isMonet ? 'text-[var(--monet-text-primary)]' : 'text-slate-200'
@@ -112,8 +111,8 @@ export function IncomeRow({
           {formatCollapsedLabel(income.name, categoryLabel)}
         </span>
         <span className={cn(
-          'flex-shrink-0 text-sm font-mono tabular-nums',
-          isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400'
+          'flex-shrink-0 text-sm font-mono tabular-nums text-right min-w-[100px]',
+          isMonet ? 'text-[var(--monet-sage)]' : 'text-slate-300'
         )}>
           {formatCollapsedAmount(income.amount, income.frequency)}
         </span>

@@ -106,7 +106,7 @@ export function IncomeExpensesStep({ isMonet }: IncomeExpensesStepProps) {
 
   const addButtonClass = cn(
     'flex items-center gap-1.5 text-xs font-medium transition-colors mt-3',
-    isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400 hover:text-emerald-300'
+    isMonet ? 'text-[var(--monet-sage)]' : 'text-slate-400 hover:text-slate-200'
   )
 
   return (
@@ -118,20 +118,20 @@ export function IncomeExpensesStep({ isMonet }: IncomeExpensesStepProps) {
           ? 'border-[var(--monet-lavender)]/10 bg-[var(--monet-lavender)]/3'
           : 'border-white/[0.06] bg-white/[0.02]'
       )}>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
-            Income Sources
-          </h3>
+        <h3 className={cn('text-sm font-semibold mb-1', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
+          Income Sources
+        </h3>
+        <div className="flex items-center justify-between mb-4 pr-[46px]">
+          <p className={cn('text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+            Salaries, bonuses, rental income, etc.
+          </p>
           <span className={cn(
-            'text-lg font-semibold font-mono tabular-nums',
-            isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400'
+            'text-sm font-mono tabular-nums text-right min-w-[100px]',
+            isMonet ? 'text-[var(--monet-sage)]' : 'text-slate-300'
           )}>
             {formatCurrency(incomeTotal)}/mo
           </span>
         </div>
-        <p className={cn('text-xs mb-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
-          Salaries, bonuses, rental income, etc.
-        </p>
 
         <div className="space-y-4">
           {incomesByPerson.map(({ person, indices }) => {
@@ -210,20 +210,20 @@ export function IncomeExpensesStep({ isMonet }: IncomeExpensesStepProps) {
           ? 'border-[var(--monet-lavender)]/10 bg-[var(--monet-lavender)]/3'
           : 'border-white/[0.06] bg-white/[0.02]'
       )}>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
-            Recurring Expenses
-          </h3>
+        <h3 className={cn('text-sm font-semibold mb-1', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
+          Recurring Expenses
+        </h3>
+        <div className="flex items-center justify-between mb-4 pr-[46px]">
+          <p className={cn('text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+            Housing, transport, food, utilities, etc.
+          </p>
           <span className={cn(
-            'text-lg font-semibold font-mono tabular-nums',
-            isMonet ? 'text-rose-500' : 'text-rose-400'
+            'text-sm font-mono tabular-nums text-right min-w-[100px]',
+            isMonet ? 'text-rose-500' : 'text-slate-300'
           )}>
             {formatCurrency(expenseTotal)}/mo
           </span>
         </div>
-        <p className={cn('text-xs mb-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
-          Housing, transport, food, utilities, etc.
-        </p>
 
         <div className="space-y-1">
           <AnimatePresence mode="popLayout">

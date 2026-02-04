@@ -62,28 +62,26 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
   return (
     <div
       className={cn(
-        'rounded-xl border p-4 transition-colors',
+        'relative rounded-xl border p-4 transition-colors',
         isMonet
           ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/[0.03]'
           : 'border-white/[0.06] bg-white/[0.02]'
       )}
     >
-      {/* Card header - delete button only for non-self members */}
+      {/* Delete button - positioned in top-right corner for non-self members */}
       {!isSelf && (
-        <div className="flex items-center justify-end mb-4">
-          <button
-            type="button"
-            onClick={onRemove}
-            className={cn(
-              'p-1 rounded-md transition-colors',
-              isMonet
-                ? 'text-[var(--monet-text-muted)] hover:text-rose-500 hover:bg-rose-50'
-                : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
-            )}
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className={cn(
+            'absolute top-3 right-3 p-1 rounded-md transition-colors',
+            isMonet
+              ? 'text-[var(--monet-text-muted)] hover:text-rose-500 hover:bg-rose-50'
+              : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+          )}
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       )}
 
       {/* Row 1: Name, DOB, Gender */}

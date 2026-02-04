@@ -31,6 +31,17 @@ export interface ProfileGradient {
 }
 
 /**
+ * Configuration for a liability in a financial profile
+ */
+export interface ProfileLiabilityConfig {
+  name: string
+  category: 'mortgage' | 'car_loan' | 'student_loan' | 'credit_card' | 'personal_loan' | 'other'
+  currentBalance: number
+  interestRateApr: number
+  minimumPayment: number
+}
+
+/**
  * Display configuration for a financial profile template
  */
 export interface FinancialProfile {
@@ -41,6 +52,7 @@ export interface FinancialProfile {
   icon: LucideIcon
   gradient: ProfileGradient
   persons: ProfilePersonConfig[]
+  liabilities?: ProfileLiabilityConfig[]
 }
 
 /**
