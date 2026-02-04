@@ -5,7 +5,7 @@ import { CustomDropdown } from '@/components/modals/ScenarioEventModal/component
 import { DatePicker } from '@/components/ui/DatePicker'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { OnboardingFormData, OnboardingPerson } from '../types'
-import { RELATIONSHIP_OPTIONS, RELATIONSHIP_LABELS } from '../types'
+import { RELATIONSHIP_OPTIONS } from '../types'
 
 interface PersonCardProps {
   index: number
@@ -25,26 +25,15 @@ const RESIDENCY_OPTIONS = [
   { value: 'pr' as const, label: 'PR' },
 ]
 
-const ROLE_COLORS: Record<string, string> = {
-  self: '#10b981',
-  spouse: '#3b82f6',
-  child: '#8b5cf6',
-  parent: '#f59e0b',
-  sibling: '#06b6d4',
-  other: '#ec4899',
-}
-
 export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonCardProps) {
   const { register, setValue, watch, formState: { errors } } = useFormContext<OnboardingFormData>()
   const residencyStatus = watch(`persons.${index}.residencyStatus`)
   const relationship = watch(`persons.${index}.relationship`)
-  const customRelationship = watch(`persons.${index}.customRelationship`)
   const dateOfBirth = watch(`persons.${index}.dateOfBirth`)
   const prGrantDate = watch(`persons.${index}.prGrantDate`)
   const todayString = new Date().toISOString().split('T')[0]
   const isChild = relationship === 'child'
   const isOtherRelationship = relationship === 'other'
-  const roleColor = ROLE_COLORS[relationship] ?? ROLE_COLORS.other
 
   const fieldPrefix = `persons.${index}` as const
 
@@ -79,21 +68,9 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
           : 'border-white/[0.06] bg-white/[0.02]'
       )}
     >
-      {/* Card header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div
-            className="w-2.5 h-2.5 rounded-full"
-            style={{ backgroundColor: roleColor }}
-          />
-          <span className={cn(
-            'text-xs font-semibold uppercase tracking-wider',
-            isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400'
-          )}>
-            {isSelf ? 'Yourself' : (isOtherRelationship && customRelationship ? customRelationship : RELATIONSHIP_LABELS[relationship] || 'Member')}
-          </span>
-        </div>
-        {!isSelf && (
+      {/* Card header - delete button only for non-self members */}
+      {!isSelf && (
+        <div className="flex items-center justify-end mb-4">
           <button
             type="button"
             onClick={onRemove}
@@ -106,8 +83,8 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Row 1: Name, DOB, Gender */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">

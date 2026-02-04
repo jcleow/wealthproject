@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
+import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Sparkles, Trash2, Bell, Wallet, Shield, LibraryBig } from 'lucide-react'
 import { ColorSchemeToggle } from '@/components/ui/ColorSchemeToggle'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
@@ -211,7 +211,7 @@ export function FinancialWorkspace({
               type="button"
               disabled={loadProfileMutation.isPending}
             >
-              {loadProfileMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {loadProfileMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LibraryBig className="h-3.5 w-3.5" />}
             </button>
             <button
               onClick={handleClearAllData}
