@@ -61,6 +61,7 @@ dist/
 build/
 .next/
 .gocache/
+storybook-static/
 
 # Logs
 *.log
