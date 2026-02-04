@@ -51,6 +51,7 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
         residencyStatus: person.residencyStatus,
         prGrantDate: person.residencyStatus === 'pr' ? (person.prGrantDate ?? undefined) : undefined,
         displayColor: person.displayColor,
+        relationship: (person.relationship?.toLowerCase() ?? 'self') as 'self' | 'spouse' | 'child' | 'parent' | 'sibling' | 'other',
       })
 
       // Store mapping and update form
@@ -197,9 +198,27 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
 
   const stepSubmitters = [submitStep1, submitStep2, submitStep3, submitStep4]
 
+  // Fields to validate per step (triggers formState.errors for red borders)
+  const stepFieldNames: Record<number, string[]> = {
+    0: ['persons', 'planningHorizonAge'],
+    1: ['incomes', 'expenses'],
+    2: ['assets', 'liabilities'],
+    3: ['cpfAccounts'],
+  }
+
   const submitStep = useCallback(async (stepIndex: number): Promise<boolean> => {
     setIsSubmitting(true)
     setSubmissionError(null)
+
+    // Trigger field-level validation so formState.errors populates (red borders)
+    const fieldsToValidate = stepFieldNames[stepIndex]
+    if (fieldsToValidate) {
+      const isValid = await form.trigger(fieldsToValidate as any)
+      if (!isValid) {
+        setIsSubmitting(false)
+        return false
+      }
+    }
 
     try {
       const submitter = stepSubmitters[stepIndex]
@@ -212,7 +231,7 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
     } finally {
       setIsSubmitting(false)
     }
-  }, [stepSubmitters])
+  }, [stepSubmitters, form])
 
   return { submitStep, isSubmitting, submissionError }
 }

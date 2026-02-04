@@ -349,28 +349,38 @@ export function useLoadSampleDataMutation() {
       }
     },
     onSuccess: async (data) => {
-      // For blank profiles, reset onboardingCompleted and open the wizard directly
-      if (data.persons.length === 0) {
-        try {
-          const currentSettings = queryClient.getQueryData<UserSettings>(QUERY_KEYS.settings.user)
+      // Sync onboardingCompleted based on whether the profile has data
+      try {
+        const currentSettings = queryClient.getQueryData<UserSettings>(QUERY_KEYS.settings.user)
+        if (data.persons.length === 0) {
+          // Blank profile: reset so wizard auto-triggers
           if (currentSettings?.onboardingCompleted) {
-            // Update cache immediately so Dashboard useEffect sees the change
             queryClient.setQueryData<UserSettings>(QUERY_KEYS.settings.user, {
               ...currentSettings,
               onboardingCompleted: false,
             })
-            // Persist to backend
             settingsApi.updateUserSettings({
               ...currentSettings,
               onboardingCompleted: false,
             })
           }
-        } catch {
-          // Non-critical — wizard trigger will still work on next page load
+          useFeatureModulesStore.getState().openPostResetChoice()
+        } else {
+          // Non-blank profile: mark onboarding complete so wizard doesn't
+          // re-trigger on refresh
+          if (currentSettings && !currentSettings.onboardingCompleted) {
+            queryClient.setQueryData<UserSettings>(QUERY_KEYS.settings.user, {
+              ...currentSettings,
+              onboardingCompleted: true,
+            })
+            settingsApi.updateUserSettings({
+              ...currentSettings,
+              onboardingCompleted: true,
+            })
+          }
         }
-        // Open wizard directly via store — bypasses Dashboard ref guard
-        // which won't re-trigger if onboardingCompleted was already false
-        useFeatureModulesStore.getState().openOnboardingWizard()
+      } catch {
+        // Non-critical — wizard trigger will still work on next page load
       }
 
       // Update all caches with the new data

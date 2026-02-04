@@ -15,6 +15,7 @@ import { ResizableChartSection } from './ResizableChartSection'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import { LayoutPreviewModal } from '@/components/modals/LayoutPreviewModal'
 import { OnboardingWizardModal } from '@/components/modals/OnboardingWizardModal/OnboardingWizardModal'
+import { PostResetChoiceModal } from '@/components/modals/PostResetChoiceModal'
 
 // Loading skeleton for feature modules
 function FeatureModuleLoading() {
@@ -69,6 +70,8 @@ export function Dashboard() {
     showOnboardingWizard,
     openOnboardingWizard,
     closeOnboardingWizard,
+    showPostResetChoice,
+    closePostResetChoice,
     isChatCollapsed,
     isHistoryOpen,
     toggleChat,
@@ -93,6 +96,8 @@ export function Dashboard() {
       showOnboardingWizard: s.showOnboardingWizard,
       openOnboardingWizard: s.openOnboardingWizard,
       closeOnboardingWizard: s.closeOnboardingWizard,
+      showPostResetChoice: s.showPostResetChoice,
+      closePostResetChoice: s.closePostResetChoice,
       isChatCollapsed: s.isChatCollapsed,
       isHistoryOpen: s.isHistoryOpen,
       toggleChat: s.toggleChat,
@@ -445,6 +450,16 @@ gap-6 p-6`}>
         onClose={closeLayoutModal}
         currentLayout={dashboardLayout}
         onLayoutChange={handleLayoutChange}
+      />
+
+      {/* Post-reset choice: Dashboard vs Wizard */}
+      <PostResetChoiceModal
+        isOpen={showPostResetChoice}
+        onDashboard={closePostResetChoice}
+        onWizard={() => {
+          closePostResetChoice()
+          openOnboardingWizard()
+        }}
       />
 
       {/* Onboarding Wizard Modal */}

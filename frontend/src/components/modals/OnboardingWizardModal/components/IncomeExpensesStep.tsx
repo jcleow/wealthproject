@@ -1,31 +1,38 @@
+import { useState } from 'react'
 import { useFormContext, useFieldArray } from 'react-hook-form'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
-import { CurrencyInput } from '@/components/ui/CurrencyInput'
-import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import { createDefaultIncome, createDefaultExpense } from '../hooks/useOnboardingForm'
 import type { OnboardingFormData } from '../types'
-import {
-  INCOME_CATEGORY_LABELS,
-  EXPENSE_CATEGORY_LABELS,
-  FREQUENCY_LABELS,
-} from '../types'
+import { RELATIONSHIP_LABELS } from '../types'
+import { IncomeRow } from './IncomeRow'
+import { ExpenseRow } from './ExpenseRow'
+import { DefaultAssumptions } from './DefaultAssumptions'
 
 interface IncomeExpensesStepProps {
   isMonet: boolean
 }
 
-const INCOME_CATEGORY_OPTIONS = Object.entries(INCOME_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
-const EXPENSE_CATEGORY_OPTIONS = Object.entries(EXPENSE_CATEGORY_LABELS).map(([value, label]) => ({ value, label }))
-const FREQUENCY_OPTIONS = Object.entries(FREQUENCY_LABELS).map(([value, label]) => ({ value, label }))
-const CPF_WAGE_OPTIONS = [
-  { value: 'ow', label: 'Ordinary Wages (OW)' },
-  { value: 'aw', label: 'Additional Wages (AW)' },
-]
+const ROLE_COLORS: Record<string, string> = {
+  self: '#10b981',
+  spouse: '#3b82f6',
+  child: '#8b5cf6',
+  parent: '#f59e0b',
+  sibling: '#06b6d4',
+  other: '#ec4899',
+}
+
+const rowAnimation = {
+  initial: { opacity: 0, y: -8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 8, transition: { duration: 0.15 } },
+  transition: { duration: 0.2 },
+}
 
 export function IncomeExpensesStep({ isMonet }: IncomeExpensesStepProps) {
-  const { watch, setValue, register, control } = useFormContext<OnboardingFormData>()
+  const { watch, control } = useFormContext<OnboardingFormData>()
   const { fields: incomeFields, append: appendIncome, remove: removeIncome } = useFieldArray({ control, name: 'incomes' })
   const { fields: expenseFields, append: appendExpense, remove: removeExpense } = useFieldArray({ control, name: 'expenses' })
 
@@ -33,288 +40,241 @@ export function IncomeExpensesStep({ isMonet }: IncomeExpensesStepProps) {
   const incomes = watch('incomes')
   const expenses = watch('expenses')
 
-  const personOptions = persons.map(p => ({
-    value: p.tempId,
-    label: p.name || 'Unnamed',
-  }))
+  // ─── Accordion state ────────────────────────────────────────────────────
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
-  // Calculate totals (monthly equivalent)
-  const incomeTotal = incomes.reduce((sum, inc) => {
-    const monthlyAmount = inc.frequency === 'annual' ? inc.amount / 12
-      : inc.frequency === 'quarterly' ? inc.amount / 3
-      : inc.frequency === 'weekly' ? inc.amount * 4.33
-      : inc.frequency === 'biweekly' ? inc.amount * 2.17
-      : inc.amount
-    return sum + monthlyAmount
-  }, 0)
+  // ─── Default assumptions (local, not persisted) ─────────────────────────
+  const [incomeGrowthDefault, setIncomeGrowthDefault] = useState(3)
+  const [expenseGrowthDefault, setExpenseGrowthDefault] = useState(2)
+  const [frequencyDefault, setFrequencyDefault] = useState<string>('monthly')
 
-  const expenseTotal = expenses.reduce((sum, exp) => {
-    const monthlyAmount = exp.frequency === 'annual' ? exp.amount / 12
-      : exp.frequency === 'quarterly' ? exp.amount / 3
-      : exp.frequency === 'weekly' ? exp.amount * 4.33
-      : exp.frequency === 'biweekly' ? exp.amount * 2.17
-      : exp.amount
-    return sum + monthlyAmount
-  }, 0)
+  // ─── Monthly equivalent helper ──────────────────────────────────────────
+  const toMonthly = (amount: number, frequency: string) =>
+    frequency === 'annual' ? amount / 12
+    : frequency === 'quarterly' ? amount / 3
+    : frequency === 'weekly' ? amount * 4.33
+    : frequency === 'biweekly' ? amount * 2.17
+    : amount
 
-  const handleAddIncome = () => {
-    const firstPersonTempId = persons[0]?.tempId ?? ''
-    appendIncome(createDefaultIncome(firstPersonTempId))
-  }
+  const incomeTotal = incomes.reduce((sum, inc) => sum + toMonthly(inc.amount, inc.frequency), 0)
+  const expenseTotal = expenses.reduce((sum, exp) => sum + toMonthly(exp.amount, exp.frequency), 0)
 
-  const handleAddExpense = () => {
-    appendExpense(createDefaultExpense())
-  }
+  // ─── Group incomes by person ────────────────────────────────────────────
+  const incomesByPerson = persons.map((person) => {
+    const indices: number[] = []
+    incomeFields.forEach((_field, index) => {
+      if (incomes[index]?.personTempId === person.tempId) {
+        indices.push(index)
+      }
+    })
+    return { person, indices }
+  })
 
-  // Check if a person is citizen/PR (for CPF wage type field)
   const isPersonEligibleForCpf = (personTempId: string): boolean => {
     const person = persons.find(p => p.tempId === personTempId)
     return person?.residencyStatus === 'citizen' || person?.residencyStatus === 'pr'
   }
 
-  const labelClass = cn(
-    'text-xs font-medium mb-1',
-    isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400'
-  )
+  // ─── Add handlers (new rows start expanded) ────────────────────────────
+  const handleAddIncome = (personTempId: string) => {
+    const newIncome = createDefaultIncome(personTempId, {
+      growthRate: incomeGrowthDefault,
+      frequency: frequencyDefault as any,
+    })
+    appendIncome(newIncome)
+    // New row at end of incomes array → will be the last index
+    setExpandedRowId(`income-${incomeFields.length}`)
+  }
 
-  const inputClass = cn(
-    'w-full py-2 px-3 rounded-lg text-sm transition-colors focus:outline-none',
-    isMonet
-      ? 'bg-[var(--monet-lavender)]/5 border border-[var(--monet-lavender)]/15 text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)] focus:border-[var(--monet-sage)]/40'
-      : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-white/20'
-  )
+  const handleAddExpense = () => {
+    const newExpense = createDefaultExpense({
+      growthRate: expenseGrowthDefault,
+      frequency: frequencyDefault as any,
+    })
+    appendExpense(newExpense)
+    setExpandedRowId(`expense-${expenseFields.length}`)
+  }
 
-  const sectionHeaderClass = cn(
-    'flex items-center justify-between mb-3',
+  const handleRemoveIncome = (index: number) => {
+    if (expandedRowId === `income-${index}`) setExpandedRowId(null)
+    removeIncome(index)
+  }
+
+  const handleRemoveExpense = (index: number) => {
+    if (expandedRowId === `expense-${index}`) setExpandedRowId(null)
+    removeExpense(index)
+  }
+
+  const addButtonClass = cn(
+    'flex items-center gap-1.5 text-xs font-medium transition-colors mt-3',
+    isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400 hover:text-emerald-300'
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* ─── Default Assumptions Bar ───────────────────────────────────────── */}
+      <DefaultAssumptions
+        incomeGrowthDefault={incomeGrowthDefault}
+        setIncomeGrowthDefault={setIncomeGrowthDefault}
+        expenseGrowthDefault={expenseGrowthDefault}
+        setExpenseGrowthDefault={setExpenseGrowthDefault}
+        frequencyDefault={frequencyDefault}
+        setFrequencyDefault={setFrequencyDefault}
+        isMonet={isMonet}
+      />
+
       {/* ─── Income Sources ────────────────────────────────────────────────── */}
-      <div>
-        <div className={sectionHeaderClass}>
-          <div>
-            <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
-              Income Sources
-            </h3>
-          </div>
-          <span className={cn('text-xs font-mono tabular-nums', isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400')}>
-            Total: {formatCurrency(incomeTotal)}/mo
+      <div className={cn(
+        'rounded-2xl border p-4',
+        isMonet
+          ? 'border-[var(--monet-lavender)]/10 bg-[var(--monet-lavender)]/3'
+          : 'border-white/[0.06] bg-white/[0.02]'
+      )}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
+            Income Sources
+          </h3>
+          <span className={cn(
+            'text-lg font-semibold font-mono tabular-nums',
+            isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400'
+          )}>
+            {formatCurrency(incomeTotal)}/mo
           </span>
         </div>
+        <p className={cn('text-xs mb-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+          Salaries, bonuses, rental income, etc.
+        </p>
 
-        <div className={cn(
-          'rounded-xl border p-4 space-y-4',
-          isMonet
-            ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/[0.03]'
-            : 'border-white/[0.06] bg-white/[0.02]'
-        )}>
-          {incomeFields.map((field, index) => (
-            <div key={field.id}>
-              {index > 0 && (
-                <div className={cn('border-t my-4', isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.04]')} />
-              )}
-              {/* Row 1: Person, Name, Amount */}
-              <div className="grid grid-cols-3 gap-3 mb-3">
-                <div>
-                  <label className={labelClass}>Person</label>
-                  <CustomDropdown
-                    value={incomes[index]?.personTempId ?? ''}
-                    onChange={(val) => setValue(`incomes.${index}.personTempId`, val)}
-                    options={personOptions}
-                    variant={isMonet ? 'monet' : 'dark'}
-                    minWidth="100%"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Name</label>
-                  <input {...register(`incomes.${index}.name`)} placeholder="Salary" className={inputClass} />
-                </div>
-                <div>
-                  <label className={labelClass}>Amount</label>
-                  <CurrencyInput
-                    value={incomes[index]?.amount ?? 0}
-                    onChange={(val) => setValue(`incomes.${index}.amount`, val)}
-                    size="sm"
-                  />
-                </div>
-              </div>
+        <div className="space-y-4">
+          {incomesByPerson.map(({ person, indices }) => {
+            const roleColor = ROLE_COLORS[person.relationship] ?? ROLE_COLORS.other
+            const personName = person.name || 'Unnamed'
+            const personLabel = person.relationship === 'self'
+              ? personName
+              : `${personName} (${RELATIONSHIP_LABELS[person.relationship] || 'Member'})`
+            const cpfEligible = isPersonEligibleForCpf(person.tempId)
 
-              {/* Row 2: Frequency, Category, CPF Wage Type, Growth Rate, Delete */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-end">
-                <div>
-                  <label className={labelClass}>Frequency</label>
-                  <CustomDropdown
-                    value={incomes[index]?.frequency ?? 'monthly'}
-                    onChange={(val) => setValue(`incomes.${index}.frequency`, val as any)}
-                    options={FREQUENCY_OPTIONS}
-                    variant={isMonet ? 'monet' : 'dark'}
-                    minWidth="100%"
-                  />
+            return (
+              <div key={person.tempId}>
+                {/* Person header */}
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: roleColor }} />
+                  <span className={cn(
+                    'text-xs font-semibold uppercase tracking-wider',
+                    isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400'
+                  )}>
+                    {personLabel}
+                  </span>
                 </div>
-                <div>
-                  <label className={labelClass}>Category</label>
-                  <CustomDropdown
-                    value={incomes[index]?.category ?? 'salary'}
-                    onChange={(val) => setValue(`incomes.${index}.category`, val as any)}
-                    options={INCOME_CATEGORY_OPTIONS}
-                    variant={isMonet ? 'monet' : 'dark'}
-                    minWidth="100%"
-                  />
+
+                {/* Income rows */}
+                <div className="space-y-1">
+                  <AnimatePresence mode="popLayout">
+                    {indices.map((fieldIndex) => (
+                      <motion.div key={incomeFields[fieldIndex].id} {...rowAnimation}>
+                        <IncomeRow
+                          fieldIndex={fieldIndex}
+                          isExpanded={expandedRowId === `income-${fieldIndex}`}
+                          onToggle={() =>
+                            setExpandedRowId(
+                              expandedRowId === `income-${fieldIndex}` ? null : `income-${fieldIndex}`
+                            )
+                          }
+                          onRemove={() => handleRemoveIncome(fieldIndex)}
+                          cpfEligible={cpfEligible}
+                          isMonet={isMonet}
+                          defaults={{ growthRate: incomeGrowthDefault, frequency: frequencyDefault }}
+                        />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+
+                  {/* Empty state */}
+                  {indices.length === 0 && (
+                    <div className={cn(
+                      'text-center py-4 rounded-xl border border-dashed',
+                      isMonet ? 'border-[var(--monet-lavender)]/15 text-[var(--monet-text-muted)]' : 'border-white/[0.08] text-slate-600'
+                    )}>
+                      <p className="text-xs">No income sources yet. Add your salary or other income to get started.</p>
+                    </div>
+                  )}
                 </div>
-                {isPersonEligibleForCpf(incomes[index]?.personTempId) && (
-                  <div>
-                    <label className={labelClass}>CPF Wage Type</label>
-                    <CustomDropdown
-                      value={incomes[index]?.cpfWageType ?? 'ow'}
-                      onChange={(val) => setValue(`incomes.${index}.cpfWageType`, val as any)}
-                      options={CPF_WAGE_OPTIONS}
-                      variant={isMonet ? 'monet' : 'dark'}
-                      minWidth="100%"
-                    />
-                  </div>
-                )}
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <label className={labelClass}>Growth</label>
-                    <CurrencyInput
-                      value={incomes[index]?.growthRate ?? 3}
-                      onChange={(val) => setValue(`incomes.${index}.growthRate`, val)}
-                      isPercentage
-                      size="sm"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeIncome(index)}
-                    className={cn(
-                      'p-2 rounded-md transition-colors mb-0.5',
-                      isMonet
-                        ? 'text-[var(--monet-text-muted)] hover:text-rose-500'
-                        : 'text-slate-600 hover:text-rose-400'
-                    )}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+
+                {/* Add button per person */}
+                <button
+                  type="button"
+                  onClick={() => handleAddIncome(person.tempId)}
+                  className={addButtonClass}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add income for {personName}
+                </button>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
-
-        <button
-          type="button"
-          onClick={handleAddIncome}
-          className={cn(
-            'flex items-center gap-1.5 text-xs font-medium mt-2 transition-colors',
-            isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400 hover:text-emerald-300'
-          )}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Add Income Source
-        </button>
       </div>
 
-      {/* ─── Divider ───────────────────────────────────────────────────────── */}
-      <div className={cn('border-t', isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.04]')} />
-
       {/* ─── Recurring Expenses ────────────────────────────────────────────── */}
-      <div>
-        <div className={sectionHeaderClass}>
-          <div>
-            <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
-              Recurring Expenses
-            </h3>
-          </div>
-          <span className={cn('text-xs font-mono tabular-nums', isMonet ? 'text-rose-500' : 'text-rose-400')}>
-            Total: {formatCurrency(expenseTotal)}/mo
+      <div className={cn(
+        'rounded-2xl border p-4',
+        isMonet
+          ? 'border-[var(--monet-lavender)]/10 bg-[var(--monet-lavender)]/3'
+          : 'border-white/[0.06] bg-white/[0.02]'
+      )}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
+            Recurring Expenses
+          </h3>
+          <span className={cn(
+            'text-lg font-semibold font-mono tabular-nums',
+            isMonet ? 'text-rose-500' : 'text-rose-400'
+          )}>
+            {formatCurrency(expenseTotal)}/mo
           </span>
         </div>
+        <p className={cn('text-xs mb-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+          Housing, transport, food, utilities, etc.
+        </p>
 
-        <div className={cn(
-          'rounded-xl border p-4 space-y-3',
-          isMonet
-            ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/[0.03]'
-            : 'border-white/[0.06] bg-white/[0.02]'
-        )}>
-          {expenseFields.map((field, index) => (
-            <div key={field.id} className="space-y-3">
-              {/* Row 1: Name, Amount, Frequency */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className={labelClass}>Name</label>
-                  <input {...register(`expenses.${index}.name`)} placeholder="Expense name" className={inputClass} />
-                </div>
-                <div>
-                  <label className={labelClass}>Amount</label>
-                  <CurrencyInput
-                    value={expenses[index]?.amount ?? 0}
-                    onChange={(val) => setValue(`expenses.${index}.amount`, val)}
-                    size="sm"
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Frequency</label>
-                  <CustomDropdown
-                    value={expenses[index]?.frequency ?? 'monthly'}
-                    onChange={(val) => setValue(`expenses.${index}.frequency`, val as any)}
-                    options={FREQUENCY_OPTIONS}
-                    variant={isMonet ? 'monet' : 'dark'}
-                    minWidth="100%"
-                  />
-                </div>
-              </div>
-              {/* Row 2: Category, Growth, Delete */}
-              <div className="grid grid-cols-3 gap-3 items-end">
-                <div>
-                  <label className={labelClass}>Category</label>
-                  <CustomDropdown
-                    value={expenses[index]?.category ?? 'living'}
-                    onChange={(val) => setValue(`expenses.${index}.category`, val as any)}
-                    options={EXPENSE_CATEGORY_OPTIONS}
-                    variant={isMonet ? 'monet' : 'dark'}
-                    minWidth="100%"
-                  />
-                </div>
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <label className={labelClass}>Growth</label>
-                    <CurrencyInput
-                      value={expenses[index]?.growthRate ?? 2}
-                      onChange={(val) => setValue(`expenses.${index}.growthRate`, val)}
-                      isPercentage
-                      size="sm"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeExpense(index)}
-                    className={cn(
-                      'p-2 rounded-md transition-colors mb-0.5',
-                      isMonet
-                        ? 'text-[var(--monet-text-muted)] hover:text-rose-500'
-                        : 'text-slate-600 hover:text-rose-400'
-                    )}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div /> {/* Empty cell for alignment */}
-              </div>
+        <div className="space-y-1">
+          <AnimatePresence mode="popLayout">
+            {expenseFields.map((field, index) => (
+              <motion.div key={field.id} {...rowAnimation}>
+                <ExpenseRow
+                  fieldIndex={index}
+                  isExpanded={expandedRowId === `expense-${index}`}
+                  onToggle={() =>
+                    setExpandedRowId(
+                      expandedRowId === `expense-${index}` ? null : `expense-${index}`
+                    )
+                  }
+                  onRemove={() => handleRemoveExpense(index)}
+                  isMonet={isMonet}
+                  defaults={{ growthRate: expenseGrowthDefault, frequency: frequencyDefault }}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {/* Empty state */}
+          {expenseFields.length === 0 && (
+            <div className={cn(
+              'text-center py-4 rounded-xl border border-dashed',
+              isMonet ? 'border-[var(--monet-lavender)]/15 text-[var(--monet-text-muted)]' : 'border-white/[0.08] text-slate-600'
+            )}>
+              <p className="text-xs">No expenses added yet. Tracking spending helps build an accurate plan.</p>
             </div>
-          ))}
+          )}
         </div>
 
         <button
           type="button"
           onClick={handleAddExpense}
-          className={cn(
-            'flex items-center gap-1.5 text-xs font-medium mt-2 transition-colors',
-            isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400 hover:text-emerald-300'
-          )}
+          className={addButtonClass}
         >
           <Plus className="w-3.5 h-3.5" />
-          Add Expense
+          Add expense
         </button>
       </div>
     </div>

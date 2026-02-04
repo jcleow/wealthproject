@@ -1,9 +1,11 @@
 import { useFormContext } from 'react-hook-form'
-import { Trash2, Calendar } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
+import { DatePicker } from '@/components/ui/DatePicker'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { OnboardingFormData, OnboardingPerson } from '../types'
+import { RELATIONSHIP_OPTIONS, RELATIONSHIP_LABELS } from '../types'
 
 interface PersonCardProps {
   index: number
@@ -28,6 +30,7 @@ const ROLE_COLORS: Record<string, string> = {
   spouse: '#3b82f6',
   child: '#8b5cf6',
   parent: '#f59e0b',
+  sibling: '#06b6d4',
   other: '#ec4899',
 }
 
@@ -35,18 +38,32 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
   const { register, setValue, watch, formState: { errors } } = useFormContext<OnboardingFormData>()
   const residencyStatus = watch(`persons.${index}.residencyStatus`)
   const relationship = watch(`persons.${index}.relationship`)
-  const relationshipLower = relationship?.toLowerCase() ?? ''
-  const isChild = relationshipLower === 'child'
-  const roleColor = ROLE_COLORS[relationshipLower] ?? ROLE_COLORS.other
+  const customRelationship = watch(`persons.${index}.customRelationship`)
+  const dateOfBirth = watch(`persons.${index}.dateOfBirth`)
+  const prGrantDate = watch(`persons.${index}.prGrantDate`)
+  const todayString = new Date().toISOString().split('T')[0]
+  const isChild = relationship === 'child'
+  const isOtherRelationship = relationship === 'other'
+  const roleColor = ROLE_COLORS[relationship] ?? ROLE_COLORS.other
 
   const fieldPrefix = `persons.${index}` as const
 
-  const inputClass = cn(
-    'w-full py-2 px-3 rounded-lg text-sm transition-colors focus:outline-none',
-    isMonet
-      ? 'bg-[var(--monet-lavender)]/5 border border-[var(--monet-lavender)]/15 text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)] focus:border-[var(--monet-sage)]/40'
-      : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-white/20'
-  )
+  const personErrors = errors.persons?.[index]
+
+  const getInputClass = (fieldName?: keyof NonNullable<typeof personErrors>) => {
+    const hasError = fieldName && personErrors?.[fieldName]
+    return cn(
+      'w-full py-2 px-3 rounded-lg text-sm transition-colors focus:outline-none',
+      hasError
+        ? 'border border-rose-500/40 bg-rose-500/5 text-white placeholder:text-slate-600 focus:border-rose-500/60'
+        : isMonet
+          ? 'bg-[var(--monet-lavender)]/5 border border-[var(--monet-lavender)]/15 text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)] focus:border-[var(--monet-sage)]/40'
+          : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-white/20'
+    )
+  }
+
+  // Fallback for fields that don't need error state
+  const inputClass = getInputClass()
 
   const labelClass = cn(
     'text-xs font-medium mb-1',
@@ -73,7 +90,7 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
             'text-xs font-semibold uppercase tracking-wider',
             isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400'
           )}>
-            {isSelf ? 'Yourself' : (relationship || 'Member')}
+            {isSelf ? 'Yourself' : (isOtherRelationship && customRelationship ? customRelationship : RELATIONSHIP_LABELS[relationship] || 'Member')}
           </span>
         </div>
         {!isSelf && (
@@ -99,25 +116,19 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
           <input
             {...register(`${fieldPrefix}.name`)}
             placeholder="Full name"
-            className={inputClass}
+            className={getInputClass('name')}
           />
-          {errors.persons?.[index]?.name && (
-            <p className="text-xs text-rose-400 mt-1">{errors.persons[index]?.name?.message}</p>
-          )}
         </div>
         <div>
           <label className={labelClass}>Date of Birth</label>
-          <div className="relative">
-            <Calendar className={cn('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
-            <input
-              type="date"
-              {...register(`${fieldPrefix}.dateOfBirth`)}
-              className={cn(inputClass, 'pl-8')}
-            />
-          </div>
-          {errors.persons?.[index]?.dateOfBirth && (
-            <p className="text-xs text-rose-400 mt-1">{errors.persons[index]?.dateOfBirth?.message}</p>
-          )}
+          <DatePicker
+            value={dateOfBirth || undefined}
+            onChange={(val) => setValue(`${fieldPrefix}.dateOfBirth`, val)}
+            placeholder="Select date"
+            maxDate={todayString}
+            variant={isMonet ? 'monet' : 'dark'}
+            hasError={!!personErrors?.dateOfBirth}
+          />
         </div>
         <div>
           <label className={labelClass}>Gender</label>
@@ -154,14 +165,13 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
                   transition={{ duration: 0.2 }}
                 >
                   <label className={labelClass}>PR Grant Date</label>
-                  <div className="relative">
-                    <Calendar className={cn('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
-                    <input
-                      type="date"
-                      {...register(`${fieldPrefix}.prGrantDate`)}
-                      className={cn(inputClass, 'pl-8')}
-                    />
-                  </div>
+                  <DatePicker
+                    value={prGrantDate || undefined}
+                    onChange={(val) => setValue(`${fieldPrefix}.prGrantDate`, val)}
+                    placeholder="Select date"
+                    maxDate={todayString}
+                    variant={isMonet ? 'monet' : 'dark'}
+                  />
                 </motion.div>
               )}
             </AnimatePresence>
@@ -182,12 +192,27 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
           <>
             <div>
               <label className={labelClass}>Relationship</label>
-              <input
-                {...register(`${fieldPrefix}.relationship`)}
-                placeholder="e.g. Spouse, Child, Parent"
-                className={inputClass}
+              <CustomDropdown
+                value={relationship}
+                onChange={(val) => {
+                  setValue(`${fieldPrefix}.relationship`, val)
+                  if (val !== 'other') setValue(`${fieldPrefix}.customRelationship`, '')
+                }}
+                options={[...RELATIONSHIP_OPTIONS]}
+                variant={isMonet ? 'monet' : 'dark'}
+                minWidth="100%"
               />
             </div>
+            {isOtherRelationship && (
+              <div>
+                <label className={labelClass}>Specify Relationship</label>
+                <input
+                  {...register(`${fieldPrefix}.customRelationship`)}
+                  placeholder="e.g. Uncle, Cousin, Partner"
+                  className={inputClass}
+                />
+              </div>
+            )}
             <div>
               <label className={labelClass}>Residency Status</label>
               <CustomDropdown
@@ -208,14 +233,13 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
                   transition={{ duration: 0.2 }}
                 >
                   <label className={labelClass}>PR Grant Date</label>
-                  <div className="relative">
-                    <Calendar className={cn('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
-                    <input
-                      type="date"
-                      {...register(`${fieldPrefix}.prGrantDate`)}
-                      className={cn(inputClass, 'pl-8')}
-                    />
-                  </div>
+                  <DatePicker
+                    value={prGrantDate || undefined}
+                    onChange={(val) => setValue(`${fieldPrefix}.prGrantDate`, val)}
+                    placeholder="Select date"
+                    maxDate={todayString}
+                    variant={isMonet ? 'monet' : 'dark'}
+                  />
                 </motion.div>
               ) : !isChild ? (
                 <div>

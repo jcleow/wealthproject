@@ -21,7 +21,8 @@ function createDefaultSelfPerson(): OnboardingPerson {
     gender: 'male',
     residencyStatus: 'citizen',
     prGrantDate: null,
-    relationship: 'Self',
+    relationship: 'self',
+    customRelationship: '',
     retirementAge: 65,
     displayColor: PERSON_COLORS[0],
   }
@@ -29,31 +30,46 @@ function createDefaultSelfPerson(): OnboardingPerson {
 
 // ─── Default income row ───────────────────────────────────────────────────────
 
-export function createDefaultIncome(personTempId: string): OnboardingIncome {
+interface IncomeOverrides {
+  growthRate?: number
+  frequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual'
+}
+
+export function createDefaultIncome(
+  personTempId: string,
+  overrides?: IncomeOverrides,
+): OnboardingIncome {
   return {
     tempId: generateUUID(),
     serverId: null,
     personTempId,
-    name: 'Salary',
+    name: '',
     amount: 0,
-    frequency: 'monthly',
+    frequency: overrides?.frequency ?? 'monthly',
     category: 'salary',
     cpfWageType: 'ow',
-    growthRate: 3,
+    growthRate: overrides?.growthRate ?? 3,
   }
 }
 
 // ─── Default expense row ──────────────────────────────────────────────────────
 
-export function createDefaultExpense(): OnboardingExpense {
+interface ExpenseOverrides {
+  growthRate?: number
+  frequency?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual'
+}
+
+export function createDefaultExpense(
+  overrides?: ExpenseOverrides,
+): OnboardingExpense {
   return {
     tempId: generateUUID(),
     serverId: null,
-    name: 'Living Expenses',
+    name: '',
     amount: 0,
-    frequency: 'monthly',
+    frequency: overrides?.frequency ?? 'monthly',
     category: 'living',
-    growthRate: 2,
+    growthRate: overrides?.growthRate ?? 2,
   }
 }
 
@@ -65,8 +81,8 @@ function createDefaultFormValues(): OnboardingFormData {
   return {
     persons: [selfPerson],
     planningHorizonAge: 90,
-    incomes: [createDefaultIncome(selfPerson.tempId)],
-    expenses: [createDefaultExpense()],
+    incomes: [],
+    expenses: [],
     assets: [],
     liabilities: [],
     cpfAccounts: [],

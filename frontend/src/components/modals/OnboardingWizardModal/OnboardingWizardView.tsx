@@ -89,27 +89,6 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
     }
   }, [currentStepIndex])
 
-  const handleSkipStep = useCallback(() => {
-    // Mark current step as skipped (no validation, no API call)
-    setStepStatuses(prev => {
-      const next = [...prev]
-      next[currentStepIndex] = 'skipped'
-      return next
-    })
-
-    if (currentStepIndex < 3) {
-      setAnimationDirection('forward')
-      const nextIndex = currentStepIndex + 1
-      setCurrentStepIndex(nextIndex)
-      setStepStatuses(prev => {
-        const next = [...prev]
-        next[nextIndex] = 'active'
-        return next
-      })
-    } else {
-      setShowSummary(true)
-    }
-  }, [currentStepIndex])
 
   const handleStepClick = useCallback((stepIndex: number) => {
     goToStep(stepIndex)
@@ -216,7 +195,7 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
           isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]'
         }`}>
           <div className="flex items-center justify-between">
-            {/* Left side: Skip Setup + Complete Later */}
+            {/* Left side: Skip Setup */}
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -228,17 +207,6 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
                 }`}
               >
                 Skip Setup
-              </button>
-              <button
-                type="button"
-                onClick={handleSkipStep}
-                className={`text-xs font-medium transition-colors ${
-                  isMonet
-                    ? 'text-[var(--monet-text-secondary)] hover:text-[var(--monet-text-primary)]'
-                    : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                Complete Later &rarr;
               </button>
             </div>
 
