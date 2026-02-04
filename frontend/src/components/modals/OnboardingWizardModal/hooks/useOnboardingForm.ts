@@ -21,7 +21,7 @@ function createDefaultSelfPerson(): OnboardingPerson {
     gender: 'male',
     residencyStatus: 'citizen',
     prGrantDate: null,
-    relationship: 'self',
+    relationship: 'Self',
     retirementAge: 65,
     displayColor: PERSON_COLORS[0],
   }

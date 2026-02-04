@@ -25,7 +25,7 @@ export const onboardingPersonSchema = z.object({
   gender: z.enum(['male', 'female']) as z.ZodType<Gender>,
   residencyStatus: z.enum(['citizen', 'pr']) as z.ZodType<ResidencyStatus>,
   prGrantDate: z.string().nullable(),
-  relationship: z.enum(['self', 'spouse', 'child', 'parent', 'other']),
+  relationship: z.string().min(1, 'Relationship is required'),
   retirementAge: z.number().min(50).max(100),
   displayColor: z.string(),
 })

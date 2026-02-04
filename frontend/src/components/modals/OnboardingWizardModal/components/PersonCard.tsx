@@ -1,10 +1,9 @@
 import { useFormContext } from 'react-hook-form'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { OnboardingFormData, OnboardingPerson } from '../types'
-import { RELATIONSHIP_LABELS } from '../types'
 
 interface PersonCardProps {
   index: number
@@ -24,11 +23,6 @@ const RESIDENCY_OPTIONS = [
   { value: 'pr' as const, label: 'PR' },
 ]
 
-const RELATIONSHIP_OPTIONS = Object.entries(RELATIONSHIP_LABELS).map(([value, label]) => ({
-  value,
-  label,
-}))
-
 const ROLE_COLORS: Record<string, string> = {
   self: '#10b981',
   spouse: '#3b82f6',
@@ -41,8 +35,9 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
   const { register, setValue, watch, formState: { errors } } = useFormContext<OnboardingFormData>()
   const residencyStatus = watch(`persons.${index}.residencyStatus`)
   const relationship = watch(`persons.${index}.relationship`)
-  const isChild = relationship === 'child'
-  const roleColor = ROLE_COLORS[relationship] ?? ROLE_COLORS.other
+  const relationshipLower = relationship?.toLowerCase() ?? ''
+  const isChild = relationshipLower === 'child'
+  const roleColor = ROLE_COLORS[relationshipLower] ?? ROLE_COLORS.other
 
   const fieldPrefix = `persons.${index}` as const
 
@@ -78,7 +73,7 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
             'text-xs font-semibold uppercase tracking-wider',
             isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400'
           )}>
-            {isSelf ? 'Yourself' : RELATIONSHIP_LABELS[relationship] ?? 'Member'}
+            {isSelf ? 'Yourself' : (relationship || 'Member')}
           </span>
         </div>
         {!isSelf && (
@@ -112,11 +107,14 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
         </div>
         <div>
           <label className={labelClass}>Date of Birth</label>
-          <input
-            type="date"
-            {...register(`${fieldPrefix}.dateOfBirth`)}
-            className={inputClass}
-          />
+          <div className="relative">
+            <Calendar className={cn('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
+            <input
+              type="date"
+              {...register(`${fieldPrefix}.dateOfBirth`)}
+              className={cn(inputClass, 'pl-8')}
+            />
+          </div>
           {errors.persons?.[index]?.dateOfBirth && (
             <p className="text-xs text-rose-400 mt-1">{errors.persons[index]?.dateOfBirth?.message}</p>
           )}
@@ -156,11 +154,14 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
                   transition={{ duration: 0.2 }}
                 >
                   <label className={labelClass}>PR Grant Date</label>
-                  <input
-                    type="date"
-                    {...register(`${fieldPrefix}.prGrantDate`)}
-                    className={inputClass}
-                  />
+                  <div className="relative">
+                    <Calendar className={cn('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
+                    <input
+                      type="date"
+                      {...register(`${fieldPrefix}.prGrantDate`)}
+                      className={cn(inputClass, 'pl-8')}
+                    />
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -181,12 +182,10 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
           <>
             <div>
               <label className={labelClass}>Relationship</label>
-              <CustomDropdown
-                value={relationship}
-                onChange={(val) => setValue(`${fieldPrefix}.relationship`, val as any)}
-                options={RELATIONSHIP_OPTIONS.filter(o => o.value !== 'self')}
-                variant={isMonet ? 'monet' : 'dark'}
-                minWidth="100%"
+              <input
+                {...register(`${fieldPrefix}.relationship`)}
+                placeholder="e.g. Spouse, Child, Parent"
+                className={inputClass}
               />
             </div>
             <div>
@@ -209,11 +208,14 @@ export function PersonCard({ index, person, isSelf, onRemove, isMonet }: PersonC
                   transition={{ duration: 0.2 }}
                 >
                   <label className={labelClass}>PR Grant Date</label>
-                  <input
-                    type="date"
-                    {...register(`${fieldPrefix}.prGrantDate`)}
-                    className={inputClass}
-                  />
+                  <div className="relative">
+                    <Calendar className={cn('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
+                    <input
+                      type="date"
+                      {...register(`${fieldPrefix}.prGrantDate`)}
+                      className={cn(inputClass, 'pl-8')}
+                    />
+                  </div>
                 </motion.div>
               ) : !isChild ? (
                 <div>
