@@ -23,7 +23,7 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
-// --- Variants ---
+// --- CVA Variants (base component) ---
 
 export const Default: Story = {
   args: { children: 'Button' },
@@ -131,3 +131,4 @@ export const AllVariants: Story = {
     </div>
   ),
 }
+

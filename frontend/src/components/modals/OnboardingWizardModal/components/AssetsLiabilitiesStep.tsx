@@ -1,5 +1,6 @@
 import { useFormContext, useFieldArray } from 'react-hook-form'
 import { Plus, Trash2, Info } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { generateUUID } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
@@ -38,6 +39,13 @@ function createEmptyLiability(): OnboardingLiability {
   }
 }
 
+const rowAnimation = {
+  initial: { opacity: 0, y: -8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: 8, transition: { duration: 0.15 } },
+  transition: { duration: 0.2 },
+}
+
 export function AssetsLiabilitiesStep({ isMonet }: AssetsLiabilitiesStepProps) {
   const { watch, setValue, register, control } = useFormContext<OnboardingFormData>()
   const { fields: assetFields, append: appendAsset, remove: removeAsset } = useFieldArray({ control, name: 'assets' })
@@ -49,9 +57,9 @@ export function AssetsLiabilitiesStep({ isMonet }: AssetsLiabilitiesStepProps) {
   const assetTotal = assets.reduce((sum, a) => sum + (a.currentValue ?? 0), 0)
   const liabilityTotal = liabilities.reduce((sum, l) => sum + (l.currentBalance ?? 0), 0)
 
-  const labelClass = cn(
-    'text-xs font-medium mb-1',
-    isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400'
+  const headerLabelClass = cn(
+    'text-[10px] font-medium uppercase tracking-wider',
+    isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600'
   )
 
   const inputClass = cn(
@@ -59,6 +67,27 @@ export function AssetsLiabilitiesStep({ isMonet }: AssetsLiabilitiesStepProps) {
     isMonet
       ? 'bg-[var(--monet-lavender)]/5 border border-[var(--monet-lavender)]/15 text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)] focus:border-[var(--monet-sage)]/40'
       : 'bg-white/[0.03] border border-white/[0.06] text-white placeholder:text-slate-600 focus:border-white/20'
+  )
+
+  const rowCardClass = cn(
+    'group rounded-xl border p-3 transition-colors',
+    isMonet
+      ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/[0.03] hover:bg-[var(--monet-lavender)]/[0.06]'
+      : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]'
+  )
+
+  const deleteButtonClass = cn(
+    'p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100',
+    isMonet
+      ? 'text-[var(--monet-text-muted)] hover:text-rose-500 hover:bg-rose-50'
+      : 'text-slate-600 hover:text-rose-400 hover:bg-rose-500/10'
+  )
+
+  const addButtonClass = cn(
+    'w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-dashed transition-all text-sm font-medium',
+    isMonet
+      ? 'border-[var(--monet-lavender)]/20 text-[var(--monet-sage)] hover:border-[var(--monet-sage)]/30 hover:bg-[var(--monet-lavender)]/5'
+      : 'border-white/[0.08] text-slate-400 hover:text-slate-300 hover:border-white/[0.12] hover:bg-white/[0.02]'
   )
 
   return (
@@ -77,75 +106,76 @@ export function AssetsLiabilitiesStep({ isMonet }: AssetsLiabilitiesStepProps) {
           What you own — savings, investments, property, etc.
         </p>
 
-        <div className={cn(
-          'rounded-xl border p-4 space-y-3',
-          isMonet
-            ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/[0.03]'
-            : 'border-white/[0.06] bg-white/[0.02]'
-        )}>
+        {/* Column headers (visible when rows exist) */}
+        {assetFields.length > 0 && (
+          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_32px] gap-2 px-3 mb-1.5 hidden sm:grid">
+            <span className={headerLabelClass}>Name</span>
+            <span className={headerLabelClass}>Category</span>
+            <span className={headerLabelClass}>Current Value</span>
+            <span className={headerLabelClass}>Growth Rate</span>
+            <span />
+          </div>
+        )}
+
+        {/* Asset rows */}
+        <div className="space-y-2">
+          <AnimatePresence mode="popLayout">
+            {assetFields.map((field, index) => (
+              <motion.div key={field.id} layout {...rowAnimation} className={rowCardClass}>
+                <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_1fr_32px] gap-2 items-center">
+                  <div>
+                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Name</span>
+                    <input {...register(`assets.${index}.name`)} placeholder="Asset name" className={inputClass} />
+                  </div>
+                  <div>
+                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Category</span>
+                    <CustomDropdown
+                      value={assets[index]?.category ?? 'cash_savings'}
+                      onChange={(val) => setValue(`assets.${index}.category`, val as any)}
+                      options={ASSET_CATEGORY_OPTIONS}
+                      variant={isMonet ? 'monet' : 'dark'}
+                      minWidth="100%"
+                    />
+                  </div>
+                  <div>
+                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Value</span>
+                    <CurrencyInput
+                      value={assets[index]?.currentValue ?? 0}
+                      onChange={(val) => setValue(`assets.${index}.currentValue`, val)}
+                      size="sm"
+                    />
+                  </div>
+                  <div>
+                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Growth</span>
+                    <CurrencyInput
+                      value={assets[index]?.growthRate ?? 3}
+                      onChange={(val) => setValue(`assets.${index}.growthRate`, val)}
+                      isPercentage
+                      size="sm"
+                    />
+                  </div>
+                  <div className="flex justify-end col-span-2 sm:col-span-1">
+                    <button type="button" onClick={() => removeAsset(index)} className={deleteButtonClass}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
           {assetFields.length === 0 && (
-            <p className={cn('text-xs text-center py-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
-              No assets added yet. Click &quot;Add Asset&quot; below.
-            </p>
-          )}
-          {assetFields.map((field, index) => (
-            <div key={field.id} className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
-              <div>
-                <label className={labelClass}>Name</label>
-                <input {...register(`assets.${index}.name`)} placeholder="Asset name" className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Category</label>
-                <CustomDropdown
-                  value={assets[index]?.category ?? 'cash_savings'}
-                  onChange={(val) => setValue(`assets.${index}.category`, val as any)}
-                  options={ASSET_CATEGORY_OPTIONS}
-                  variant={isMonet ? 'monet' : 'dark'}
-                  minWidth="100%"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Current Value</label>
-                <CurrencyInput
-                  value={assets[index]?.currentValue ?? 0}
-                  onChange={(val) => setValue(`assets.${index}.currentValue`, val)}
-                  size="sm"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Growth Rate</label>
-                <CurrencyInput
-                  value={assets[index]?.growthRate ?? 3}
-                  onChange={(val) => setValue(`assets.${index}.growthRate`, val)}
-                  isPercentage
-                  size="sm"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => removeAsset(index)}
-                  className={cn(
-                    'p-2 rounded-md transition-colors',
-                    isMonet ? 'text-[var(--monet-text-muted)] hover:text-rose-500' : 'text-slate-600 hover:text-rose-400'
-                  )}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            <div className={cn(
+              'text-center py-6 rounded-xl border border-dashed',
+              isMonet ? 'border-[var(--monet-lavender)]/15 text-[var(--monet-text-muted)]' : 'border-white/[0.08] text-slate-600'
+            )}>
+              <p className="text-xs">No assets added yet</p>
             </div>
-          ))}
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => appendAsset(createEmptyAsset())}
-          className={cn(
-            'flex items-center gap-1.5 text-xs font-medium mt-2 transition-colors',
-            isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400 hover:text-emerald-300'
-          )}
-        >
-          <Plus className="w-3.5 h-3.5" />
+        <button type="button" onClick={() => appendAsset(createEmptyAsset())} className={cn(addButtonClass, 'mt-2')}>
+          <Plus className="w-4 h-4" />
           Add Asset
         </button>
       </div>
@@ -167,83 +197,85 @@ export function AssetsLiabilitiesStep({ isMonet }: AssetsLiabilitiesStepProps) {
           What you owe — mortgages, loans, credit cards, etc.
         </p>
 
-        <div className={cn(
-          'rounded-xl border p-4 space-y-3',
-          isMonet
-            ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/[0.03]'
-            : 'border-white/[0.06] bg-white/[0.02]'
-        )}>
+        {/* Column headers */}
+        {liabilityFields.length > 0 && (
+          <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-2 px-3 mb-1.5 hidden sm:grid">
+            <span className={headerLabelClass}>Name</span>
+            <span className={headerLabelClass}>Category</span>
+            <span className={headerLabelClass}>Balance</span>
+            <span className={headerLabelClass}>APR</span>
+            <span className={headerLabelClass}>Min Payment</span>
+            <span />
+          </div>
+        )}
+
+        {/* Liability rows */}
+        <div className="space-y-2">
+          <AnimatePresence mode="popLayout">
+            {liabilityFields.map((field, index) => (
+              <motion.div key={field.id} layout {...rowAnimation} className={rowCardClass}>
+                <div className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-2 items-center">
+                  <div>
+                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Name</span>
+                    <input {...register(`liabilities.${index}.name`)} placeholder="Liability name" className={inputClass} />
+                  </div>
+                  <div>
+                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Category</span>
+                    <CustomDropdown
+                      value={liabilities[index]?.category ?? 'mortgage'}
+                      onChange={(val) => setValue(`liabilities.${index}.category`, val as any)}
+                      options={LIABILITY_CATEGORY_OPTIONS}
+                      variant={isMonet ? 'monet' : 'dark'}
+                      minWidth="100%"
+                    />
+                  </div>
+                  <div>
+                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Balance</span>
+                    <CurrencyInput
+                      value={liabilities[index]?.currentBalance ?? 0}
+                      onChange={(val) => setValue(`liabilities.${index}.currentBalance`, val)}
+                      size="sm"
+                    />
+                  </div>
+                  <div>
+                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>APR</span>
+                    <CurrencyInput
+                      value={liabilities[index]?.interestRateApr ?? 0}
+                      onChange={(val) => setValue(`liabilities.${index}.interestRateApr`, val)}
+                      isPercentage
+                      size="sm"
+                    />
+                  </div>
+                  <div>
+                    <span className={cn('sm:hidden text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>Min Payment</span>
+                    <CurrencyInput
+                      value={liabilities[index]?.minimumPayment ?? 0}
+                      onChange={(val) => setValue(`liabilities.${index}.minimumPayment`, val)}
+                      size="sm"
+                    />
+                  </div>
+                  <div className="flex justify-end col-span-2 sm:col-span-1">
+                    <button type="button" onClick={() => removeLiability(index)} className={deleteButtonClass}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
           {liabilityFields.length === 0 && (
-            <p className={cn('text-xs text-center py-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
-              No liabilities added yet. Click &quot;Add Liability&quot; below.
-            </p>
-          )}
-          {liabilityFields.map((field, index) => (
-            <div key={field.id} className="grid grid-cols-2 sm:grid-cols-6 gap-2 items-end">
-              <div>
-                <label className={labelClass}>Name</label>
-                <input {...register(`liabilities.${index}.name`)} placeholder="Liability name" className={inputClass} />
-              </div>
-              <div>
-                <label className={labelClass}>Category</label>
-                <CustomDropdown
-                  value={liabilities[index]?.category ?? 'mortgage'}
-                  onChange={(val) => setValue(`liabilities.${index}.category`, val as any)}
-                  options={LIABILITY_CATEGORY_OPTIONS}
-                  variant={isMonet ? 'monet' : 'dark'}
-                  minWidth="100%"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Balance</label>
-                <CurrencyInput
-                  value={liabilities[index]?.currentBalance ?? 0}
-                  onChange={(val) => setValue(`liabilities.${index}.currentBalance`, val)}
-                  size="sm"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>APR</label>
-                <CurrencyInput
-                  value={liabilities[index]?.interestRateApr ?? 0}
-                  onChange={(val) => setValue(`liabilities.${index}.interestRateApr`, val)}
-                  isPercentage
-                  size="sm"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Min Payment</label>
-                <CurrencyInput
-                  value={liabilities[index]?.minimumPayment ?? 0}
-                  onChange={(val) => setValue(`liabilities.${index}.minimumPayment`, val)}
-                  size="sm"
-                />
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => removeLiability(index)}
-                  className={cn(
-                    'p-2 rounded-md transition-colors',
-                    isMonet ? 'text-[var(--monet-text-muted)] hover:text-rose-500' : 'text-slate-600 hover:text-rose-400'
-                  )}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            <div className={cn(
+              'text-center py-6 rounded-xl border border-dashed',
+              isMonet ? 'border-[var(--monet-lavender)]/15 text-[var(--monet-text-muted)]' : 'border-white/[0.08] text-slate-600'
+            )}>
+              <p className="text-xs">No liabilities added yet</p>
             </div>
-          ))}
+          )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => appendLiability(createEmptyLiability())}
-          className={cn(
-            'flex items-center gap-1.5 text-xs font-medium mt-2 transition-colors',
-            isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400 hover:text-emerald-300'
-          )}
-        >
-          <Plus className="w-3.5 h-3.5" />
+        <button type="button" onClick={() => appendLiability(createEmptyLiability())} className={cn(addButtonClass, 'mt-2')}>
+          <Plus className="w-4 h-4" />
           Add Liability
         </button>
       </div>

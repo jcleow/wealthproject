@@ -25,7 +25,8 @@ export function PersonalInfoStep({ isMonet }: PersonalInfoStepProps) {
       gender: 'male',
       residencyStatus: 'citizen',
       prGrantDate: null,
-      relationship: persons.length === 1 ? 'Spouse' : 'Child',
+      relationship: persons.length === 1 ? 'spouse' : 'child',
+      customRelationship: '',
       retirementAge: 65,
       displayColor: PERSON_COLORS[colorIndex],
     }

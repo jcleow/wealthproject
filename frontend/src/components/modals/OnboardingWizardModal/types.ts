@@ -26,6 +26,7 @@ export const onboardingPersonSchema = z.object({
   residencyStatus: z.enum(['citizen', 'pr']) as z.ZodType<ResidencyStatus>,
   prGrantDate: z.string().nullable(),
   relationship: z.string().min(1, 'Relationship is required'),
+  customRelationship: z.string(),
   retirementAge: z.number().min(50).max(100),
   displayColor: z.string(),
 })
@@ -168,8 +169,18 @@ export const RELATIONSHIP_LABELS: Record<string, string> = {
   spouse: 'Spouse',
   child: 'Child',
   parent: 'Parent',
+  sibling: 'Sibling',
   other: 'Other',
 }
+
+/** Dropdown options for non-self persons */
+export const RELATIONSHIP_OPTIONS = [
+  { value: 'spouse', label: 'Spouse' },
+  { value: 'child', label: 'Child' },
+  { value: 'parent', label: 'Parent' },
+  { value: 'sibling', label: 'Sibling' },
+  { value: 'other', label: 'Other' },
+] as const
 
 export const FREQUENCY_LABELS: Record<string, string> = {
   weekly: 'Weekly',

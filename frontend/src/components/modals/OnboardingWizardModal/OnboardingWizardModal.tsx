@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useColorScheme } from '@/stores'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
+import type { UserSettings } from '@/types/financial'
 import { OnboardingWizardView } from './OnboardingWizardView'
 
 interface OnboardingWizardModalProps {
@@ -59,6 +60,17 @@ export function OnboardingWizardModal({ isOpen, onClose }: OnboardingWizardModal
         ...userSettings,
         onboardingCompleted: true,
       })
+    },
+    onMutate: () => {
+      // Optimistically update the cache so Dashboard's auto-trigger useEffect
+      // immediately sees onboardingCompleted: true, preventing re-trigger on refresh
+      const currentSettings = queryClient.getQueryData<UserSettings>(QUERY_KEYS.settings.user)
+      if (currentSettings) {
+        queryClient.setQueryData<UserSettings>(QUERY_KEYS.settings.user, {
+          ...currentSettings,
+          onboardingCompleted: true,
+        })
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.settings.user })

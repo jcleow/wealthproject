@@ -16,6 +16,8 @@ const meta = {
 export default meta
 type Story = StoryObj<typeof meta>
 
+// --- Base Variants ---
+
 export const Default: Story = {
   args: { children: 'Badge' },
 }
@@ -43,13 +45,3 @@ export const AllVariants: Story = {
   ),
 }
 
-export const AsStatusIndicators: Story = {
-  render: () => (
-    <div className="flex flex-wrap gap-2">
-      <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/20">Active</Badge>
-      <Badge className="bg-amber-500/15 text-amber-400 border-amber-500/20">Pending</Badge>
-      <Badge variant="destructive">Overdue</Badge>
-      <Badge variant="outline">Draft</Badge>
-    </div>
-  ),
-}

@@ -27,6 +27,7 @@ type UserSettings struct {
 	GroupItemsByCategory  bool      `json:"groupItemsByCategory"`  // Whether to group financial items by category in UI
 	ChartPictureInPicture bool      `json:"chartPictureInPicture"` // Whether to show mini chart when scrolled out of view
 	DashboardLayout       string    `json:"dashboardLayout"`       // Dashboard layout: stacked, chart-left, or chart-right
+	OnboardingCompleted   bool      `json:"onboardingCompleted"`   // Whether the onboarding wizard has been completed or dismissed
 	UpdatedAt             time.Time `json:"updatedAt,omitempty"`
 }
 
@@ -257,11 +258,12 @@ func (s *Store) GetUserSettings(ctx context.Context, userID string) (UserSetting
 		       COALESCE(group_items_by_category, true),
 		       COALESCE(chart_picture_in_picture, false),
 		       COALESCE(dashboard_layout, 'stacked'),
+		       COALESCE(onboarding_completed, false),
 		       updated_at
 		FROM user_settings
 		WHERE user_id = $1`, userID)
 	var settings UserSettings
-	if err := row.Scan(&settings.ID, &settings.UserID, &settings.StartingAge, &settings.TerminalAge, &settings.YearDisplayFormat, &settings.TimeResolution, &settings.CompoundingFrequency, &settings.AutoExecuteTools, &settings.GroupItemsByCategory, &settings.ChartPictureInPicture, &settings.DashboardLayout, &settings.UpdatedAt); err != nil {
+	if err := row.Scan(&settings.ID, &settings.UserID, &settings.StartingAge, &settings.TerminalAge, &settings.YearDisplayFormat, &settings.TimeResolution, &settings.CompoundingFrequency, &settings.AutoExecuteTools, &settings.GroupItemsByCategory, &settings.ChartPictureInPicture, &settings.DashboardLayout, &settings.OnboardingCompleted, &settings.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return DefaultUserSettings, nil
 		}
@@ -273,8 +275,8 @@ func (s *Store) GetUserSettings(ctx context.Context, userID string) (UserSetting
 // UpsertUserSettings inserts or updates user settings.
 func (s *Store) UpsertUserSettings(ctx context.Context, userID string, settings UserSettings) (UserSettings, error) {
 	row := s.db.QueryRowContext(ctx, `
-		INSERT INTO user_settings (user_id, starting_age, terminal_age, year_display_format, time_resolution, compounding_frequency, auto_execute_tools, group_items_by_category, chart_picture_in_picture, dashboard_layout)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO user_settings (user_id, starting_age, terminal_age, year_display_format, time_resolution, compounding_frequency, auto_execute_tools, group_items_by_category, chart_picture_in_picture, dashboard_layout, onboarding_completed)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		ON CONFLICT (user_id) DO UPDATE
 		SET starting_age = EXCLUDED.starting_age,
 		    terminal_age = EXCLUDED.terminal_age,
@@ -285,6 +287,7 @@ func (s *Store) UpsertUserSettings(ctx context.Context, userID string, settings 
 		    group_items_by_category = EXCLUDED.group_items_by_category,
 		    chart_picture_in_picture = EXCLUDED.chart_picture_in_picture,
 		    dashboard_layout = EXCLUDED.dashboard_layout,
+		    onboarding_completed = EXCLUDED.onboarding_completed,
 		    updated_at = NOW()
 		RETURNING id, user_id, starting_age, terminal_age, year_display_format,
 		          COALESCE(time_resolution, 'yearly'),
@@ -293,10 +296,11 @@ func (s *Store) UpsertUserSettings(ctx context.Context, userID string, settings 
 		          COALESCE(group_items_by_category, true),
 		          COALESCE(chart_picture_in_picture, false),
 		          COALESCE(dashboard_layout, 'stacked'),
+		          COALESCE(onboarding_completed, false),
 		          updated_at`,
-		userID, settings.StartingAge, settings.TerminalAge, settings.YearDisplayFormat, settings.TimeResolution, settings.CompoundingFrequency, settings.AutoExecuteTools, settings.GroupItemsByCategory, settings.ChartPictureInPicture, settings.DashboardLayout)
+		userID, settings.StartingAge, settings.TerminalAge, settings.YearDisplayFormat, settings.TimeResolution, settings.CompoundingFrequency, settings.AutoExecuteTools, settings.GroupItemsByCategory, settings.ChartPictureInPicture, settings.DashboardLayout, settings.OnboardingCompleted)
 	var updated UserSettings
-	if err := row.Scan(&updated.ID, &updated.UserID, &updated.StartingAge, &updated.TerminalAge, &updated.YearDisplayFormat, &updated.TimeResolution, &updated.CompoundingFrequency, &updated.AutoExecuteTools, &updated.GroupItemsByCategory, &updated.ChartPictureInPicture, &updated.DashboardLayout, &updated.UpdatedAt); err != nil {
+	if err := row.Scan(&updated.ID, &updated.UserID, &updated.StartingAge, &updated.TerminalAge, &updated.YearDisplayFormat, &updated.TimeResolution, &updated.CompoundingFrequency, &updated.AutoExecuteTools, &updated.GroupItemsByCategory, &updated.ChartPictureInPicture, &updated.DashboardLayout, &updated.OnboardingCompleted, &updated.UpdatedAt); err != nil {
 		return UserSettings{}, err
 	}
 	return updated, nil
