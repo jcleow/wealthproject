@@ -5,12 +5,14 @@ import { FormProvider } from 'react-hook-form'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useOnboardingForm } from './hooks/useOnboardingForm'
 import { useOnboardingSubmit } from './hooks/useOnboardingSubmit'
+import { useLoadWizardProfile } from './hooks/useLoadWizardProfile'
 import { StepIndicator } from './components/StepIndicator'
 import { PersonalInfoStep } from './components/PersonalInfoStep'
 import { IncomeExpensesStep } from './components/IncomeExpensesStep'
 import { AssetsLiabilitiesStep } from './components/AssetsLiabilitiesStep'
 import { CpfAccountsStep } from './components/CpfAccountsStep'
 import { SummaryStep } from './components/SummaryStep'
+import { LoadSampleDataButton } from './components/LoadSampleDataButton'
 import type { StepStatus } from './types'
 
 interface OnboardingWizardViewProps {
@@ -41,6 +43,20 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
   const [showSummary, setShowSummary] = useState(false)
 
   const { submitStep, isSubmitting, submissionError } = useOnboardingSubmit(form)
+  const { loadProfile } = useLoadWizardProfile()
+
+  // ─── Load sample profile ──────────────────────────────────────────────────
+
+  const handleLoadProfile = useCallback((profileId: string) => {
+    const success = loadProfile(profileId, form)
+    if (success) {
+      // Reset wizard navigation to step 0 with all steps active
+      setStepStatuses(['active', 'pending', 'pending', 'pending'])
+      setCurrentStepIndex(0)
+      setAnimationDirection('forward')
+      setShowSummary(false)
+    }
+  }, [loadProfile, form])
 
   // ─── Navigation ─────────────────────────────────────────────────────────────
 
@@ -195,7 +211,7 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
           isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]'
         }`}>
           <div className="flex items-center justify-between">
-            {/* Left side: Skip Setup */}
+            {/* Left side: Skip Setup + Load Sample */}
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -208,6 +224,11 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
               >
                 Skip Setup
               </button>
+              <span className={`text-xs ${isMonet ? 'text-[var(--monet-text-muted)]/30' : 'text-slate-700'}`}>·</span>
+              <LoadSampleDataButton
+                onLoadProfile={handleLoadProfile}
+                isMonet={isMonet}
+              />
             </div>
 
             {/* Right side: Back + Next */}
