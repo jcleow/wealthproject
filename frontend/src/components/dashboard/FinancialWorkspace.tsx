@@ -284,6 +284,23 @@ export function FinancialWorkspace({
                     <p className={classes.menuText.secondary}>Simulate balances, investments, and retirement.</p>
                   </div>
                 </button>
+                {/* Insurance Planner */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    openInsurancePlanner()
+                  }}
+                  className={clsx(classes.menuItem.base, classes.menuItem.withBorder, classes.menuItem.hover)}
+                  type="button"
+                >
+                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.purple)}>
+                    <Shield className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Insurance Planner</div>
+                    <p className={classes.menuText.secondary}>Analyze coverage gaps and plan your protection.</p>
+                  </div>
+                </button>
                 {/* Coming Soon Modules */}
                 <div className={classes.menuItem.disabled}>
                   <div className="flex items-start w-full gap-3 px-4 py-3 text-left text-sm">
@@ -307,23 +324,6 @@ export function FinancialWorkspace({
                     </div>
                   </div>
                 </div>
-                {/* Insurance Planner */}
-                <button
-                  onClick={() => {
-                    setIsModuleMenuOpen(false)
-                    openInsurancePlanner()
-                  }}
-                  className={clsx(classes.menuItem.base, classes.menuItem.hover)}
-                  type="button"
-                >
-                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.purple)}>
-                    <Shield className="h-4 w-4" />
-                  </span>
-                  <div className="space-y-0.5">
-                    <div className="font-medium">Insurance Planner</div>
-                    <p className={classes.menuText.secondary}>Analyze coverage gaps and plan your protection.</p>
-                  </div>
-                </button>
               </div>
               </>
             )}

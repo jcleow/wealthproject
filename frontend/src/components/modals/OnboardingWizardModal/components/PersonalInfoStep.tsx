@@ -117,20 +117,19 @@ export function PersonalInfoStep({ isMonet }: PersonalInfoStepProps) {
             'text-sm',
             isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-300'
           )}>
-            Plan until age
+            Years to project from now
           </span>
           <input
             type="number"
-            min={50}
-            max={120}
-            {...register('planningHorizonAge', { valueAsNumber: true })}
+            min={1}
+            max={80}
+            {...register('projectionYears', { valueAsNumber: true })}
             className={cn(inputClass, 'w-20 text-center')}
           />
           <span className={cn(
             'text-xs',
             isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500'
           )}>
-            How far into the future to project
           </span>
         </div>
       </div>

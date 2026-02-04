@@ -80,7 +80,7 @@ function createDefaultFormValues(): OnboardingFormData {
 
   return {
     persons: [selfPerson],
-    planningHorizonAge: 90,
+    projectionYears: 30,
     incomes: [],
     expenses: [],
     assets: [],

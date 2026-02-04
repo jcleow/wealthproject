@@ -131,7 +131,7 @@ export function OnboardingWizardModal({ isOpen, onClose }: OnboardingWizardModal
           'text-base font-semibold',
           isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white'
         )}>
-          Set Up Your Financial Plan
+          Quick Start: Creating a financial plan
         </h2>
         <button
           type="button"

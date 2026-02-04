@@ -109,7 +109,7 @@ export type OnboardingCpf = z.infer<typeof onboardingCpfSchema>
 export const onboardingFormSchema = z.object({
   // Step 1
   persons: z.array(onboardingPersonSchema).min(1, 'At least one person is required'),
-  planningHorizonAge: z.number().min(50).max(120),
+  projectionYears: z.number().min(1).max(80),
 
   // Step 2
   incomes: z.array(onboardingIncomeSchema),

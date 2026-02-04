@@ -10,6 +10,21 @@ import { createCPFAccount } from '@/api/financial/cpf'
 import { settingsApi } from '@/api/financial/settings'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import type { OnboardingFormData } from '../types'
+import type { FieldErrors } from 'react-hook-form'
+
+/** Recursively extract the first human-readable error message from nested FieldErrors. */
+function extractFirstErrorMessage(errors: FieldErrors): string | null {
+  for (const value of Object.values(errors)) {
+    if (!value) continue
+    if (typeof value.message === 'string' && value.message) return value.message
+    // Nested (e.g. array fields like persons.0.dateOfBirth)
+    if (typeof value === 'object') {
+      const nested = extractFirstErrorMessage(value as FieldErrors)
+      if (nested) return nested
+    }
+  }
+  return null
+}
 
 /**
  * Maps tempId → serverId for persons created in Step 1.
@@ -28,7 +43,7 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
   // ─── Step 1: Create persons + update planning horizon ─────────────────────
 
   const submitStep1 = useCallback(async (): Promise<boolean> => {
-    const { persons, planningHorizonAge } = form.getValues()
+    const { persons, projectionYears } = form.getValues()
 
     // Validate at least one person with a name
     const validPersons = persons.filter(p => p.name.trim())
@@ -62,12 +77,21 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
       }
     }
 
+    // Compute terminal age from oldest person's current age + projection years
+    const oldestPersonAge = validPersons.reduce((maxAge, person) => {
+      const birthDate = new Date(person.dateOfBirth)
+      const today = new Date()
+      const age = today.getFullYear() - birthDate.getFullYear()
+      return Math.max(maxAge, age)
+    }, 0)
+    const terminalAge = oldestPersonAge + projectionYears
+
     // Update terminal age setting
     try {
       const currentSettings = await settingsApi.getUserSettings()
       await settingsApi.updateUserSettings({
         ...currentSettings,
-        terminalAge: planningHorizonAge,
+        terminalAge,
       })
     } catch {
       // Non-critical — don't block step progression
@@ -200,7 +224,7 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
 
   // Fields to validate per step (triggers formState.errors for red borders)
   const stepFieldNames: Record<number, string[]> = {
-    0: ['persons', 'planningHorizonAge'],
+    0: ['persons', 'projectionYears'],
     1: ['incomes', 'expenses'],
     2: ['assets', 'liabilities'],
     3: ['cpfAccounts'],
@@ -215,6 +239,12 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
     if (fieldsToValidate) {
       const isValid = await form.trigger(fieldsToValidate as any)
       if (!isValid) {
+        // Surface the first validation error so the user knows what's missing
+        const errors = form.formState.errors
+        const firstErrorMessage = extractFirstErrorMessage(errors)
+        if (firstErrorMessage) {
+          setSubmissionError(firstErrorMessage)
+        }
         setIsSubmitting(false)
         return false
       }
