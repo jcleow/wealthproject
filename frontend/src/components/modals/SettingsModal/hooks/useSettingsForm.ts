@@ -154,6 +154,7 @@ export function useSettingsForm({ isOpen, onClose }: UseSettingsFormOptions): Us
     timeResolution: settings?.timeResolution ?? 'yearly',
     compoundingFrequency: settings?.compoundingFrequency ?? 'monthly',
     dashboardLayout: settings?.dashboardLayout ?? 'stacked',
+    onboardingCompleted: settings?.onboardingCompleted ?? false,
   }
 
   // Build backward-compatible editedConfigs from RHF form state

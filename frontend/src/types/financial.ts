@@ -225,5 +225,7 @@ export type UserSettings = {
   chartPictureInPicture: boolean
   /** Dashboard layout preference: stacked (default), chart-left, or chart-right */
   dashboardLayout: DashboardLayout
+  /** Whether the onboarding wizard has been completed or dismissed */
+  onboardingCompleted: boolean
   updatedAt?: string
 }

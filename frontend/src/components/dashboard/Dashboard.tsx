@@ -14,6 +14,7 @@ import { MiniChart } from './MiniChart'
 import { ResizableChartSection } from './ResizableChartSection'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import { LayoutPreviewModal } from '@/components/modals/LayoutPreviewModal'
+import { OnboardingWizardModal } from '@/components/modals/OnboardingWizardModal/OnboardingWizardModal'
 
 // Loading skeleton for feature modules
 function FeatureModuleLoading() {
@@ -35,6 +36,7 @@ const InsurancePlannerView = dynamic(
   { ssr: false, loading: FeatureModuleLoading }
 )
 
+import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { useTimeline } from '@/hooks/useTimeline'
 import { usePictureInPicture } from '@/hooks/usePictureInPicture'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -64,6 +66,9 @@ export function Dashboard() {
     closePropertyPlanner,
     showLayoutModal,
     closeLayoutModal,
+    showOnboardingWizard,
+    openOnboardingWizard,
+    closeOnboardingWizard,
     isChatCollapsed,
     isHistoryOpen,
     toggleChat,
@@ -85,6 +90,9 @@ export function Dashboard() {
       closePropertyPlanner: s.closePropertyPlanner,
       showLayoutModal: s.showLayoutModal,
       closeLayoutModal: s.closeLayoutModal,
+      showOnboardingWizard: s.showOnboardingWizard,
+      openOnboardingWizard: s.openOnboardingWizard,
+      closeOnboardingWizard: s.closeOnboardingWizard,
       isChatCollapsed: s.isChatCollapsed,
       isHistoryOpen: s.isHistoryOpen,
       toggleChat: s.toggleChat,
@@ -122,6 +130,35 @@ export function Dashboard() {
       initializeLayout(userSettings.dashboardLayout)
     }
   }, [userSettings?.dashboardLayout, initializeLayout])
+
+  // ─── Onboarding wizard auto-trigger ─────────────────────────────────────
+  // Show wizard when: user has zero persons AND hasn't completed/dismissed onboarding.
+  // Uses a ref guard to prevent re-triggering during the same "session" (avoids race
+  // condition where the dismiss mutation hasn't round-tripped yet).
+  // The guard resets when onboardingCompleted flips back to false (e.g., after "Start Fresh").
+  const { data: personsData } = usePersonsQuery()
+  const onboardingTriggeredRef = useRef(false)
+
+  // Reset the guard when onboardingCompleted is explicitly set back to false
+  // (happens after "Delete All Data" / "Start Fresh")
+  useEffect(() => {
+    if (userSettings && !userSettings.onboardingCompleted) {
+      onboardingTriggeredRef.current = false
+    }
+  }, [userSettings?.onboardingCompleted])
+
+  useEffect(() => {
+    if (
+      !onboardingTriggeredRef.current &&
+      personsData !== undefined &&
+      userSettings !== undefined &&
+      personsData.length === 0 &&
+      !userSettings.onboardingCompleted
+    ) {
+      onboardingTriggeredRef.current = true
+      openOnboardingWizard()
+    }
+  }, [personsData, userSettings, openOnboardingWizard])
 
   // Mutation for updating layout preference
   const updateLayoutMutation = useMutation({
@@ -408,6 +445,12 @@ gap-6 p-6`}>
         onClose={closeLayoutModal}
         currentLayout={dashboardLayout}
         onLayoutChange={handleLayoutChange}
+      />
+
+      {/* Onboarding Wizard Modal */}
+      <OnboardingWizardModal
+        isOpen={showOnboardingWizard}
+        onClose={closeOnboardingWizard}
       />
     </>
   )
