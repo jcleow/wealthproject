@@ -18,6 +18,7 @@ import { Modal } from '@/components/ui/Modal'
 import { useTaxModeStore, useColorScheme } from '@/stores'
 import { useTaxReliefStorage } from '@/hooks/useTaxReliefStorage'
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
+import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { numericStyles } from '@/lib/utils'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import {
@@ -289,6 +290,12 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
 
   const { loadReliefs, saveReliefs } = useTaxReliefStorage()
   const { data: incomes = [], isLoading: incomesLoading } = useIncomesQuery()
+  const { data: persons = [] } = usePersonsQuery()
+
+  const getPersonLabel = (personId: PersonId) => {
+    const index = personId === 'person1' ? 0 : 1
+    return persons[index]?.name || `Person ${index + 1}`
+  }
 
   const currentYear = new Date().getFullYear()
   const assessmentYear = currentYear + 1
@@ -513,8 +520,8 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
                   value={selectedPerson}
                   onChange={(v) => setSelectedPerson(v as PersonId)}
                   options={[
-                    { value: 'person1', label: 'Person 1' },
-                    { value: 'person2', label: 'Person 2' },
+                    { value: 'person1', label: getPersonLabel('person1') },
+                    { value: 'person2', label: getPersonLabel('person2') },
                   ]}
                   minWidth="100px"
                 />
@@ -524,7 +531,7 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
                 <div className={clsx('py-4 text-center text-sm', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Loading incomes...</div>
               ) : selectedPersonIncomes.length === 0 ? (
                 <div className={clsx('py-4 text-center text-sm', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
-                  No income assigned to {selectedPerson === 'person1' ? 'Person 1' : 'Person 2'}
+                  No income assigned to {getPersonLabel(selectedPerson)}
                 </div>
               ) : (
                 selectedPersonIncomes.map(({ income, annual }) => (
