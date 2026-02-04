@@ -1147,7 +1147,7 @@ export const guidelineCoverageConfig: Record<
     color: 'amber',
     description: 'Coverage for accidental injuries',
     defaultMultiplier: 5,
-    isRequired: false,
+    isRequired: true,
   },
 }
 
@@ -1184,7 +1184,7 @@ export function createDefaultGuidelines(
       personal_accident: {
         type: 'personal_accident',
         incomeMultiplier: 5,
-        isRequired: false,
+        isRequired: true,
         isEnabled: true,
       },
     },

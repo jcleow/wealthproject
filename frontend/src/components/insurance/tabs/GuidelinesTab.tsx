@@ -1599,10 +1599,11 @@ function LifeTpdQuestionnaire({
   const incomeReplacement = answers.lifeTpd.dependentCount > 0
     ? guidelines.annualIncome * answers.lifeTpd.yearsUntilIndependent
     : 0
+  const sanitizedObligations = Math.max(0, answers.lifeTpd.futureObligations)
   const totalNeeded = incomeReplacement +
     autoPopulate.computed.totalMortgage +
     autoPopulate.computed.totalOtherDebts +
-    answers.lifeTpd.futureObligations -
+    sanitizedObligations -
     autoPopulate.computed.totalAssets
 
   return (
@@ -1836,7 +1837,7 @@ function LifeTpdQuestionnaire({
             <p className="text-xs font-mono tabular-nums" style={{ color: monetWizard.textSecondary }}>
               = {formatCurrency(incomeReplacement)} (income replacement) +
               {formatCurrency(autoPopulate.computed.totalMortgage + autoPopulate.computed.totalOtherDebts)} (debts) +
-              {formatCurrency(answers.lifeTpd.futureObligations)} (obligations) -
+              {formatCurrency(sanitizedObligations)} (obligations) -
               {formatCurrency(autoPopulate.computed.totalAssets)} (assets)
             </p>
           </div>
