@@ -1,0 +1,14 @@
+<!-- Load Geist fonts via CDN since next/font is unavailable in Storybook -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+  rel="stylesheet"
+/>
+<style>
+  /* Map Geist font to the CSS variables that the app expects */
+  :root {
+    --font-geist: 'Geist', system-ui, -apple-system, sans-serif;
+    --font-geist-mono: 'Geist Mono', SFMono-Regular, Consolas, monospace;
+  }
+</style>

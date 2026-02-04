@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Search, Sparkles, Trash2, Bell, Wallet, Shield } from 'lucide-react'
+import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Sparkles, Trash2, Bell, Wallet, Shield, LibraryBig } from 'lucide-react'
+import { ColorSchemeToggle } from '@/components/ui/ColorSchemeToggle'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -14,6 +15,7 @@ import { useTimelineStore, useFeatureModulesStore } from '@/stores'
 import { useShallow } from 'zustand/react/shallow'
 import type { ScenarioEvent } from '@/types/scenario'
 import clsx from 'clsx'
+import { useThemeClasses } from '@/lib/theme'
 
 interface FinancialWorkspaceProps {
   // onPropertyScenarioEdit is kept as prop because it's specific to chart interactions
@@ -43,18 +45,19 @@ export function FinancialWorkspace({
   const {
     openCPFView,
     openPropertyPlanner,
-    openTaxPlanner,
     openInsurancePlanner,
     openLayoutModal,
   } = useFeatureModulesStore(
     useShallow((s) => ({
       openCPFView: s.openCPFView,
       openPropertyPlanner: s.openPropertyPlanner,
-      openTaxPlanner: s.openTaxPlanner,
       openInsurancePlanner: s.openInsurancePlanner,
       openLayoutModal: s.openLayoutModal,
     }))
   )
+
+  // Get theme classes for consistent styling
+  const { classes } = useThemeClasses()
 
   // Get timeline data from hook (React Query)
   const timeline = useTimeline({ resolution: 'monthly' })
@@ -180,17 +183,15 @@ export function FinancialWorkspace({
   }, [])
 
   return (
-    <div className={`flex flex-col
-h-full min-h-0 w-full min-w-0
-bg-transparent
-text-slate-200`}>
+    <div
+      className={clsx(
+        'flex flex-col h-full min-h-0 w-full min-w-0 bg-transparent transition-colors duration-300',
+        classes.text.primary
+      )}
+    >
       {/* Compact Header - hidden when chartOnly */}
       {!chartOnly && (
-      <header className={`relative z-[100]
-flex items-center justify-between
-h-14
-px-6
-shrink-0`}>
+      <header className="relative z-[100] flex items-center justify-between h-14 px-6 shrink-0">
         <div className="flex items-center gap-4">
           <div className="flex flex-col">
             {/* <h2 className="text-lg font-medium tracking-tight text-slate-100">Workspace</h2> */}
@@ -199,55 +200,22 @@ shrink-0`}>
 
         {/* Glass pill control group */}
         <div className={clsx(
-          "flex items-center gap-3",
-          "px-3 py-1.5",
-          "border border-white/[0.06] rounded-full",
-          "bg-white/[0.02]",
-          "backdrop-blur-sm",
+          "flex items-center gap-3 px-3 py-1.5 rounded-full transition-colors duration-300",
+          classes.toolbar.container,
         )}>
-          {/* Search */}
-          <div className="flex items-center gap-2 border-r border-white/[0.06] pr-3">
-            <Search className="h-3.5 w-3.5 text-slate-500" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className={`w-48
-placeholder-slate-600
-focus:outline-none
-bg-transparent
-text-[13px] text-slate-300`}
-            />
-          </div>
-
           <div className="hidden items-center gap-1 md:flex">
             <button
               onClick={() => setIsProfileModalOpen(true)}
-              className={clsx(
-                "flex items-center justify-center",
-                "h-7 w-7",
-                "rounded-full",
-                "hover:bg-white/5",
-                "hover:text-slate-300 text-slate-500",
-                "disabled:opacity-60",
-                "transition",
-              )}
+              className={clsx(classes.toolbarButton.base, classes.toolbarButton.default)}
               title="Load a profile template"
               type="button"
               disabled={loadProfileMutation.isPending}
             >
-              {loadProfileMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              {loadProfileMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LibraryBig className="h-3.5 w-3.5" />}
             </button>
             <button
               onClick={handleClearAllData}
-              className={clsx(
-                "flex items-center justify-center",
-                "h-7 w-7",
-                "rounded-full",
-                "hover:bg-rose-500/10",
-                "hover:text-rose-300 text-rose-400/70",
-                "disabled:opacity-60",
-                "transition",
-              )}
+              className={clsx(classes.toolbarButton.base, classes.toolbarButton.danger)}
               title="Delete all data"
               type="button"
               disabled={isClearing}
@@ -256,22 +224,18 @@ text-[13px] text-slate-300`}
             </button>
           </div>
 
-          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className={classes.toolbar.verticalDivider} />
 
           <div className="relative z-[100]" ref={moduleMenuRef}>
             <button
               onClick={() => setIsModuleMenuOpen((prev) => !prev)}
               className={clsx(
-                "flex items-center gap-1.5",
-                "px-2 py-1",
-                "rounded-lg",
-                "hover:bg-white/5",
-                "font-medium hover:text-slate-200 text-[11px] text-slate-400",
-                "transition",
+                "flex items-center gap-1.5 px-2 py-1 rounded-lg font-medium text-[11px] transition",
+                classes.toolbarButton.active,
               )}
               type="button"
             >
-              <Sparkles className="h-3 w-3 text-blue-400/70" />
+              <Sparkles className={clsx("h-3 w-3", classes.icon.primary)} />
               <span className="text-[13px] hidden md:inline">Modules</span>
               <ChevronDown className={`h-2.5 w-2.5 transition ${isModuleMenuOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -282,41 +246,25 @@ text-[13px] text-slate-300`}
                 className="fixed inset-0 z-[299]"
                 onClick={() => setIsModuleMenuOpen(false)}
               />
-              <div className={clsx(
-                "absolute right-0 z-[300]",
-                "w-64",
-                "mt-2",
-                "border border-white/[0.08] rounded-xl",
-                "bg-[#0a0a0a]",
-                "shadow-2xl",
-                "overflow-hidden",
-              )} style={{ isolation: 'isolate' }}>
+              <div
+                className={clsx("absolute right-0 z-[300] w-64 mt-2 overflow-hidden", classes.dropdown.container)}
+                style={{ isolation: 'isolate' }}
+              >
                 {/* Property Planner */}
                 <button
                   onClick={() => {
                     setIsModuleMenuOpen(false)
                     openPropertyPlanner()
                   }}
-                  className={clsx(
-                    "flex items-start gap-3",
-                    "w-full",
-                    "px-4 py-3",
-                    "border-b border-white/[0.04]",
-                    "hover:bg-white/5",
-                    "text-left text-slate-200 text-sm",
-                    "transition",
-                  )}
+                  className={clsx(classes.menuItem.base, classes.menuItem.withBorder, classes.menuItem.hover)}
                   type="button"
                 >
-                  <span className={`mt-0.5 p-2
-rounded-lg border border-violet-500/20
-bg-violet-500/10
-text-violet-400`}>
+                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.violet)}>
                     <Building2 className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
                     <div className="font-medium">Property Planner</div>
-                    <p className="text-xs text-slate-400">Create and compare property purchase scenarios.</p>
+                    <p className={classes.menuText.secondary}>Create and compare property purchase scenarios.</p>
                   </div>
                 </button>
                 {/* CPF Simulation */}
@@ -325,72 +273,15 @@ text-violet-400`}>
                     setIsModuleMenuOpen(false)
                     openCPFView()
                   }}
-                  className={clsx(
-                    "flex items-start gap-3",
-                    "w-full",
-                    "px-4 py-3",
-                    "border-b border-white/[0.04]",
-                    "hover:bg-white/5",
-                    "text-left text-slate-200 text-sm",
-                    "transition",
-                  )}
+                  className={clsx(classes.menuItem.base, classes.menuItem.withBorder, classes.menuItem.hoverSage)}
                   type="button"
                 >
-                  <span className={`mt-0.5 p-2
-rounded-lg border border-emerald-500/20
-bg-emerald-500/10
-text-emerald-400`}>
+                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.emerald)}>
                     <Wallet className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
                     <div className="font-medium">CPF</div>
-                    <p className="text-xs text-slate-400">Simulate balances, investments, and retirement.</p>
-                  </div>
-                </button>
-                {/* Coming Soon Modules */}
-                <div className="cursor-not-allowed opacity-60">
-                  <div className={`flex items-start
-w-full
-gap-3 px-4 py-3
-text-left text-sm`}>
-                    <span className={`mt-0.5 p-2
-rounded-lg border border-white/[0.06]
-bg-white/[0.02]
-text-slate-500`}>
-                      <Car className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className="font-medium text-slate-400">Vehicle Purchase</div>
-                      <p className="text-xs text-slate-500">Coming soon</p>
-                    </div>
-                  </div>
-                </div>
-                {/* Tax Module */}
-                <button
-                  onClick={() => {
-                    setIsModuleMenuOpen(false)
-                    openTaxPlanner()
-                  }}
-                  className={clsx(
-                    "flex items-start gap-3",
-                    "w-full",
-                    "px-4 py-3",
-                    "border-b border-white/[0.04]",
-                    "hover:bg-white/5",
-                    "text-left text-slate-200 text-sm",
-                    "transition",
-                  )}
-                  type="button"
-                >
-                  <span className={`mt-0.5 p-2
-rounded-lg border border-amber-500/20
-bg-amber-500/10
-text-amber-400`}>
-                    <Receipt className="h-4 w-4" />
-                  </span>
-                  <div className="space-y-0.5">
-                    <div className="font-medium">Tax Planner</div>
-                    <p className="text-xs text-slate-400">Singapore tax calculations and scenario planning.</p>
+                    <p className={classes.menuText.secondary}>Simulate balances, investments, and retirement.</p>
                   </div>
                 </button>
                 {/* Insurance Planner */}
@@ -399,62 +290,64 @@ text-amber-400`}>
                     setIsModuleMenuOpen(false)
                     openInsurancePlanner()
                   }}
-                  className={clsx(
-                    "flex items-start gap-3",
-                    "w-full",
-                    "px-4 py-3",
-                    "hover:bg-white/5",
-                    "text-left text-slate-200 text-sm",
-                    "transition",
-                  )}
+                  className={clsx(classes.menuItem.base, classes.menuItem.withBorder, classes.menuItem.hover)}
                   type="button"
                 >
-                  <span className={`mt-0.5 p-2
-rounded-lg border border-purple-500/20
-bg-purple-500/10
-text-purple-400`}>
+                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.purple)}>
                     <Shield className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
                     <div className="font-medium">Insurance Planner</div>
-                    <p className="text-xs text-slate-400">Analyze coverage gaps and plan your protection.</p>
+                    <p className={classes.menuText.secondary}>Analyze coverage gaps and plan your protection.</p>
                   </div>
                 </button>
+                {/* Coming Soon Modules */}
+                <div className={classes.menuItem.disabled}>
+                  <div className="flex items-start w-full gap-3 px-4 py-3 text-left text-sm">
+                    <span className={clsx(classes.iconBadge.base, classes.iconBadge.disabled)}>
+                      <Car className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className={clsx("font-medium", classes.menuText.disabled)}>Vehicle Purchase</div>
+                      <p className={classes.menuText.disabledSecondary}>Coming soon</p>
+                    </div>
+                  </div>
+                </div>
+                <div className={classes.menuItem.disabled}>
+                  <div className="flex items-start w-full gap-3 px-4 py-3 text-left text-sm">
+                    <span className={clsx(classes.iconBadge.base, classes.iconBadge.disabled)}>
+                      <Receipt className="h-4 w-4" />
+                    </span>
+                    <div className="space-y-0.5">
+                      <div className={clsx("font-medium", classes.menuText.disabled)}>Tax Projections</div>
+                      <p className={classes.menuText.disabledSecondary}>Coming soon</p>
+                    </div>
+                  </div>
+                </div>
               </div>
               </>
             )}
           </div>
 
-          <div className="h-4 w-px bg-white/[0.06]" />
+          <div className={classes.toolbar.verticalDivider} />
 
           {/* Layout toggle */}
           <button
             type="button"
             onClick={openLayoutModal}
-            className={clsx(
-              "flex items-center justify-center",
-              "h-7 w-7",
-              "rounded-full",
-              "hover:bg-white/5",
-              "hover:text-slate-300 text-slate-500",
-              "transition",
-            )}
+            className={clsx(classes.toolbarButton.base, classes.toolbarButton.default)}
             title="Change layout"
           >
             <LayoutGrid className="h-3.5 w-3.5" />
           </button>
 
+          {/* Color scheme toggle */}
+          <ColorSchemeToggle />
+
           {/* Notification bell */}
           <button
             type="button"
-            className={clsx(
-              "flex items-center justify-center",
-              "h-7 w-7",
-              "rounded-full",
-              "hover:bg-white/5",
-              "hover:text-slate-300 text-slate-500",
-              "transition",
-            )}
+            className={clsx(classes.toolbarButton.base, classes.toolbarButton.default)}
           >
             <Bell className="h-3.5 w-3.5" />
           </button>
@@ -481,12 +374,8 @@ text-purple-400`}>
           {/* Chart Section */}
           <div className="flex-1 p-6">
             <section className={clsx(
-              "relative",
-              "h-full",
-              "border border-white/[0.1] hover:border-white/[0.15] rounded-2xl",
-              "bg-[#0a0a0a]/60",
-              "transition-all",
-              "overflow-hidden",
+              "relative h-full rounded-2xl transition-all overflow-hidden",
+              classes.card.base,
             )}>
               {/* Chart Container - NetWorthProjection has its own header */}
               <div className="h-full">

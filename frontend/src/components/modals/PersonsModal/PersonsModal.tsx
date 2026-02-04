@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Users, Plus, Trash2, Pencil, X, Check, Briefcase, Save, Calendar, Flag } from 'lucide-react'
+import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
+import { useColorScheme } from '@/stores'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import {
   useCreatePersonMutation,
@@ -41,6 +43,8 @@ interface PendingChanges {
 }
 
 export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
   const { persons, isLoading } = usePersonFilter()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -308,16 +312,27 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={isPending ? undefined : handleClose}
-      overlayClassName="bg-black/60"
-      className="flex flex-col overflow-hidden w-full max-w-md mx-4 rounded-xl border border-white/[0.08] bg-[#0a0a0a] shadow-2xl"
+      overlayClassName={isMonet ? 'bg-black/30 backdrop-blur-sm' : 'bg-black/60'}
+      className={clsx(
+        'flex flex-col overflow-hidden w-full max-w-md mx-4 rounded-xl border shadow-2xl',
+        isMonet
+          ? 'border-[var(--monet-lavender)]/20 bg-white/95 backdrop-blur-xl'
+          : 'border-white/[0.08] bg-[#0a0a0a]'
+      )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
+      <div className={clsx(
+        'flex items-center justify-between px-5 py-4 border-b',
+        isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]'
+      )}>
         <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-slate-400" />
-          <h2 className="text-lg font-semibold text-slate-200">Manage Persons</h2>
+          <Users className={clsx('h-5 w-5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-400')} />
+          <h2 className={clsx('text-lg font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-slate-200')}>Manage Persons</h2>
           {hasUnsavedChanges && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/20 text-amber-400">
+            <span className={clsx(
+              'px-1.5 py-0.5 rounded text-[10px] font-medium',
+              isMonet ? 'bg-amber-500/15 text-amber-600' : 'bg-amber-500/20 text-amber-400'
+            )}>
               Unsaved
             </span>
           )}
@@ -326,15 +341,23 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
           type="button"
           onClick={handleClose}
           disabled={isPending}
-          className="p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors disabled:opacity-50"
+          className={clsx(
+            'p-1.5 rounded-md transition-colors disabled:opacity-50',
+            isMonet
+              ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)] hover:bg-[var(--monet-lavender)]/10'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
+          )}
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
       {/* Description */}
-      <div className="px-5 py-3 border-b border-white/[0.06] bg-white/[0.02]">
-        <p className="text-xs text-slate-500">
+      <div className={clsx(
+        'px-5 py-3 border-b',
+        isMonet ? 'border-[var(--monet-lavender)]/10 bg-[var(--monet-lavender)]/5' : 'border-white/[0.06] bg-white/[0.02]'
+      )}>
+        <p className={clsx('text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
           Toggle persons to include/exclude their financial data from calculations.
           Excluded persons won&apos;t appear in dropdowns.
         </p>
@@ -343,15 +366,18 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 max-h-[400px]">
         {isLoading ? (
-          <div className="text-center py-8 text-slate-400">Loading...</div>
+          <div className={clsx('text-center py-8', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-400')}>Loading...</div>
         ) : persons.length === 0 && !isAdding ? (
           <div className="text-center py-8">
-            <Users className="h-12 w-12 text-slate-700 mx-auto mb-3" />
-            <p className="text-slate-500 text-sm mb-4">No persons created yet</p>
+            <Users className={clsx('h-12 w-12 mx-auto mb-3', isMonet ? 'text-[var(--monet-lavender)]/30' : 'text-slate-700')} />
+            <p className={clsx('text-sm mb-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>No persons created yet</p>
             <button
               type="button"
               onClick={handleStartAdd}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-sm text-white transition-colors"
+              className={clsx(
+                'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-white transition-colors',
+                isMonet ? 'bg-[var(--monet-purple)] hover:bg-[var(--monet-purple)]/90' : 'bg-blue-600 hover:bg-blue-700'
+              )}
             >
               <Plus className="h-3.5 w-3.5" />
               Add Person
@@ -368,24 +394,31 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
               return (
                 <div
                   key={person.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
+                  className={clsx(
+                    'flex items-center gap-3 p-3 rounded-lg border transition-all',
                     effectiveIncluded
-                      ? 'border-white/[0.08] bg-white/[0.02]'
-                      : 'border-white/[0.04] bg-transparent opacity-60'
-                  } ${hasPendingChanges ? 'ring-1 ring-amber-500/30' : ''}`}
+                      ? (isMonet ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/5' : 'border-white/[0.08] bg-white/[0.02]')
+                      : (isMonet ? 'border-[var(--monet-lavender)]/10 bg-transparent opacity-60' : 'border-white/[0.04] bg-transparent opacity-60'),
+                    hasPendingChanges && (isMonet ? 'ring-1 ring-amber-500/40' : 'ring-1 ring-amber-500/30')
+                  )}
                 >
                   {editingId === person.id ? (
                     // Edit mode - expanded form
                     <div className="flex-1 space-y-3">
                       {/* Row 1: Color and Name */}
                       <div className="flex items-center gap-3">
-                        <ColorPicker value={editColor} onChange={setEditColor} />
+                        <ColorPicker value={editColor} onChange={setEditColor} isMonet={isMonet} />
                         <input
                           type="text"
                           value={editName}
                           onChange={(e) => setEditName(e.target.value)}
                           placeholder="Name"
-                          className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-md px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                          className={clsx(
+                            'flex-1 rounded-md px-2.5 py-1.5 text-sm focus:outline-none',
+                            isMonet
+                              ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-purple)]'
+                              : 'bg-white/[0.05] border border-white/[0.1] text-white focus:border-blue-500'
+                          )}
                           autoFocus
                         />
                       </div>
@@ -393,42 +426,57 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                       {/* Row 2: Date of Birth, Gender, Residency Status */}
                       <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Date of Birth</label>
+                          <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Date of Birth</label>
                           <div className="relative">
-                            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                            <Calendar className={clsx('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
                             <input
                               type="date"
                               value={editDateOfBirth}
                               onChange={(e) => setEditDateOfBirth(e.target.value)}
-                              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                              className={clsx(
+                                'w-full rounded-md pl-8 pr-2.5 py-1.5 text-sm focus:outline-none',
+                                isMonet
+                                  ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-purple)]'
+                                  : 'bg-white/[0.05] border border-white/[0.1] text-white focus:border-blue-500'
+                              )}
                             />
                           </div>
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Gender</label>
+                          <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Gender</label>
                           <select
                             value={editGender}
                             onChange={(e) => setEditGender(e.target.value as Gender)}
-                            className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
+                            className={clsx(
+                              'w-full rounded-md px-2.5 py-1.5 text-sm focus:outline-none appearance-none cursor-pointer',
+                              isMonet
+                                ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-purple)]'
+                                : 'bg-white/[0.05] border border-white/[0.1] text-white focus:border-blue-500'
+                            )}
                           >
                             {genderOptions.map(option => (
-                              <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                              <option key={option.value} value={option.value} className={isMonet ? 'bg-white' : 'bg-[#1a1a1a]'}>
                                 {option.label}
                               </option>
                             ))}
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Residency</label>
+                          <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Residency</label>
                           <div className="relative">
-                            <Flag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                            <Flag className={clsx('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
                             <select
                               value={editResidencyStatus}
                               onChange={(e) => setEditResidencyStatus(e.target.value as ResidencyStatus)}
-                              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
+                              className={clsx(
+                                'w-full rounded-md pl-8 pr-2.5 py-1.5 text-sm focus:outline-none appearance-none cursor-pointer',
+                                isMonet
+                                  ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-purple)]'
+                                  : 'bg-white/[0.05] border border-white/[0.1] text-white focus:border-blue-500'
+                              )}
                             >
                               {residencyStatusOptions.map(option => (
-                                <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                                <option key={option.value} value={option.value} className={isMonet ? 'bg-white' : 'bg-[#1a1a1a]'}>
                                   {option.label}
                                 </option>
                               ))}
@@ -440,14 +488,19 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                       {/* Row 3: PR Grant Date (conditional) */}
                       {editResidencyStatus !== 'citizen' && (
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">PR Grant Date</label>
+                          <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>PR Grant Date</label>
                           <div className="relative">
-                            <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                            <Calendar className={clsx('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
                             <input
                               type="date"
                               value={editPrGrantDate}
                               onChange={(e) => setEditPrGrantDate(e.target.value)}
-                              className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                              className={clsx(
+                                'w-full rounded-md pl-8 pr-2.5 py-1.5 text-sm focus:outline-none',
+                                isMonet
+                                  ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-purple)]'
+                                  : 'bg-white/[0.05] border border-white/[0.1] text-white focus:border-blue-500'
+                              )}
                             />
                           </div>
                         </div>
@@ -458,7 +511,12 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                         <button
                           type="button"
                           onClick={handleCancelEdit}
-                          className="px-3 py-1.5 rounded-md text-sm text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors"
+                          className={clsx(
+                            'px-3 py-1.5 rounded-md text-sm transition-colors',
+                            isMonet
+                              ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)] hover:bg-[var(--monet-lavender)]/10'
+                              : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
+                          )}
                         >
                           Cancel
                         </button>
@@ -466,7 +524,12 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                           type="button"
                           onClick={handleConfirmEdit}
                           disabled={!editName.trim() || !editDateOfBirth}
-                          className="px-3 py-1.5 rounded-md text-sm text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={clsx(
+                            'px-3 py-1.5 rounded-md text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                            isMonet
+                              ? 'text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20'
+                              : 'text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'
+                          )}
                         >
                           Apply
                         </button>
@@ -479,11 +542,12 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                       <button
                         type="button"
                         onClick={() => handleToggle(person)}
-                        className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                        className={clsx(
+                          'flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors',
                           effectiveIncluded
-                            ? 'bg-blue-600 border-blue-600'
-                            : 'border-slate-600 hover:border-slate-500'
-                        }`}
+                            ? (isMonet ? 'bg-[var(--monet-purple)] border-[var(--monet-purple)]' : 'bg-blue-600 border-blue-600')
+                            : (isMonet ? 'border-[var(--monet-lavender)]/40 hover:border-[var(--monet-lavender)]/60' : 'border-slate-600 hover:border-slate-500')
+                        )}
                       >
                         {effectiveIncluded && <Check className="h-3 w-3 text-white" />}
                       </button>
@@ -496,9 +560,9 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
 
                       {/* Name and stats */}
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-white truncate">{effectivePerson.name}</div>
+                        <div className={clsx('text-sm font-medium truncate', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>{effectivePerson.name}</div>
                         {(person.incomeCount ?? 0) > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-slate-500">
+                          <div className={clsx('flex items-center gap-1 text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
                             <Briefcase className="h-3 w-3" />
                             {person.incomeCount} income{person.incomeCount === 1 ? '' : 's'}
                           </div>
@@ -509,7 +573,12 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                       <button
                         type="button"
                         onClick={() => handleStartEdit(person)}
-                        className="p-1.5 rounded-md text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors"
+                        className={clsx(
+                          'p-1.5 rounded-md transition-colors',
+                          isMonet
+                            ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)] hover:bg-[var(--monet-lavender)]/10'
+                            : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
+                        )}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -517,7 +586,12 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                         type="button"
                         onClick={() => handleDelete(person)}
                         disabled={deleteMutation.isPending}
-                        className="p-1.5 rounded-md text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                        className={clsx(
+                          'p-1.5 rounded-md transition-colors disabled:opacity-50',
+                          isMonet
+                            ? 'text-[var(--monet-text-muted)] hover:text-red-600 hover:bg-red-500/10'
+                            : 'text-slate-400 hover:text-red-400 hover:bg-red-500/10'
+                        )}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -529,16 +603,24 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
 
             {/* Add new person form */}
             {isAdding && (
-              <div className="p-3 rounded-lg border border-blue-500/30 bg-blue-500/5 space-y-3">
+              <div className={clsx(
+                'p-3 rounded-lg border space-y-3',
+                isMonet ? 'border-[var(--monet-purple)]/30 bg-[var(--monet-purple)]/5' : 'border-blue-500/30 bg-blue-500/5'
+              )}>
                 {/* Row 1: Color and Name */}
                 <div className="flex items-center gap-3">
-                  <ColorPicker value={newColor} onChange={setNewColor} />
+                  <ColorPicker value={newColor} onChange={setNewColor} isMonet={isMonet} />
                   <input
                     type="text"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Person name"
-                    className="flex-1 bg-white/[0.05] border border-white/[0.1] rounded-md px-2.5 py-1.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-blue-500"
+                    className={clsx(
+                      'flex-1 rounded-md px-2.5 py-1.5 text-sm focus:outline-none',
+                      isMonet
+                        ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)] focus:border-[var(--monet-purple)]'
+                        : 'bg-white/[0.05] border border-white/[0.1] text-white placeholder:text-slate-500 focus:border-blue-500'
+                    )}
                     autoFocus
                   />
                 </div>
@@ -546,42 +628,57 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                 {/* Row 2: Date of Birth, Gender, Residency Status */}
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Date of Birth *</label>
+                    <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Date of Birth *</label>
                     <div className="relative">
-                      <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                      <Calendar className={clsx('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
                       <input
                         type="date"
                         value={newDateOfBirth}
                         onChange={(e) => setNewDateOfBirth(e.target.value)}
-                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                        className={clsx(
+                          'w-full rounded-md pl-8 pr-2.5 py-1.5 text-sm focus:outline-none',
+                          isMonet
+                            ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-purple)]'
+                            : 'bg-white/[0.05] border border-white/[0.1] text-white focus:border-blue-500'
+                        )}
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Gender *</label>
+                    <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Gender *</label>
                     <select
                       value={newGender}
                       onChange={(e) => setNewGender(e.target.value as Gender)}
-                      className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
+                      className={clsx(
+                        'w-full rounded-md px-2.5 py-1.5 text-sm focus:outline-none appearance-none cursor-pointer',
+                        isMonet
+                          ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-purple)]'
+                          : 'bg-white/[0.05] border border-white/[0.1] text-white focus:border-blue-500'
+                      )}
                     >
                       {genderOptions.map(option => (
-                        <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                        <option key={option.value} value={option.value} className={isMonet ? 'bg-white' : 'bg-[#1a1a1a]'}>
                           {option.label}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Residency</label>
+                    <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Residency</label>
                     <div className="relative">
-                      <Flag className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                      <Flag className={clsx('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
                       <select
                         value={newResidencyStatus}
                         onChange={(e) => setNewResidencyStatus(e.target.value as ResidencyStatus)}
-                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer"
+                        className={clsx(
+                          'w-full rounded-md pl-8 pr-2.5 py-1.5 text-sm focus:outline-none appearance-none cursor-pointer',
+                          isMonet
+                            ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-purple)]'
+                            : 'bg-white/[0.05] border border-white/[0.1] text-white focus:border-blue-500'
+                        )}
                       >
                         {residencyStatusOptions.map(option => (
-                          <option key={option.value} value={option.value} className="bg-[#1a1a1a]">
+                          <option key={option.value} value={option.value} className={isMonet ? 'bg-white' : 'bg-[#1a1a1a]'}>
                             {option.label}
                           </option>
                         ))}
@@ -593,14 +690,19 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                 {/* Row 3: PR Grant Date (conditional) */}
                 {newResidencyStatus !== 'citizen' && (
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">PR Grant Date</label>
+                    <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>PR Grant Date</label>
                     <div className="relative">
-                      <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+                      <Calendar className={clsx('absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')} />
                       <input
                         type="date"
                         value={newPrGrantDate}
                         onChange={(e) => setNewPrGrantDate(e.target.value)}
-                        className="w-full bg-white/[0.05] border border-white/[0.1] rounded-md pl-8 pr-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+                        className={clsx(
+                          'w-full rounded-md pl-8 pr-2.5 py-1.5 text-sm focus:outline-none',
+                          isMonet
+                            ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-purple)]'
+                            : 'bg-white/[0.05] border border-white/[0.1] text-white focus:border-blue-500'
+                        )}
                       />
                     </div>
                   </div>
@@ -611,7 +713,12 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                   <button
                     type="button"
                     onClick={handleCancelAdd}
-                    className="px-3 py-1.5 rounded-md text-sm text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors"
+                    className={clsx(
+                      'px-3 py-1.5 rounded-md text-sm transition-colors',
+                      isMonet
+                        ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)] hover:bg-[var(--monet-lavender)]/10'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
+                    )}
                   >
                     Cancel
                   </button>
@@ -619,7 +726,10 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                     type="button"
                     onClick={handleConfirmAdd}
                     disabled={createMutation.isPending || !newName.trim() || !newDateOfBirth}
-                    className="px-3 py-1.5 rounded-md text-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={clsx(
+                      'px-3 py-1.5 rounded-md text-sm text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
+                      isMonet ? 'bg-[var(--monet-purple)] hover:bg-[var(--monet-purple)]/90' : 'bg-blue-600 hover:bg-blue-700'
+                    )}
                   >
                     {createMutation.isPending ? 'Creating...' : 'Create Person'}
                   </button>
@@ -631,8 +741,11 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-white/[0.06]">
-        <div className="text-xs text-slate-500">
+      <div className={clsx(
+        'flex items-center justify-between px-5 py-3 border-t',
+        isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]'
+      )}>
+        <div className={clsx('text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
           {includedCount} of {persons.length} included
         </div>
         <div className="flex items-center gap-2">
@@ -642,7 +755,12 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                 type="button"
                 onClick={handleDiscard}
                 disabled={isPending}
-                className="px-3 py-1.5 rounded-lg text-sm text-slate-400 hover:text-slate-200 hover:bg-white/[0.06] transition-colors disabled:opacity-50"
+                className={clsx(
+                  'px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50',
+                  isMonet
+                    ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)] hover:bg-[var(--monet-lavender)]/10'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.06]'
+                )}
               >
                 Discard
               </button>
@@ -662,7 +780,12 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                 type="button"
                 onClick={handleStartAdd}
                 disabled={isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-white/[0.06] transition-colors disabled:opacity-50"
+                className={clsx(
+                  'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50',
+                  isMonet
+                    ? 'text-[var(--monet-text-secondary)] hover:text-[var(--monet-text-primary)] hover:bg-[var(--monet-lavender)]/10'
+                    : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
+                )}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Person
@@ -678,9 +801,10 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
 interface ColorPickerProps {
   value: string
   onChange: (color: string) => void
+  isMonet?: boolean
 }
 
-function ColorPicker({ value, onChange }: ColorPickerProps) {
+function ColorPicker({ value, onChange, isMonet = false }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -688,11 +812,21 @@ function ColorPicker({ value, onChange }: ColorPickerProps) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-6 h-6 rounded-md border-2 border-white/10 hover:border-white/20 transition-colors"
+        className={clsx(
+          'w-6 h-6 rounded-md border-2 transition-colors',
+          isMonet
+            ? 'border-[var(--monet-lavender)]/20 hover:border-[var(--monet-lavender)]/40'
+            : 'border-white/10 hover:border-white/20'
+        )}
         style={{ backgroundColor: value || '#64748b' }}
       />
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1 z-50 p-2 rounded-lg bg-[#1a1a1a] border border-white/[0.1] shadow-xl">
+        <div className={clsx(
+          'absolute left-0 top-full mt-1 z-50 p-2 rounded-lg border shadow-xl',
+          isMonet
+            ? 'bg-white border-[var(--monet-lavender)]/20'
+            : 'bg-[#1a1a1a] border-white/[0.1]'
+        )}>
           <div className="grid grid-cols-4 gap-1">
             {PERSON_COLORS.map((color) => (
               <button
@@ -702,9 +836,10 @@ function ColorPicker({ value, onChange }: ColorPickerProps) {
                   onChange(color)
                   setIsOpen(false)
                 }}
-                className={`w-6 h-6 rounded-md transition-transform hover:scale-110 ${
-                  value === color ? 'ring-2 ring-white ring-offset-2 ring-offset-[#1a1a1a]' : ''
-                }`}
+                className={clsx(
+                  'w-6 h-6 rounded-md transition-transform hover:scale-110',
+                  value === color && (isMonet ? 'ring-2 ring-[var(--monet-purple)] ring-offset-2 ring-offset-white' : 'ring-2 ring-white ring-offset-2 ring-offset-[#1a1a1a]')
+                )}
                 style={{ backgroundColor: color }}
               />
             ))}

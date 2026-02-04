@@ -14,6 +14,8 @@ import { MiniChart } from './MiniChart'
 import { ResizableChartSection } from './ResizableChartSection'
 import { PropertyPlannerModal } from '@/components/modals/PropertyPlannerModal/PropertyPlannerModal'
 import { LayoutPreviewModal } from '@/components/modals/LayoutPreviewModal'
+import { OnboardingWizardModal } from '@/components/modals/OnboardingWizardModal/OnboardingWizardModal'
+import { PostResetChoiceModal } from '@/components/modals/PostResetChoiceModal'
 
 // Loading skeleton for feature modules
 function FeatureModuleLoading() {
@@ -30,15 +32,12 @@ const CPFSimulationView = dynamic(
   { ssr: false, loading: FeatureModuleLoading }
 )
 
-const TaxPlannerV2View = dynamic(
-  () => import('@/app/tax-planner/page').then(mod => ({ default: mod.TaxPlannerV2View })),
-  { ssr: false, loading: FeatureModuleLoading }
-)
-
 const InsurancePlannerView = dynamic(
   () => import('@/app/insurance-planner/page').then(mod => ({ default: mod.InsurancePlannerView })),
   { ssr: false, loading: FeatureModuleLoading }
 )
+
+import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { useTimeline } from '@/hooks/useTimeline'
 import { usePictureInPicture } from '@/hooks/usePictureInPicture'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
@@ -46,7 +45,7 @@ import { useWindowWidth } from '@/hooks/useWindowWidth'
 import { generateUUID } from '@/lib/utils'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
-import { useTimelineStore, useFeatureModulesStore } from '@/stores'
+import { useTimelineStore, useFeatureModulesStore, useColorScheme } from '@/stores'
 import { useShallow } from 'zustand/react/shallow'
 
 export function Dashboard() {
@@ -54,13 +53,12 @@ export function Dashboard() {
   const chatId = chatIdRef.current
   const queryClient = useQueryClient()
   const windowWidth = useWindowWidth()
+  const colorScheme = useColorScheme()
 
   // Feature modules state from Zustand store (batched with shallow comparison)
   const {
     showCPFView,
     closeCPFView,
-    showTaxPlanner,
-    closeTaxPlanner,
     showInsurancePlanner,
     closeInsurancePlanner,
     showPropertyPlanner,
@@ -69,6 +67,11 @@ export function Dashboard() {
     closePropertyPlanner,
     showLayoutModal,
     closeLayoutModal,
+    showOnboardingWizard,
+    openOnboardingWizard,
+    closeOnboardingWizard,
+    showPostResetChoice,
+    closePostResetChoice,
     isChatCollapsed,
     isHistoryOpen,
     toggleChat,
@@ -82,8 +85,6 @@ export function Dashboard() {
     useShallow((s) => ({
       showCPFView: s.showCPFView,
       closeCPFView: s.closeCPFView,
-      showTaxPlanner: s.showTaxPlanner,
-      closeTaxPlanner: s.closeTaxPlanner,
       showInsurancePlanner: s.showInsurancePlanner,
       closeInsurancePlanner: s.closeInsurancePlanner,
       showPropertyPlanner: s.showPropertyPlanner,
@@ -92,6 +93,11 @@ export function Dashboard() {
       closePropertyPlanner: s.closePropertyPlanner,
       showLayoutModal: s.showLayoutModal,
       closeLayoutModal: s.closeLayoutModal,
+      showOnboardingWizard: s.showOnboardingWizard,
+      openOnboardingWizard: s.openOnboardingWizard,
+      closeOnboardingWizard: s.closeOnboardingWizard,
+      showPostResetChoice: s.showPostResetChoice,
+      closePostResetChoice: s.closePostResetChoice,
       isChatCollapsed: s.isChatCollapsed,
       isHistoryOpen: s.isHistoryOpen,
       toggleChat: s.toggleChat,
@@ -129,6 +135,36 @@ export function Dashboard() {
       initializeLayout(userSettings.dashboardLayout)
     }
   }, [userSettings?.dashboardLayout, initializeLayout])
+
+  // ─── Onboarding wizard auto-trigger ─────────────────────────────────────
+  // Show wizard when: user has zero persons AND hasn't completed/dismissed onboarding.
+  // Uses a ref guard to prevent re-triggering during the same "session" (avoids race
+  // condition where the dismiss mutation hasn't round-tripped yet).
+  // The guard resets when onboardingCompleted flips back to false (e.g., after "Start Fresh").
+  const { data: personsData } = usePersonsQuery()
+  const onboardingTriggeredRef = useRef(false)
+
+  // Reset the guard when onboardingCompleted is explicitly set back to false
+  // (happens after "Delete All Data" / "Start Fresh")
+  useEffect(() => {
+    if (userSettings && !userSettings.onboardingCompleted) {
+      onboardingTriggeredRef.current = false
+    }
+  }, [userSettings?.onboardingCompleted])
+
+  useEffect(() => {
+    if (
+      !onboardingTriggeredRef.current &&
+      !showPostResetChoice &&
+      personsData !== undefined &&
+      userSettings !== undefined &&
+      personsData.length === 0 &&
+      !userSettings.onboardingCompleted
+    ) {
+      onboardingTriggeredRef.current = true
+      openOnboardingWizard()
+    }
+  }, [personsData, userSettings, showPostResetChoice, openOnboardingWizard])
 
   // Mutation for updating layout preference
   const updateLayoutMutation = useMutation({
@@ -193,32 +229,41 @@ export function Dashboard() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [toggleChat])
 
+  // Theme-aware styles
+  const isMonet = colorScheme === 'monet'
+
   return (
     <>
-      <div className={`relative
-overflow-hidden
-h-screen w-full
-bg-[#050505]
-font-sans text-slate-200`}>
-        {/* Ambient background orbs */}
-        <div className={`fixed left-[-10%] top-[-20%]
-h-[800px] w-[800px]
-pointer-events-none
-rounded-full
-bg-zinc-800/20
-opacity-40 blur-[120px]`} />
-        <div className={`fixed bottom-[-20%] right-[-10%]
-h-[600px] w-[600px]
-pointer-events-none
-rounded-full
-bg-slate-800/10
-opacity-30 blur-[100px]`} />
-        <div className={`fixed right-[20%] top-[20%]
-h-[400px] w-[400px]
-pointer-events-none
-rounded-full
-bg-white/5
-opacity-20 blur-[80px]`} />
+      <div
+        className={clsx(
+          'relative overflow-hidden h-screen w-full font-sans transition-colors duration-300',
+          isMonet
+            ? 'text-[var(--monet-text-primary)]'
+            : 'bg-[#050505] text-slate-200'
+        )}
+        style={isMonet ? {
+          background: 'linear-gradient(135deg, var(--monet-bg-cream) 0%, var(--monet-bg-pale-blue) 50%, var(--monet-bg-warm-white) 100%)',
+        } : undefined}
+      >
+        {/* Ambient background orbs - theme aware */}
+        <div
+          className={clsx(
+            'fixed left-[-10%] top-[-20%] h-[800px] w-[800px] pointer-events-none rounded-full blur-[120px]',
+            isMonet ? 'bg-[var(--monet-lavender-light)] opacity-30' : 'bg-zinc-800/20 opacity-40'
+          )}
+        />
+        <div
+          className={clsx(
+            'fixed bottom-[-20%] right-[-10%] h-[600px] w-[600px] pointer-events-none rounded-full blur-[100px]',
+            isMonet ? 'bg-[var(--monet-sage-light)] opacity-25' : 'bg-slate-800/10 opacity-30'
+          )}
+        />
+        <div
+          className={clsx(
+            'fixed right-[20%] top-[20%] h-[400px] w-[400px] pointer-events-none rounded-full blur-[80px]',
+            isMonet ? 'bg-[var(--monet-gold-light)] opacity-40' : 'bg-white/5 opacity-20'
+          )}
+        />
 
         {/* Main content - side by side layout */}
         <div className="relative z-10 flex h-screen w-full overflow-hidden">
@@ -232,19 +277,21 @@ opacity-20 blur-[80px]`} />
           >
             {/* Chat panel */}
             <div
-              className={`absolute left-0 top-0
-h-screen w-[520px]
-p-6 pr-3`}
+              className="absolute left-0 top-0 h-screen w-[520px] p-6 pr-3"
               style={{
                 opacity: isChatCollapsed ? 0 : 1,
                 pointerEvents: isChatCollapsed ? 'none' : 'auto',
                 transition: 'opacity 250ms cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
-              <div className={`flex flex-col overflow-hidden
-h-full
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
+              <div
+                className={clsx(
+                  'flex flex-col overflow-hidden h-full rounded-2xl border transition-colors duration-300',
+                  isMonet
+                    ? 'border-[var(--monet-lavender)]/20 bg-white/60 backdrop-blur-xl'
+                    : 'border-white/[0.06] bg-[#0a0a0a]/80'
+                )}
+              >
                 <Chat
                   chatId={chatId}
                   className="h-full min-h-0"
@@ -257,12 +304,12 @@ bg-[#0a0a0a]/80`}>
 
             {/* Collapsed sidebar */}
             <div
-              className={`absolute left-0 top-0
-flex flex-col items-center
-h-screen w-16
-pt-7
-border-r border-white/[0.06]
-bg-[#0a0a0a]/40`}
+              className={clsx(
+                'absolute left-0 top-0 flex flex-col items-center h-screen w-16 pt-7 border-r transition-colors duration-300',
+                isMonet
+                  ? 'border-[var(--monet-lavender)]/15 bg-white/40'
+                  : 'border-white/[0.06] bg-[#0a0a0a]/40'
+              )}
               style={{
                 opacity: isChatCollapsed ? 1 : 0,
                 pointerEvents: isChatCollapsed ? 'auto' : 'none',
@@ -272,7 +319,12 @@ bg-[#0a0a0a]/40`}
               <button
                 type="button"
                 onClick={expandChat}
-                className="p-1 text-slate-500 transition-colors hover:text-white"
+                className={clsx(
+                  'p-1 transition-colors',
+                  isMonet
+                    ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)]'
+                    : 'text-slate-500 hover:text-white'
+                )}
                 title="Show chat"
               >
                 <PanelLeftOpen className="h-5 w-5" />
@@ -286,27 +338,16 @@ h-screen
 gap-6 p-6`}>
             {showCPFView ? (
               /* CPF Simulation View - takes over entire area */
-              <div className={`flex flex-1 flex-col overflow-hidden
-min-h-0
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
+              <div
+                className={clsx(
+                  'flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors duration-300',
+                  isMonet
+                    ? 'border-[var(--monet-lavender)]/20 bg-white/60 backdrop-blur-xl'
+                    : 'border-white/[0.06] bg-[#0a0a0a]/80'
+                )}
+              >
                 <CPFSimulationView onClose={closeCPFView} />
               </div>
-            ) : showTaxPlanner ? (
-              /* Tax Planner View - shows header + tax planner */
-              <>
-                {/* Header bar only - no chart */}
-                <div className="shrink-0">
-                  <FinancialWorkspace headerOnly />
-                </div>
-                {/* Tax Planner content */}
-                <div className={`flex flex-1 flex-col overflow-hidden
-min-h-0
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
-                  <TaxPlannerV2View onClose={closeTaxPlanner} />
-                </div>
-              </>
             ) : showInsurancePlanner ? (
               /* Insurance Planner View - shows header + insurance planner */
               <>
@@ -315,10 +356,14 @@ bg-[#0a0a0a]/80`}>
                   <FinancialWorkspace headerOnly />
                 </div>
                 {/* Insurance Planner content */}
-                <div className={`flex flex-1 flex-col overflow-hidden
-min-h-0
-rounded-2xl border border-white/[0.06]
-bg-[#0a0a0a]/80`}>
+                <div
+                  className={clsx(
+                    'flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors duration-300',
+                    isMonet
+                      ? 'border-[var(--monet-lavender)]/20 bg-white/60 backdrop-blur-xl'
+                      : 'border-white/[0.06] bg-[#0a0a0a]/80'
+                  )}
+                >
                   <InsurancePlannerView onClose={closeInsurancePlanner} />
                 </div>
               </>
@@ -333,7 +378,7 @@ bg-[#0a0a0a]/80`}>
                 {/* Side-by-side content area */}
                 <div
                   className={clsx(
-                    'flex flex-1 gap-4 overflow-hidden -mt-2',
+                    'flex gap-4 -mt-2 h-[70vh]',
                     effectiveLayout === 'chart-right' && 'flex-row-reverse'
                   )}
                 >
@@ -349,7 +394,7 @@ bg-[#0a0a0a]/80`}>
                   </div>
 
                   {/* Cards section - compact mode */}
-                  <div className="w-[35%] overflow-y-auto">
+                  <div className="w-[35%] overflow-y-auto h-full">
                     <FinancialDataSection compact />
                   </div>
                 </div>
@@ -378,7 +423,7 @@ bg-[#0a0a0a]/80`}>
       </div>
 
       {/* Picture-in-Picture mini chart - disabled in side-by-side layouts */}
-      {showPiP && !showCPFView && !showTaxPlanner && !showInsurancePlanner && !isSideBySide && (
+      {showPiP && !showCPFView && !showInsurancePlanner && !isSideBySide && (
         <MiniChart
           timelineYears={timeline.chartYears}
           timelineMonths={timeline.chartMonths}
@@ -406,6 +451,31 @@ bg-[#0a0a0a]/80`}>
         onClose={closeLayoutModal}
         currentLayout={dashboardLayout}
         onLayoutChange={handleLayoutChange}
+      />
+
+      {/* Post-reset choice: Dashboard vs Wizard */}
+      <PostResetChoiceModal
+        isOpen={showPostResetChoice}
+        onDashboard={() => {
+          closePostResetChoice()
+          // Mark onboarding completed so the auto-trigger doesn't reopen the wizard
+          onboardingTriggeredRef.current = true
+          if (userSettings) {
+            const updated = { ...userSettings, onboardingCompleted: true }
+            queryClient.setQueryData(QUERY_KEYS.settings.user, updated)
+            settingsApi.updateUserSettings(updated)
+          }
+        }}
+        onWizard={() => {
+          closePostResetChoice()
+          openOnboardingWizard()
+        }}
+      />
+
+      {/* Onboarding Wizard Modal */}
+      <OnboardingWizardModal
+        isOpen={showOnboardingWizard}
+        onClose={closeOnboardingWizard}
       />
     </>
   )

@@ -84,11 +84,7 @@ export function CTASection() {
           animate={isInView ? { opacity: 1 } : {}}
           transition={{ duration: 0.6, delay: 0.3 }}
           className="text-sm text-[#8A8F98] mb-16"
-        >
-          Join{' '}
-          <span className="text-[#EDEDEF] font-medium">1,000+ Singaporeans</span>{' '}
-          mapping their financial futures
-        </motion.p>
+        />                  
 
         {/* Feature Cards */}
         <motion.div
@@ -122,10 +118,7 @@ export function CTASection() {
       <footer className="relative z-10 mt-24 md:mt-32 text-center">
         <div className="linear-rule mx-auto mb-6 w-24" />
         <p className="text-sm text-[#8A8F98]">
-          &copy; {new Date().getFullYear()} Assetra. All rights reserved.
-        </p>
-        <p className="mt-1 text-xs text-[#8A8F98]">
-          Built for Singaporeans, by Singaporeans
+          &copy; {new Date().getFullYear()} WealthProject. All rights reserved.
         </p>
       </footer>
     </section>

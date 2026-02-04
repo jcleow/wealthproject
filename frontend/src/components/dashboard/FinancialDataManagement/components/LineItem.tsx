@@ -140,10 +140,10 @@ export const LineItem = memo(function LineItem({
         )}
       >
         {/* Left side: name and person name */}
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex min-w-0 flex-col">
             <span className={clsx(
-              "truncate text-sm transition-colors",
+              "text-sm transition-colors",
               isMonet
                 ? (isSelected ? "text-slate-800" : "text-slate-700")
                 : (isSelected ? "text-slate-100" : "text-slate-300")
@@ -151,7 +151,7 @@ export const LineItem = memo(function LineItem({
               {item.name ?? 'Entry'}
             </span>
             {item.personName && (
-              <span className={clsx("truncate text-[10px]", isMonet ? "text-slate-500" : "text-slate-500")}>{item.personName}</span>
+              <span className={clsx("text-[10px]", isMonet ? "text-slate-500" : "text-slate-500")}>{item.personName}</span>
             )}
           </div>
           {/* Accumulator star */}

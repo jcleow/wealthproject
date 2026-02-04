@@ -191,8 +191,8 @@ export function CollapsibleItem({
           : (isSelected ? "bg-white/[0.06]" : "hover:bg-white/[0.04]")
       )}
     >
-      <div className="flex min-w-0 items-center gap-2">
-        <span className={clsx("truncate text-sm", isMonet ? "text-slate-700" : "text-slate-300")}>{name}</span>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className={clsx("text-sm", isMonet ? "text-slate-700" : "text-slate-300")}>{name}</span>
         {icon && (
           <ItemIcon
             icon={icon}

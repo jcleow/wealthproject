@@ -1,0 +1,10 @@
+{
+  "enabledPlugins": {
+    "ralph-wiggum@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(/Users/jitcorn/.claude/plugins/cache/claude-plugins-official/ralph-wiggum/*)"
+    ]
+  }
+}

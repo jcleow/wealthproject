@@ -14,6 +14,7 @@ export async function getUserSettings(): Promise<UserSettings> {
     groupItemsByCategory: data.groupItemsByCategory ?? true,
     chartPictureInPicture: data.chartPictureInPicture ?? false,
     dashboardLayout: data.dashboardLayout ?? 'stacked',
+    onboardingCompleted: data.onboardingCompleted ?? false,
     updatedAt: data.updatedAt,
   }
 }
@@ -29,6 +30,7 @@ export async function updateUserSettings(settings: UserSettings): Promise<UserSe
     groupItemsByCategory: settings.groupItemsByCategory,
     chartPictureInPicture: settings.chartPictureInPicture,
     dashboardLayout: settings.dashboardLayout,
+    onboardingCompleted: settings.onboardingCompleted,
   })
   return {
     id: data.id,
@@ -41,6 +43,7 @@ export async function updateUserSettings(settings: UserSettings): Promise<UserSe
     groupItemsByCategory: data.groupItemsByCategory ?? true,
     chartPictureInPicture: data.chartPictureInPicture ?? false,
     dashboardLayout: data.dashboardLayout ?? 'stacked',
+    onboardingCompleted: data.onboardingCompleted ?? false,
     updatedAt: data.updatedAt,
   }
 }

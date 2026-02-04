@@ -2,9 +2,10 @@ import { useCallback, useMemo, useState, useRef, useEffect } from 'react'
 import * as Slider from '@radix-ui/react-slider'
 import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronDown, Receipt, Users } from 'lucide-react'
+import clsx from 'clsx'
 
 import type { TimeResolution, TimelineYear, TimelineMonth } from '@/types/timeline'
-import { useTaxModeStore } from '@/stores'
+import { useTaxModeStore, useColorScheme } from '@/stores'
 import { usePersonFilterOptional } from '@/contexts/PersonFilterContext'
 import { settingsApi } from '@/api/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
@@ -61,6 +62,8 @@ export function Header({
   onViewModeChange,
   compact = false,
 }: HeaderProps) {
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
   const [yearDisplayMode, setYearDisplayMode] = useState<'calendar' | 'relative'>('calendar')
 
   const { data: userSettings } = useQuery({
@@ -186,14 +189,25 @@ export function Header({
       <div className="flex flex-col gap-3">
         {/* Row 1: Title */}
         <div className="flex items-baseline gap-2">
-          <h3 className={compact ? 'text-base font-semibold text-white' : 'text-lg font-semibold text-white'}>Financial Data</h3>
-          <p className={compact ? 'text-xs text-gray-400' : 'text-sm text-gray-400'}>{`${absoluteYear} (Age ${displayAge})`}</p>
+          <h3 className={clsx(
+            compact ? 'text-base font-semibold' : 'text-lg font-semibold',
+            isMonet ? 'text-slate-800' : 'text-white'
+          )}>Financial Data</h3>
+          <p className={clsx(
+            compact ? 'text-xs' : 'text-sm',
+            isMonet ? 'text-slate-500' : 'text-gray-400'
+          )}>{`${absoluteYear} (Age ${displayAge})`}</p>
         </div>
 
         {/* Row 2: Timeline controls on left, Action buttons on right */}
         <div className={compact ? 'flex flex-col gap-3' : 'flex items-center justify-between'}>
           {/* Timeline navigation controls */}
-          <div className="relative z-[50] flex flex-col rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
+          <div className={clsx(
+            "relative z-[50] flex flex-col rounded-xl border backdrop-blur-sm",
+            isMonet
+              ? "border-slate-200 bg-white shadow-sm"
+              : "border-white/[0.08] bg-white/[0.02]"
+          )}>
             <div className="flex items-center gap-1 p-1">
               {resolution === 'monthly' && (
                 <>
@@ -207,8 +221,9 @@ export function Header({
                       { value: 'annualized', label: 'Yearly' },
                       { value: 'monthly', label: 'Monthly' },
                     ]}
+                    isMonet={isMonet}
                   />
-                  <div className="w-px h-6 bg-white/[0.08]" />
+                  <div className={clsx("w-px h-6", isMonet ? "bg-slate-200" : "bg-white/[0.08]")} />
                 </>
               )}
 
@@ -227,11 +242,12 @@ export function Header({
                 className="w-16"
                 onLabelClick={() => setYearDisplayMode(m => m === 'calendar' ? 'relative' : 'calendar')}
                 labelTitle="Click to toggle year format"
+                isMonet={isMonet}
               />
 
               {resolution === 'monthly' && (
                 <>
-                  <div className="w-px h-6 bg-white/[0.08]" />
+                  <div className={clsx("w-px h-6", isMonet ? "bg-slate-200" : "bg-white/[0.08]")} />
                   <MonthSelector
                     selectedCalendarMonth={displayCalendarMonth}
                     absoluteYear={absoluteYear}
@@ -239,13 +255,17 @@ export function Header({
                     anchorCalendarMonth={anchorCalendarMonth}
                     onSelectMonth={onSelectMonth}
                     isDisabled={isTimelineLoading || viewMode === 'annualized'}
+                    isMonet={isMonet}
                   />
                 </>
               )}
             </div>
 
             {shouldShowSlider && (
-              <div className="border-t border-white/[0.08] px-3 py-2">
+              <div className={clsx(
+                "border-t px-3 py-2",
+                isMonet ? "border-slate-200/60" : "border-white/[0.08]"
+              )}>
                 <Slider.Root
                   className="relative flex items-center h-5 w-full select-none px-[7px]"
                   min={0}
@@ -256,50 +276,65 @@ export function Header({
                   disabled={isSliderDisabled}
                   aria-label={viewMode === 'annualized' ? 'Timeline year slider' : 'Timeline month slider'}
                 >
-                  <Slider.Track className="relative h-1 w-full rounded-full bg-slate-700/60">
-                    <Slider.Range className="absolute h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-400" />
+                  <Slider.Track className={clsx(
+                    "relative h-1 w-full rounded-full",
+                    isMonet ? "bg-slate-200" : "bg-slate-700/60"
+                  )}>
+                    <Slider.Range className="absolute h-full rounded-full bg-blue-500" />
                   </Slider.Track>
-                  <Slider.Thumb className="block h-3.5 w-3.5 rounded-full bg-white border-2 border-blue-400 shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500/30 hover:scale-110 disabled:opacity-50 transition-transform cursor-grab active:cursor-grabbing" />
+                  <Slider.Thumb className={clsx(
+                    "block h-3.5 w-3.5 rounded-full shadow-md",
+                    "focus:outline-none focus:ring-2 focus:ring-blue-500/30",
+                    "hover:scale-110 disabled:opacity-50 transition-transform cursor-grab active:cursor-grabbing",
+                    isMonet
+                      ? "bg-blue-500 border-2 border-white"
+                      : "bg-white border-2 border-blue-400"
+                  )} />
                 </Slider.Root>
               </div>
             )}
           </div>
 
-          {/* Action buttons */}
-          <div className={`flex items-center justify-center gap-1 rounded-xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm px-2 py-1.5 ${compact ? 'w-full' : 'self-center'}`}>
-            {/* Tax Estimate Icon */}
+          {/* Action buttons - Cashflow & Family pills like Stitch */}
+          <div className={clsx(
+            "flex items-center gap-2",
+            compact ? 'w-full justify-center' : 'self-center'
+          )}>
+            {/* Cashflow Button */}
             <button
               type="button"
               onClick={enableTaxMode}
-              title="Tax Estimate"
-              className="
-                flex items-center justify-center
-                p-1.5 rounded-md
-                text-slate-400 hover:text-amber-400 hover:bg-amber-500/10
-                transition-all duration-200
-              "
+              title="Cashflow"
+              className={clsx(
+                "flex items-center gap-2 px-4 py-2 rounded-xl",
+                "text-sm font-medium transition-all duration-200",
+                isMonet
+                  ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
+                  : "bg-white/[0.02] border border-white/[0.08] text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]"
+              )}
             >
-              <Receipt className="h-4 w-4" />
+              <Receipt className={clsx("h-4 w-4", isMonet ? "text-blue-500" : "text-blue-400")} />
+              Tax Estimate
             </button>
 
-            {/* Persons Filter Icon */}
+            {/* Family Button */}
             <button
               type="button"
               onClick={() => openPersonsModal?.()}
-              title="Manage Persons"
-              className={`
-                relative flex items-center justify-center
-                p-1.5 rounded-md
-                transition-all duration-200
-                ${hasExcludedPersons
-                  ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/10'
-                  : 'text-slate-400 hover:text-slate-300 hover:bg-white/[0.06]'
-                }
-              `}
+              title="Family"
+              className={clsx(
+                "relative flex items-center gap-2 px-4 py-2 rounded-xl",
+                "text-sm font-medium transition-all duration-200",
+                isMonet
+                  ? "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 shadow-sm"
+                  : "bg-white/[0.02] border border-white/[0.08] text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]",
+                hasExcludedPersons && "ring-2 ring-blue-500/30"
+              )}
             >
-              <Users className="h-4 w-4" />
+              <Users className={clsx("h-4 w-4", isMonet ? "text-blue-500" : "text-blue-400")} />
+              Persons
               {hasExcludedPersons && (
-                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-blue-500" />
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-blue-500" />
               )}
             </button>
           </div>
@@ -319,9 +354,10 @@ interface SelectFieldProps {
   className?: string
   onLabelClick?: () => void
   labelTitle?: string
+  isMonet?: boolean
 }
 
-function SelectField({ label, id, value, disabled, onChange, options, className, onLabelClick, labelTitle }: SelectFieldProps) {
+function SelectField({ label, id, value, disabled, onChange, options, className, onLabelClick, labelTitle, isMonet }: SelectFieldProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -338,9 +374,16 @@ function SelectField({ label, id, value, disabled, onChange, options, className,
   const selectedOption = options.find(opt => opt.value === value)
 
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors" ref={containerRef}>
+    <div className={clsx(
+      "flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors",
+      isMonet ? "hover:bg-slate-100" : "hover:bg-white/[0.04]"
+    )} ref={containerRef}>
       <label
-        className={`text-[10px] font-medium uppercase tracking-wider text-slate-500 ${onLabelClick ? 'cursor-pointer hover:text-slate-300 transition-colors' : ''}`}
+        className={clsx(
+          "text-[10px] font-medium uppercase tracking-wider",
+          isMonet ? "text-slate-500" : "text-slate-500",
+          onLabelClick && (isMonet ? "cursor-pointer hover:text-slate-700 transition-colors" : "cursor-pointer hover:text-slate-300 transition-colors")
+        )}
         htmlFor={onLabelClick ? undefined : id}
         onClick={onLabelClick}
         title={labelTitle}
@@ -353,31 +396,33 @@ function SelectField({ label, id, value, disabled, onChange, options, className,
           id={id}
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
-          className={`
-            flex items-center justify-between gap-2 w-full
-            appearance-none cursor-pointer
-            bg-transparent
-            text-sm font-medium text-white
-            focus:outline-none
-            disabled:opacity-50 disabled:cursor-not-allowed
-            ${isOpen ? 'text-blue-400' : ''}
-          `}
+          className={clsx(
+            "flex items-center justify-between gap-2 w-full",
+            "appearance-none cursor-pointer bg-transparent",
+            "text-sm font-medium focus:outline-none",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+            isMonet
+              ? (isOpen ? "text-blue-600" : "text-slate-700")
+              : (isOpen ? "text-blue-400" : "text-white")
+          )}
         >
           <span>{selectedOption?.label ?? ''}</span>
-          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={clsx(
+            "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+            isMonet ? "text-slate-400" : "text-slate-400",
+            isOpen && "rotate-180"
+          )} />
         </button>
 
         {isOpen && (
-          <div className="
-            absolute left-0 top-full z-[100] mt-1
-            min-w-[100px]
-            rounded-lg
-            border border-white/[0.12]
-            bg-[#0c0c0c]
-            shadow-xl shadow-black/50
-            overflow-hidden
-            animate-in fade-in slide-in-from-top-2 duration-150
-          ">
+          <div className={clsx(
+            "absolute left-0 top-full z-[100] mt-1",
+            "min-w-[100px] rounded-lg border overflow-visible",
+            "shadow-xl animate-in fade-in slide-in-from-top-2 duration-150",
+            isMonet
+              ? "border-slate-200 bg-white shadow-slate-200/50"
+              : "border-white/[0.12] bg-[#0c0c0c] shadow-black/50"
+          )}>
             <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
               {options.map((opt) => {
                 const isSelected = opt.value === value
@@ -389,19 +434,15 @@ function SelectField({ label, id, value, disabled, onChange, options, className,
                       onChange(opt.value)
                       setIsOpen(false)
                     }}
-                    className={`
-                      w-full flex items-center gap-2
-                      px-3 py-1.5
-                      text-sm text-left
-                      transition-all duration-150
-                      ${isSelected
-                        ? 'bg-blue-500/15 text-white'
-                        : 'text-slate-300 hover:bg-white/[0.05]'
-                      }
-                    `}
+                    className={clsx(
+                      "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-all duration-150",
+                      isMonet
+                        ? (isSelected ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50")
+                        : (isSelected ? "bg-blue-500/15 text-white" : "text-slate-300 hover:bg-white/[0.05]")
+                    )}
                   >
                     <span className="w-3 shrink-0">
-                      {isSelected && <Check className="h-3 w-3 text-blue-400" />}
+                      {isSelected && <Check className={clsx("h-3 w-3", isMonet ? "text-blue-600" : "text-blue-400")} />}
                     </span>
                     <span>{opt.label}</span>
                   </button>
@@ -426,6 +467,7 @@ interface MonthSelectorProps {
   anchorCalendarMonth?: number | null
   onSelectMonth?: (month: number | null) => void
   isDisabled: boolean
+  isMonet?: boolean
 }
 
 function MonthSelector({
@@ -435,6 +477,7 @@ function MonthSelector({
   anchorCalendarMonth,
   onSelectMonth,
   isDisabled,
+  isMonet,
 }: MonthSelectorProps) {
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -459,41 +502,49 @@ function MonthSelector({
     : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
   return (
-    <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors" ref={containerRef}>
-      <label className="text-[10px] font-medium uppercase tracking-wider text-slate-500" htmlFor="month-selector">
+    <div className={clsx(
+      "flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors",
+      isMonet ? "hover:bg-slate-100" : "hover:bg-white/[0.04]"
+    )} ref={containerRef}>
+      <label className={clsx(
+        "text-[10px] font-medium uppercase tracking-wider",
+        isMonet ? "text-slate-500" : "text-slate-500"
+      )} htmlFor="month-selector">
         Month
       </label>
-      <div className="relative w-[100px]">
+      <div className="relative">
         <button
           type="button"
           id="month-selector"
           onClick={() => !isDisabled && setIsOpen(!isOpen)}
           disabled={isDisabled}
-          className={`
-            flex items-center justify-between gap-1 w-full
-            appearance-none cursor-pointer
-            bg-transparent
-            text-sm font-medium text-white
-            focus:outline-none
-            disabled:opacity-50 disabled:cursor-not-allowed
-            ${isOpen ? 'text-blue-400' : ''}
-          `}
+          className={clsx(
+            "flex items-center gap-1",
+            "appearance-none cursor-pointer bg-transparent",
+            "text-sm font-medium focus:outline-none",
+            "disabled:opacity-50 disabled:cursor-not-allowed",
+            isMonet
+              ? (isOpen ? "text-blue-600" : "text-slate-700")
+              : (isOpen ? "text-blue-400" : "text-white")
+          )}
         >
-          <span>{MONTH_NAMES[safeCalendarMonth - 1]}</span>
-          <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          <span className="whitespace-nowrap">{MONTH_NAMES[safeCalendarMonth - 1]}</span>
+          <ChevronDown className={clsx(
+            "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+            isMonet ? "text-slate-400" : "text-slate-400",
+            isOpen && "rotate-180"
+          )} />
         </button>
 
         {isOpen && (
-          <div className="
-            absolute left-0 top-full z-[100] mt-1
-            min-w-[120px]
-            rounded-lg
-            border border-white/[0.12]
-            bg-[#0c0c0c]
-            shadow-xl shadow-black/50
-            overflow-hidden
-            animate-in fade-in slide-in-from-top-2 duration-150
-          ">
+          <div className={clsx(
+            "absolute left-0 top-full z-[100] mt-1",
+            "min-w-[120px] rounded-lg border overflow-visible",
+            "shadow-xl animate-in fade-in slide-in-from-top-2 duration-150",
+            isMonet
+              ? "border-slate-200 bg-white shadow-slate-200/50"
+              : "border-white/[0.12] bg-[#0c0c0c] shadow-black/50"
+          )}>
             <div className="max-h-48 overflow-y-auto py-1 custom-scrollbar">
               {monthOptions.map((calendarMonth) => {
                 const isSelected = calendarMonth === safeCalendarMonth
@@ -508,21 +559,17 @@ function MonthSelector({
                       onSelectMonth?.(clampedCalendarMonth)
                       setIsOpen(false)
                     }}
-                    className={`
-                      w-full flex items-center gap-2
-                      px-3 py-1.5
-                      text-sm text-left
-                      transition-all duration-150
-                      ${isMonthDisabled
-                        ? 'opacity-50 cursor-not-allowed text-slate-500'
-                        : isSelected
-                          ? 'bg-blue-500/15 text-white'
-                          : 'text-slate-300 hover:bg-white/[0.05]'
-                      }
-                    `}
+                    className={clsx(
+                      "w-full flex items-center gap-2 px-3 py-1.5 text-sm text-left transition-all duration-150",
+                      isMonthDisabled
+                        ? "opacity-50 cursor-not-allowed text-slate-500"
+                        : isMonet
+                          ? (isSelected ? "bg-blue-50 text-blue-700" : "text-slate-700 hover:bg-slate-50")
+                          : (isSelected ? "bg-blue-500/15 text-white" : "text-slate-300 hover:bg-white/[0.05]")
+                    )}
                   >
                     <span className="w-3 shrink-0">
-                      {isSelected && <Check className="h-3 w-3 text-blue-400" />}
+                      {isSelected && <Check className={clsx("h-3 w-3", isMonet ? "text-blue-600" : "text-blue-400")} />}
                     </span>
                     <span>{MONTH_NAMES[calendarMonth - 1]}</span>
                   </button>

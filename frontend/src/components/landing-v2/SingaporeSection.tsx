@@ -201,7 +201,7 @@ export function SingaporeSection() {
           transition={{ duration: 0.8, delay: 0.2 }}
           className="mb-16"
         >
-          <SpotlightCard className="p-4 md:p-8 overflow-x-auto">
+          <SpotlightCard className="p-4 md:p-8 overflow-hidden">
             <div
               ref={containerRef}
               className="relative min-w-[700px] h-[380px] md:h-[420px]"

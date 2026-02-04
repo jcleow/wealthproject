@@ -15,9 +15,10 @@ import {
 import * as Tooltip from '@radix-ui/react-tooltip'
 import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
-import { useTaxModeStore } from '@/stores'
+import { useTaxModeStore, useColorScheme } from '@/stores'
 import { useTaxReliefStorage } from '@/hooks/useTaxReliefStorage'
 import { useIncomesQuery } from '@/hooks/queries/useIncomesQuery'
+import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { numericStyles } from '@/lib/utils'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import {
@@ -90,11 +91,17 @@ interface SegmentedControlProps<T extends string> {
   value: T
   onChange: (value: T) => void
   options: { value: T; label: string; icon?: React.ReactNode }[]
+  isMonet?: boolean
 }
 
-function SegmentedControl<T extends string>({ value, onChange, options }: SegmentedControlProps<T>) {
+function SegmentedControl<T extends string>({ value, onChange, options, isMonet = false }: SegmentedControlProps<T>) {
   return (
-    <div className="inline-flex rounded-lg bg-white/[0.03] p-0.5 border border-white/[0.08]">
+    <div className={clsx(
+      'inline-flex rounded-lg p-0.5 border',
+      isMonet
+        ? 'bg-[var(--monet-lavender)]/5 border-[var(--monet-lavender)]/15'
+        : 'bg-white/[0.03] border-white/[0.08]'
+    )}>
       {options.map((option) => {
         const isActive = option.value === value
         return (
@@ -105,8 +112,8 @@ function SegmentedControl<T extends string>({ value, onChange, options }: Segmen
             className={clsx(
               'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-150',
               isActive
-                ? 'bg-white/[0.1] text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-300'
+                ? (isMonet ? 'bg-white text-[var(--monet-text-primary)] shadow-sm' : 'bg-white/[0.1] text-white shadow-sm')
+                : (isMonet ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-secondary)]' : 'text-slate-500 hover:text-slate-300')
             )}
           >
             {option.icon}
@@ -121,16 +128,20 @@ function SegmentedControl<T extends string>({ value, onChange, options }: Segmen
 interface IncomeRowProps {
   income: Income
   annualAmount: number
+  isMonet?: boolean
 }
 
-function IncomeRow({ income, annualAmount }: IncomeRowProps) {
+function IncomeRow({ income, annualAmount, isMonet = false }: IncomeRowProps) {
   const taxType = mapCategoryToTaxType(income.category)
 
   return (
-    <div className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
+    <div className={clsx(
+      'flex items-center justify-between py-2 border-b last:border-0',
+      isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.04]'
+    )}>
       <div className="flex flex-col min-w-0 mr-4">
-        <span className="text-sm text-slate-300 truncate">{income.name}</span>
-        <span className="text-xs text-slate-500 capitalize">{taxType}</span>
+        <span className={clsx('text-sm truncate', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-300')}>{income.name}</span>
+        <span className={clsx('text-xs capitalize', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>{taxType}</span>
       </div>
       <span className={numericStyles.medium}>
         {formatCurrency(annualAmount)}
@@ -142,9 +153,10 @@ function IncomeRow({ income, annualAmount }: IncomeRowProps) {
 interface ReliefRowProps {
   relief: TaxRelief
   onUpdate: (amount: number) => void
+  isMonet?: boolean
 }
 
-function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
+function ReliefRow({ relief, onUpdate, isMonet = false }: ReliefRowProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [inputValue, setInputValue] = useState(relief.claimedAmount.toString())
   const isUsed = relief.claimedAmount > 0
@@ -159,13 +171,26 @@ function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
   }
 
   return (
-    <div className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
+    <div className={clsx(
+      'flex items-center justify-between py-2 border-b last:border-0',
+      isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.04]'
+    )}>
       <div className="flex items-center gap-2 min-w-0 mr-4">
-        <span className={clsx('text-sm truncate', isUsed ? 'text-slate-300' : 'text-slate-500')}>
+        <span className={clsx(
+          'text-sm truncate',
+          isUsed
+            ? (isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-300')
+            : (isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')
+        )}>
           {relief.name}
         </span>
         {relief.autoCalculated && (
-          <span className="shrink-0 text-xs px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <span className={clsx(
+            'shrink-0 text-xs px-1.5 py-0.5 rounded border',
+            isMonet
+              ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+              : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+          )}>
             Auto
           </span>
         )}
@@ -173,7 +198,10 @@ function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
           <Tooltip.Provider delayDuration={200}>
             <Tooltip.Root>
               <Tooltip.Trigger asChild>
-                <button type="button" className="shrink-0 text-slate-500 hover:text-slate-300 transition-colors">
+                <button type="button" className={clsx(
+                  'shrink-0 transition-colors',
+                  isMonet ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-secondary)]' : 'text-slate-500 hover:text-slate-300'
+                )}>
                   <Info className="h-3.5 w-3.5" />
                 </button>
               </Tooltip.Trigger>
@@ -182,19 +210,27 @@ function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
                   side="top"
                   align="start"
                   sideOffset={4}
-                  className="z-[60] max-w-xs px-3 py-2 text-xs leading-relaxed text-slate-200 bg-[#1a1a1a] border border-white/[0.1] rounded-lg shadow-xl"
+                  className={clsx(
+                    'z-[60] max-w-xs px-3 py-2 text-xs leading-relaxed rounded-lg shadow-xl',
+                    isMonet
+                      ? 'text-[var(--monet-text-secondary)] bg-white border border-[var(--monet-lavender)]/20'
+                      : 'text-slate-200 bg-[#1a1a1a] border border-white/[0.1]'
+                  )}
                 >
                   <p className="mb-2">{reliefInfo.description}</p>
                   <a
                     href={reliefInfo.irasUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors"
+                    className={clsx(
+                      'inline-flex items-center gap-1 transition-colors',
+                      isMonet ? 'text-blue-600 hover:text-blue-700' : 'text-blue-400 hover:text-blue-300'
+                    )}
                   >
                     Learn more on IRAS
                     <ExternalLink className="h-3 w-3" />
                   </a>
-                  <Tooltip.Arrow className="fill-[#1a1a1a]" />
+                  <Tooltip.Arrow className={isMonet ? 'fill-white' : 'fill-[#1a1a1a]'} />
                 </Tooltip.Content>
               </Tooltip.Portal>
             </Tooltip.Root>
@@ -210,21 +246,27 @@ function ReliefRow({ relief, onUpdate }: ReliefRowProps) {
             onBlur={handleBlur}
             onKeyDown={(e) => e.key === 'Enter' && handleBlur()}
             autoFocus
-            className="w-24 px-2 py-1 text-right text-sm rounded-lg bg-white/[0.03] border border-white/[0.06] text-white font-mono tabular-nums focus:outline-none focus:border-white/20 transition-colors"
+            className={clsx(
+              'w-24 px-2 py-1 text-right text-sm rounded-lg font-mono tabular-nums focus:outline-none transition-colors',
+              isMonet
+                ? 'bg-white border border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] focus:border-[var(--monet-lavender)]/40'
+                : 'bg-white/[0.03] border border-white/[0.06] text-white focus:border-white/20'
+            )}
           />
         ) : (
           <button
             onClick={() => setIsEditing(true)}
             className={clsx(
               numericStyles.medium,
-              'transition-colors hover:text-amber-400',
-              !isUsed && 'text-slate-500'
+              'transition-colors',
+              isMonet ? 'hover:text-amber-600' : 'hover:text-amber-400',
+              !isUsed && (isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')
             )}
           >
             {formatCurrency(relief.claimedAmount)}
           </button>
         )}
-        <span className="text-xs text-slate-500 font-mono tabular-nums">
+        <span className={clsx('text-xs font-mono tabular-nums', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
           / {formatCurrency(relief.maxAmount)}
         </span>
       </div>
@@ -242,10 +284,18 @@ interface TaxModeModalProps {
 }
 
 export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
   const residencyStatus = useTaxModeStore((s) => s.residencyStatus)
 
   const { loadReliefs, saveReliefs } = useTaxReliefStorage()
   const { data: incomes = [], isLoading: incomesLoading } = useIncomesQuery()
+  const { data: persons = [] } = usePersonsQuery()
+
+  const getPersonLabel = (personId: PersonId) => {
+    const index = personId === 'person1' ? 0 : 1
+    return persons[index]?.name || `Person ${index + 1}`
+  }
 
   const currentYear = new Date().getFullYear()
   const assessmentYear = currentYear + 1
@@ -355,26 +405,45 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      overlayClassName="bg-black/60 backdrop-blur-sm"
+      overlayClassName={isMonet ? 'bg-black/30 backdrop-blur-sm' : 'bg-black/60 backdrop-blur-sm'}
       className="w-full max-w-4xl max-h-[85vh] mx-4"
     >
-      <div className="flex flex-col rounded-2xl border border-white/[0.08] bg-[#0a0a0a] overflow-hidden max-h-[85vh]">
+      <div className={clsx(
+        'flex flex-col rounded-2xl border overflow-hidden max-h-[85vh]',
+        isMonet
+          ? 'border-[var(--monet-lavender)]/20 bg-white/95 backdrop-blur-xl'
+          : 'border-white/[0.08] bg-[#0a0a0a]'
+      )}>
         {/* Header */}
-        <div className="px-5 py-4 border-b border-white/[0.06] flex items-center justify-between shrink-0">
+        <div className={clsx(
+          'px-5 py-4 border-b flex items-center justify-between shrink-0',
+          isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]'
+        )}>
           <div className="flex items-center gap-3">
-            <span className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+            <span className={clsx(
+              'p-2 rounded-xl border',
+              isMonet
+                ? 'bg-amber-500/10 border-amber-500/20 text-amber-600'
+                : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+            )}>
               <Receipt className="h-5 w-5" />
             </span>
             <div>
-              <h2 className="text-lg font-semibold text-white">Tax Estimate</h2>
+              <h2 className={clsx(
+                'text-lg font-semibold',
+                isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white'
+              )}>Tax Estimate</h2>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-sm text-slate-500">YA {assessmentYear}</span>
+                <span className={clsx('text-sm', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>YA {assessmentYear}</span>
                 <Tooltip.Provider delayDuration={200}>
                   <Tooltip.Root>
                     <Tooltip.Trigger asChild>
                       <button
                         type="button"
-                        className="text-slate-500 hover:text-slate-300 transition-colors"
+                        className={clsx(
+                          'transition-colors',
+                          isMonet ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-secondary)]' : 'text-slate-500 hover:text-slate-300'
+                        )}
                       >
                         <Info className="h-3.5 w-3.5" />
                       </button>
@@ -422,7 +491,12 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/[0.05] transition-colors"
+            className={clsx(
+              'p-2 rounded-lg transition-colors',
+              isMonet
+                ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)] hover:bg-[var(--monet-lavender)]/10'
+                : 'text-slate-400 hover:text-white hover:bg-white/[0.05]'
+            )}
           >
             <X className="h-5 w-5" />
           </button>
@@ -431,44 +505,47 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
         {/* Content - Two Column Layout */}
         <div className="flex-1 flex overflow-hidden">
           {/* LEFT COLUMN - Inputs */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-6 border-r border-white/[0.06]">
+          <div className={clsx(
+            'flex-1 overflow-y-auto p-5 space-y-6 border-r',
+            isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]'
+          )}>
             {/* Income Section */}
             <section>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-emerald-400" />
-                  <span className="text-sm font-medium text-white">Income (Annual)</span>
+                  <Wallet className={clsx('h-4 w-4', isMonet ? 'text-emerald-600' : 'text-emerald-400')} />
+                  <span className={clsx('text-sm font-medium', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>Income (Annual)</span>
                 </div>
                 <CustomDropdown
                   value={selectedPerson}
                   onChange={(v) => setSelectedPerson(v as PersonId)}
                   options={[
-                    { value: 'person1', label: 'Person 1' },
-                    { value: 'person2', label: 'Person 2' },
+                    { value: 'person1', label: getPersonLabel('person1') },
+                    { value: 'person2', label: getPersonLabel('person2') },
                   ]}
                   minWidth="100px"
                 />
               </div>
 
               {incomesLoading ? (
-                <div className="py-4 text-center text-sm text-slate-500">Loading incomes...</div>
+                <div className={clsx('py-4 text-center text-sm', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Loading incomes...</div>
               ) : selectedPersonIncomes.length === 0 ? (
-                <div className="py-4 text-center text-sm text-slate-500">
-                  No income assigned to {selectedPerson === 'person1' ? 'Person 1' : 'Person 2'}
+                <div className={clsx('py-4 text-center text-sm', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+                  No income assigned to {getPersonLabel(selectedPerson)}
                 </div>
               ) : (
                 selectedPersonIncomes.map(({ income, annual }) => (
-                  <IncomeRow key={income.id} income={income} annualAmount={annual} />
+                  <IncomeRow key={income.id} income={income} annualAmount={annual} isMonet={isMonet} />
                 ))
               )}
 
-              <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-1.5">
+              <div className={clsx('mt-3 pt-3 border-t space-y-1.5', isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]')}>
                 <div className="flex justify-between">
-                  <span className="text-sm text-slate-400">Gross Income</span>
+                  <span className={clsx('text-sm', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400')}>Gross Income</span>
                   <span className={numericStyles.medium}>{formatCurrency(currentGrossIncome)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-slate-500">CPF Deduction</span>
+                  <span className={clsx('text-sm', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>CPF Deduction</span>
                   <span className={numericStyles.muted}>({formatCurrency(cpfDeduction)})</span>
                 </div>
               </div>
@@ -478,16 +555,16 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
             <section>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm font-medium text-white">Deductions & Reliefs</span>
+                  <CheckCircle2 className={clsx('h-4 w-4', isMonet ? 'text-blue-600' : 'text-blue-400')} />
+                  <span className={clsx('text-sm font-medium', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>Deductions & Reliefs</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-mono tabular-nums">
+                  <span className={clsx('text-xs font-mono tabular-nums', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
                     {formatCurrency(totalReliefs)} / {formatCurrency(PERSONAL_RELIEF_CAP)}
                   </span>
                   <button
                     onClick={handleResetReliefs}
-                    className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+                    className={clsx('p-1 transition-colors', isMonet ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-secondary)]' : 'text-slate-500 hover:text-slate-300')}
                     title="Reset reliefs"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
@@ -497,12 +574,13 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
 
               {usedReliefs.length > 0 && (
                 <div className="mb-4">
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Used</div>
+                  <div className={clsx('text-xs font-semibold uppercase tracking-wider mb-2', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400')}>Used</div>
                   {usedReliefs.map((relief) => (
                     <ReliefRow
                       key={relief.id}
                       relief={relief}
                       onUpdate={(amount) => handleUpdateRelief(relief.id, amount)}
+                      isMonet={isMonet}
                     />
                   ))}
                 </div>
@@ -510,12 +588,13 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
 
               {availableReliefs.length > 0 && (
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Available</div>
+                  <div className={clsx('text-xs font-semibold uppercase tracking-wider mb-2', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400')}>Available</div>
                   {availableReliefs.map((relief) => (
                     <ReliefRow
                       key={relief.id}
                       relief={relief}
                       onUpdate={(amount) => handleUpdateRelief(relief.id, amount)}
+                      isMonet={isMonet}
                     />
                   ))}
                 </div>
@@ -523,7 +602,7 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
 
               {totalReliefs >= PERSONAL_RELIEF_CAP && (
                 <div className="mt-3 p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                  <p className="text-xs text-amber-400">
+                  <p className={clsx('text-xs', isMonet ? 'text-amber-600' : 'text-amber-400')}>
                     Relief cap of {formatCurrency(PERSONAL_RELIEF_CAP)} reached
                   </p>
                 </div>
@@ -532,35 +611,38 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
           </div>
 
           {/* RIGHT COLUMN - Results */}
-          <div className="w-72 shrink-0 p-5 space-y-6 overflow-y-auto bg-white/[0.01]">
+          <div className={clsx(
+            'w-72 shrink-0 p-5 space-y-6 overflow-y-auto',
+            isMonet ? 'bg-[var(--monet-lavender)]/5' : 'bg-white/[0.01]'
+          )}>
             {/* Chargeable Income */}
             <section>
               <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className="h-4 w-4 text-blue-400" />
-                <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">Chargeable Income</span>
+                <TrendingUp className={clsx('h-4 w-4', isMonet ? 'text-blue-600' : 'text-blue-400')} />
+                <span className={clsx('text-xs font-medium uppercase tracking-wide', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400')}>Chargeable Income</span>
               </div>
 
               <div className="space-y-1.5 text-sm mb-3">
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Gross Income</span>
+                  <span className={clsx(isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Gross Income</span>
                   <span className={numericStyles.base}>{formatCurrency(currentGrossIncome)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">CPF Deduction</span>
+                  <span className={clsx(isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>CPF Deduction</span>
                   <span className={numericStyles.muted}>({formatCurrency(cpfDeduction)})</span>
                 </div>
-                <div className="flex justify-between pb-1.5 border-b border-white/[0.04]">
-                  <span className="text-slate-400">Assessable Income</span>
+                <div className={clsx('flex justify-between pb-1.5 border-b', isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.04]')}>
+                  <span className={clsx(isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400')}>Assessable Income</span>
                   <span className={numericStyles.base}>{formatCurrency(currentGrossIncome - cpfDeduction)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Reliefs</span>
+                  <span className={clsx(isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Reliefs</span>
                   <span className={numericStyles.muted}>({formatCurrency(totalReliefs)})</span>
                 </div>
               </div>
 
-              <div className="flex justify-between pt-2 border-t border-white/[0.06]">
-                <span className="text-sm text-slate-300 font-medium">Chargeable Income</span>
+              <div className={clsx('flex justify-between pt-2 border-t', isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]')}>
+                <span className={clsx('text-sm font-medium', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-300')}>Chargeable Income</span>
                 <span className={numericStyles.medium}>{formatCurrency(taxResult.chargeableIncome)}</span>
               </div>
             </section>
@@ -568,19 +650,19 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
             {/* Tax */}
             <section className="space-y-1.5 text-sm">
               <div className="flex justify-between">
-                <span className="text-sm text-slate-300 font-medium">Tax Payable</span>
-                <span className="text-sm font-medium text-rose-400 font-mono tabular-nums">
+                <span className={clsx('text-sm font-medium', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-300')}>Tax Payable</span>
+                <span className={clsx('text-sm font-medium font-mono tabular-nums', isMonet ? 'text-rose-600' : 'text-rose-400')}>
                   ({formatCurrency(taxResult.taxPayable)})
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-xs text-slate-500">
+                <span className={clsx('text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
                   {formatPercent(taxResult.effectiveRate)} effective | {formatPercent(taxResult.marginalRate)} marginal
                 </span>
                 <button
                   type="button"
                   onClick={() => setTaxView(taxView === 'summary' ? 'by-bracket' : 'summary')}
-                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+                  className={clsx('text-xs transition-colors', isMonet ? 'text-[var(--monet-text-muted)] hover:text-[var(--monet-text-secondary)]' : 'text-slate-500 hover:text-slate-300')}
                 >
                   {taxView === 'summary' ? 'Show details' : 'Hide details'}
                 </button>
@@ -594,16 +676,16 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="pt-2 mt-2 border-t border-white/[0.04] space-y-1">
+                    <div className={clsx('pt-2 mt-2 border-t space-y-1', isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.04]')}>
                       {taxResult.taxBreakdown.map((bracket, idx) => (
                         <div key={idx} className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-slate-500 w-8 font-mono tabular-nums">
+                            <span className={clsx('text-xs w-8 font-mono tabular-nums', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
                               {formatPercent(bracket.rate)}
                             </span>
-                            <span className="text-xs text-slate-500">{bracket.bracket}</span>
+                            <span className={clsx('text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>{bracket.bracket}</span>
                           </div>
-                          <span className="text-xs text-slate-400 font-mono tabular-nums">
+                          <span className={clsx('text-xs font-mono tabular-nums', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400')}>
                             {formatCurrency(bracket.amount)}
                           </span>
                         </div>
@@ -615,18 +697,18 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
             </section>
 
             {/* Net Income */}
-            <section className="pt-4 border-t border-white/[0.06] space-y-1.5 text-sm">
+            <section className={clsx('pt-4 border-t space-y-1.5 text-sm', isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]')}>
               <div className="flex justify-between">
-                <span className="text-sm text-slate-300 font-medium">Net Income</span>
-                <span className="text-sm font-medium text-emerald-400 font-mono tabular-nums">
+                <span className={clsx('text-sm font-medium', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-300')}>Net Income</span>
+                <span className={clsx('text-sm font-medium font-mono tabular-nums', isMonet ? 'text-emerald-600' : 'text-emerald-400')}>
                   {formatCurrency(taxResult.chargeableIncome - taxResult.taxPayable)}
                 </span>
               </div>
 
               {/* Payment Method */}
-              <div className="mt-3 pt-3 border-t border-white/[0.06]">
+              <div className={clsx('mt-3 pt-3 border-t', isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]')}>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-slate-500">Payment</span>
+                  <span className={clsx('text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Payment</span>
                   <SegmentedControl
                     value={paymentMethod}
                     onChange={setPaymentMethod}
@@ -634,11 +716,12 @@ export function TaxModeModal({ isOpen, onClose }: TaxModeModalProps) {
                       { value: 'lump-sum', label: 'One-Time' },
                       { value: 'giro', label: 'Monthly' },
                     ]}
+                    isMonet={isMonet}
                   />
                 </div>
                 {paymentMethod === 'giro' && taxResult.taxPayable > 0 && (
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500">Monthly (12 instalments)</span>
+                    <span className={clsx(isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Monthly (12 instalments)</span>
                     <span className={numericStyles.base}>
                       ({formatCurrency(Math.ceil(taxResult.taxPayable / 12))})
                     </span>

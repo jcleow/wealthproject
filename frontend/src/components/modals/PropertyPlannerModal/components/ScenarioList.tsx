@@ -36,6 +36,7 @@ interface ScenarioListProps {
   onAddScenario: (scenario: PropertyScenario) => void
   isEmbedded: boolean
   isLoading?: boolean
+  isMonet?: boolean
 }
 
 function getDefaultSaleInputs(loanStartMonth: string, propertyPrice: number) {
@@ -61,6 +62,7 @@ export function ScenarioList({
   onAddScenario,
   isEmbedded,
   isLoading = false,
+  isMonet = false,
 }: ScenarioListProps) {
   const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [newRowName, setNewRowName] = useState('')
@@ -117,7 +119,12 @@ export function ScenarioList({
     >
       {!isEmbedded && (
         <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }} className="mb-12">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-300 transition-colors text-sm font-medium">
+          <Link href="/dashboard" className={cn(
+            "inline-flex items-center gap-2 transition-colors text-sm font-medium",
+            isMonet
+              ? "text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)]"
+              : "text-slate-500 hover:text-slate-300"
+          )}>
             <ArrowLeft className="w-4 h-4" />
             Back to Dashboard
           </Link>
@@ -126,10 +133,16 @@ export function ScenarioList({
 
       {!isEmbedded && (
         <div className="mb-8">
-          <motion.h1 className="text-3xl md:text-4xl font-semibold text-white mb-2 tracking-tight" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <motion.h1 className={cn(
+            "text-3xl md:text-4xl font-semibold mb-2 tracking-tight",
+            isMonet ? "text-[var(--monet-text-primary)]" : "text-white"
+          )} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             Property Scenarios
           </motion.h1>
-          <motion.p className="text-sm text-slate-500" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <motion.p className={cn(
+            "text-sm",
+            isMonet ? "text-[var(--monet-text-muted)]" : "text-slate-500"
+          )} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             Create and compare different property purchase scenarios
           </motion.p>
         </div>
@@ -138,17 +151,20 @@ export function ScenarioList({
       <motion.div className="space-y-2" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
+            <Loader2 className={cn("w-6 h-6 animate-spin", isMonet ? "text-[var(--monet-text-muted)]" : "text-slate-400")} />
           </div>
         ) : scenarios.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-sm text-slate-500 mb-4">No property scenarios yet</p>
-            <p className="text-xs text-slate-600">Create your first scenario to start planning</p>
+            <p className={cn("text-sm mb-4", isMonet ? "text-[var(--monet-text-muted)]" : "text-slate-500")}>No property scenarios yet</p>
+            <p className={cn("text-xs", isMonet ? "text-[var(--monet-text-muted)]/70" : "text-slate-600")}>Create your first scenario to start planning</p>
           </div>
         ) : (
           <>
             <div className="flex items-center gap-4 px-4 pb-1">
-              <span className="text-[10px] uppercase tracking-wider text-slate-600 font-medium w-5 text-center" title="Include in timeline projections">Active</span>
+              <span className={cn(
+                "text-[10px] uppercase tracking-wider font-medium w-5 text-center",
+                isMonet ? "text-[var(--monet-text-muted)]" : "text-slate-600"
+              )} title="Include in timeline projections">Active</span>
             </div>
             {scenarios.map((scenario, index) => {
           const option = propertyOptions.find(o => o.id === scenario.propertyType)
@@ -160,7 +176,13 @@ export function ScenarioList({
               transition={{ delay: 0.05 * index }}
               className={cn(
                 "group flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer",
-                scenario.isIncluded ? "bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.05]" : "bg-white/[0.01] border-white/[0.04] opacity-60 hover:opacity-80"
+                scenario.isIncluded
+                  ? isMonet
+                    ? "bg-[var(--monet-lavender)]/5 border-[var(--monet-lavender)]/15 hover:bg-[var(--monet-lavender)]/10"
+                    : "bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.05]"
+                  : isMonet
+                    ? "bg-[var(--monet-lavender)]/[0.02] border-[var(--monet-lavender)]/10 opacity-60 hover:opacity-80"
+                    : "bg-white/[0.01] border-white/[0.04] opacity-60 hover:opacity-80"
               )}
               onClick={() => onEditScenario(scenario)}
             >
@@ -169,7 +191,11 @@ export function ScenarioList({
                 onClick={(e) => { e.stopPropagation(); onToggleInclude(scenario.id) }}
                 className={cn(
                   "w-5 h-5 rounded border-2 flex items-center justify-center transition-colors shrink-0",
-                  scenario.isIncluded ? "bg-emerald-500 border-emerald-500" : "bg-transparent border-slate-600 hover:border-slate-500"
+                  scenario.isIncluded
+                    ? "bg-emerald-500 border-emerald-500"
+                    : isMonet
+                      ? "bg-transparent border-[var(--monet-lavender)]/40 hover:border-[var(--monet-lavender)]/60"
+                      : "bg-transparent border-slate-600 hover:border-slate-500"
                 )}
               >
                 {scenario.isIncluded && <Check className="w-3 h-3 text-white" />}
@@ -187,19 +213,36 @@ export function ScenarioList({
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-sm font-medium text-white truncate">{scenario.name}</span>
-                  <span className={cn("text-xs px-2 py-0.5 rounded-md", option?.accentColor || 'text-slate-400', "bg-white/[0.04]")}>{option?.title}</span>
+                  <span className={cn(
+                    "text-sm font-medium truncate",
+                    isMonet ? "text-[var(--monet-text-primary)]" : "text-white"
+                  )}>{scenario.name}</span>
+                  <span className={cn(
+                    "text-xs px-2 py-0.5 rounded-md",
+                    option?.accentColor || 'text-slate-400',
+                    isMonet ? "bg-[var(--monet-lavender)]/10" : "bg-white/[0.04]"
+                  )}>{option?.title}</span>
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className={cn("text-xs", isMonet ? "text-[var(--monet-text-muted)]" : "text-slate-500")}>
                   {formatCurrency(scenario.inputs.propertyPrice)} · {scenario.inputs.loanTermYears}yr loan
                 </div>
               </div>
 
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button type="button" onClick={(e) => { e.stopPropagation(); onEditScenario(scenario) }} className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+                <button type="button" onClick={(e) => { e.stopPropagation(); onEditScenario(scenario) }} className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  isMonet
+                    ? "hover:bg-[var(--monet-lavender)]/10 text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)]"
+                    : "hover:bg-white/10 text-slate-400 hover:text-white"
+                )}>
                   <Pencil className="w-4 h-4" />
                 </button>
-                <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteScenario(scenario.id) }} className="p-2 rounded-lg hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors">
+                <button type="button" onClick={(e) => { e.stopPropagation(); onDeleteScenario(scenario.id) }} className={cn(
+                  "p-2 rounded-lg transition-colors",
+                  isMonet
+                    ? "hover:bg-red-500/10 text-[var(--monet-text-muted)] hover:text-red-500"
+                    : "hover:bg-red-500/20 text-slate-400 hover:text-red-400"
+                )}>
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
@@ -217,7 +260,12 @@ export function ScenarioList({
               exit={{ opacity: 0, height: 0, overflow: 'hidden' }}
               transition={{ overflow: { delay: 0.15 } }}
             >
-              <div className="flex items-center gap-3 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+              <div className={cn(
+                "flex items-center gap-3 p-4 rounded-xl border",
+                isMonet
+                  ? "border-emerald-500/20 bg-emerald-500/5"
+                  : "border-emerald-500/30 bg-emerald-500/5"
+              )}>
                 <IconPicker
                   iconName={newRowIcon}
                   iconColor={newRowIconColor}
@@ -231,7 +279,12 @@ export function ScenarioList({
                   value={newRowName}
                   onChange={(e) => setNewRowName(e.target.value)}
                   placeholder="Scenario name"
-                  className="w-40 rounded-lg bg-white/[0.05] border-white/[0.1] text-white text-sm py-2 px-3 focus:border-emerald-500/50 placeholder:text-slate-500"
+                  className={cn(
+                    "w-40 rounded-lg text-sm py-2 px-3 focus:border-emerald-500/50",
+                    isMonet
+                      ? "bg-[var(--monet-lavender)]/5 border-[var(--monet-lavender)]/20 text-[var(--monet-text-primary)] placeholder:text-[var(--monet-text-muted)]"
+                      : "bg-white/[0.05] border-white/[0.1] text-white placeholder:text-slate-500"
+                  )}
                   autoFocus
                 />
                 <CustomSelect
@@ -247,7 +300,12 @@ export function ScenarioList({
                   <button type="button" onClick={handleConfirmNewRow} className="p-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 transition-colors">
                     <Check className="w-4 h-4" />
                   </button>
-                  <button type="button" onClick={handleCancelNewRow} className="p-2 rounded-lg hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+                  <button type="button" onClick={handleCancelNewRow} className={cn(
+                    "p-2 rounded-lg transition-colors",
+                    isMonet
+                      ? "hover:bg-[var(--monet-lavender)]/10 text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)]"
+                      : "hover:bg-white/10 text-slate-400 hover:text-white"
+                  )}>
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -260,7 +318,12 @@ export function ScenarioList({
           <motion.button
             type="button"
             onClick={handleStartNewRow}
-            className="w-full flex items-center justify-center gap-2 p-4 rounded-xl border border-dashed border-white/[0.08] text-slate-500 hover:text-slate-300 hover:border-white/[0.15] hover:bg-white/[0.02] transition-all"
+            className={cn(
+              "w-full flex items-center justify-center gap-2 p-4 rounded-xl border border-dashed transition-all",
+              isMonet
+                ? "border-[var(--monet-lavender)]/20 text-[var(--monet-text-muted)] hover:text-[var(--monet-text-primary)] hover:border-[var(--monet-lavender)]/30 hover:bg-[var(--monet-lavender)]/5"
+                : "border-white/[0.08] text-slate-500 hover:text-slate-300 hover:border-white/[0.15] hover:bg-white/[0.02]"
+            )}
             whileHover={{ scale: 1.005 }}
             whileTap={{ scale: 0.995 }}
           >

@@ -347,10 +347,10 @@ export function DemoSection() {
           className="mt-8 text-center"
         >
           <p className="text-sm text-[#8A8F98]">
-            What takes hours in spreadsheets,
+            Tired of complicated spreadsheet formulas?
           </p>
           <p className="mt-1 text-lg font-medium text-blue-400">
-            Assetra does in seconds.
+            Achieve clarity without the complexity with WealthProject.
           </p>
         </motion.div>
       </div>

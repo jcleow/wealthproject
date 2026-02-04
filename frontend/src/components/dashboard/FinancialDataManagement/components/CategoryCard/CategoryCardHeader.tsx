@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, ArrowDownWideNarrow, Wallet, BarChart3, Shield, ChevronDown } from 'lucide-react'
+import { Plus, Wallet, BarChart3, Shield, ChevronRight } from 'lucide-react'
+import clsx from 'clsx'
+import { useColorScheme } from '@/stores'
+import { formatCurrency } from '@/lib/format'
 import { categoryConfig } from '../../config'
 import type { FinancialCategory } from '../../types'
 
@@ -13,19 +16,24 @@ interface CategoryCardHeaderProps {
   onAddCpf?: () => void
   isCollapsed?: boolean
   onToggleCollapse?: () => void
+  /** Total amount to display as subtitle like Stitch */
+  total?: number
 }
 
 export function CategoryCardHeader({
   category,
   showMonthlyData,
-  sortDirection,
-  onToggleSortDirection,
+  sortDirection: _sortDirection,
+  onToggleSortDirection: _onToggleSortDirection,
   onAddItem,
   onAddInvestment,
   onAddCpf,
   isCollapsed = false,
   onToggleCollapse,
+  total,
 }: CategoryCardHeaderProps) {
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
   const config = categoryConfig[category]
   const [showAssetMenu, setShowAssetMenu] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -57,39 +65,57 @@ export function CategoryCardHeader({
   const showAssetDropdown = category === 'asset' && (onAddInvestment || onAddCpf)
 
   return (
-    <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.04]">
+    <div className={clsx(
+      "flex items-center justify-between px-4 py-3",
+      // No border - Stitch style uses clean cards without internal borders
+    )}>
+      {/* Left side: Icon + Title/Total - clickable to expand */}
       <button
         type="button"
         onClick={onToggleCollapse}
-        className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+        className="flex flex-1 items-center gap-3 hover:opacity-80 transition-opacity"
       >
-        <div className={`rounded-lg border p-1.5 ${config.gradientBg}`}>
-          <IconComponent className={`h-4 w-4 ${config.textColor}`} />
+        {/* Icon container - solid colored background with white icon like Stitch */}
+        <div className={clsx(
+          "rounded-xl p-2.5 shadow-sm shrink-0",
+          isMonet ? config.iconBgLight : config.iconBg
+        )}>
+          <IconComponent className={clsx(
+            "h-5 w-5",
+            isMonet ? config.iconColorLight : config.iconColor
+          )} />
         </div>
-        <h4 className="text-sm font-medium text-slate-200">{getTitle()}</h4>
-        {onToggleCollapse && (
-          <ChevronDown
-            className={`h-3.5 w-3.5 text-slate-500 transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
-          />
-        )}
+        <div className="flex flex-col items-start min-w-0">
+          <h4 className={clsx(
+            "text-sm font-semibold",
+            isMonet ? "text-slate-800" : "text-slate-100"
+          )}>{getTitle()}</h4>
+          {total !== undefined && (
+            <span className={clsx(
+              "text-xs tabular-nums",
+              isMonet ? "text-slate-500" : "text-slate-400"
+            )}>
+              {formatCurrency(total)}
+            </span>
+          )}
+        </div>
       </button>
-      <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          className="p-1.5 rounded-md hover:bg-white/5 text-slate-500 hover:text-slate-300 transition-colors"
-          aria-label={`Sort ${sortDirection === 'desc' ? 'high to low' : 'low to high'}`}
-          onClick={onToggleSortDirection}
-        >
-          <ArrowDownWideNarrow
-            className={`h-4 w-4 ${sortDirection === 'desc' ? '' : 'rotate-180'}`}
-          />
-        </button>
 
-        {showAssetDropdown ? (
+      {/* Right side: Add button + Chevron */}
+      <div className="flex items-center gap-2 shrink-0">
+        {!isCollapsed && (showAssetDropdown ? (
           <div className="relative" ref={menuRef}>
             <button
-              onClick={() => setShowAssetMenu(!showAssetMenu)}
-              className="p-1.5 rounded-md hover:bg-white/5 text-slate-500 hover:text-slate-300 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowAssetMenu(!showAssetMenu)
+              }}
+              className={clsx(
+                "h-8 w-8 rounded-full flex items-center justify-center transition-all",
+                isMonet
+                  ? "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                  : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.1] hover:text-slate-200"
+              )}
               type="button"
               title="Add Item"
             >
@@ -114,12 +140,41 @@ export function CategoryCardHeader({
           </div>
         ) : (
           <button
-            onClick={onAddItem}
-            className="p-1.5 rounded-md hover:bg-white/5 text-slate-500 hover:text-slate-300 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAddItem()
+            }}
+            className={clsx(
+              "h-8 w-8 rounded-full flex items-center justify-center transition-all",
+              isMonet
+                ? "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700"
+                : "bg-white/[0.06] text-slate-400 hover:bg-white/[0.1] hover:text-slate-200"
+            )}
             type="button"
             title="Add Item"
           >
             <Plus className="h-4 w-4" />
+          </button>
+        ))}
+
+        {/* Chevron at far right - Stitch style */}
+        {onToggleCollapse && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className={clsx(
+              "p-1 rounded-md transition-colors",
+              isMonet
+                ? "hover:bg-slate-100 text-slate-400"
+                : "hover:bg-white/5 text-slate-500"
+            )}
+          >
+            <ChevronRight
+              className={clsx(
+                "h-5 w-5 transition-transform duration-200",
+                !isCollapsed ? 'rotate-90' : ''
+              )}
+            />
           </button>
         )}
       </div>

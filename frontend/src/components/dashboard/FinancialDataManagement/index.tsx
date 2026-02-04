@@ -6,7 +6,7 @@ import clsx from 'clsx'
 import { useFinancialData } from '@/hooks/useFinancialData'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useScenarioEvents } from '@/hooks/useScenarioEvents'
-import { useTimelineStore, useTaxModeStore } from '@/stores'
+import { useTimelineStore, useTaxModeStore, useColorScheme } from '@/stores'
 import {
   useCashAccountsQuery,
   useCreateCashAccountMutation,
@@ -79,6 +79,10 @@ export function FinancialDataManagement({
   showTaxMode: _showTaxMode = false,
   compact = false,
 }: FinancialDataManagementProps) {
+  // Theme
+  const colorScheme = useColorScheme()
+  const isMonet = colorScheme === 'monet'
+
   // Get timeline selection state from Zustand store
   const selectedYear = useTimelineStore((s) => s.selectedYear) ?? 0
   const selectedMonth = useTimelineStore((s) => s.selectedMonth) ?? undefined
@@ -893,35 +897,41 @@ export function FinancialDataManagement({
     <>
       <div
         id="financial-data-section"
-        className="flex flex-col bg-transparent text-white h-full"
+        className={clsx('flex flex-col bg-transparent', isMonet ? 'text-slate-800' : 'text-white', compact ? 'pt-6' : 'p-6')}
         onClick={(e) => {
           if (selectedItemId && (e.target as HTMLElement).closest('[data-line-item]') === null) {
             setSelectedItemId(null)
           }
         }}
       >
-        <Header
-          selectedYear={selectedYear}
-          onSelectYear={setSelectedYear}
-          selectedCalendarMonth={selectedMonth}
-          onSelectMonth={setSelectedMonth}
-          anchorAbsoluteYear={anchorYear}
-          anchorCalendarMonth={anchorMonth}
-          resolution={resolution}
-          timelineYears={timelineYears}
-          timelineMonths={timelineMonths}
-          isTimelineLoading={isTimelineLoading}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          compact={compact}
-        />
-
-        {/* Cashflow cards - always visible */}
+        {/* Main container - Stitch style */}
         <div className={clsx(
-          'flex-1 overflow-auto',
-          compact ? 'px-4 py-4' : 'px-6 py-6'
+          "rounded-2xl border overflow-hidden",
+          isMonet
+            ? "border-slate-200 bg-white shadow-sm"
+            : "border-white/[0.08] bg-[#0a0a0a]/60"
         )}>
-            <div className={clsx('flex h-full flex-col', compact ? 'gap-4' : 'gap-6')}>
+          <Header
+            selectedYear={selectedYear}
+            onSelectYear={setSelectedYear}
+            selectedCalendarMonth={selectedMonth}
+            onSelectMonth={setSelectedMonth}
+            anchorAbsoluteYear={anchorYear}
+            anchorCalendarMonth={anchorMonth}
+            resolution={resolution}
+            timelineYears={timelineYears}
+            timelineMonths={timelineMonths}
+            isTimelineLoading={isTimelineLoading}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            compact={compact}
+          />
+
+          {/* Financial data content */}
+          <div className={clsx(
+            compact ? 'px-4 pb-4' : 'px-6 pb-6'
+          )}>
+            <div className={clsx('flex flex-col', compact ? 'gap-4' : 'gap-6')}>
               {/* Summary cards at top - side by side */}
               <SummaryCards
                 netWorth={getNetWorthForYear()}
@@ -999,6 +1009,7 @@ export function FinancialDataManagement({
               </div>
             </div>
           </div>
+        </div>
       </div>
 
       <FinancialFormModal

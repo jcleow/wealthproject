@@ -1,16 +1,18 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi, propertyPlannerV2Api, personsApi, cashAccountsApi, fundFlowRulesApi } from '@/api/financial'
+import { financialApi, propertyPlannerV2Api, personsApi, cashAccountsApi, fundFlowRulesApi, settingsApi } from '@/api/financial'
 import type { CashAccount } from '@/types/financial'
 import type { CPFAccount } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { PropertyScenarioFull } from '@/types/propertyPlannerV2'
 import type { Person } from '@/types/person'
 import type { FundFlowRuleCreatePayload } from '@/types/fundFlowRules'
+import type { UserSettings } from '@/types/financial'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 import { CPF_QUERY_KEY } from './useCpfQuery'
 import { propertyPlannerV2Keys } from './usePropertyPlannerV2Query'
 import { PERSONS_QUERY_KEY } from './usePersonsQuery'
 import { getProfileGenerator } from '@/components/modals/ProfileSelectionModal/profileGenerators'
+import { useFeatureModulesStore } from '@/stores/featureModulesStore'
 
 /**
  * Mutation hook for loading a financial profile template.
@@ -346,7 +348,41 @@ export function useLoadSampleDataMutation() {
         persons: createdPersons,
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // Sync onboardingCompleted based on whether the profile has data
+      try {
+        const currentSettings = queryClient.getQueryData<UserSettings>(QUERY_KEYS.settings.user)
+        if (data.persons.length === 0) {
+          // Blank profile: reset so wizard auto-triggers
+          if (currentSettings?.onboardingCompleted) {
+            queryClient.setQueryData<UserSettings>(QUERY_KEYS.settings.user, {
+              ...currentSettings,
+              onboardingCompleted: false,
+            })
+            settingsApi.updateUserSettings({
+              ...currentSettings,
+              onboardingCompleted: false,
+            })
+          }
+          useFeatureModulesStore.getState().openPostResetChoice()
+        } else {
+          // Non-blank profile: mark onboarding complete so wizard doesn't
+          // re-trigger on refresh
+          if (currentSettings && !currentSettings.onboardingCompleted) {
+            queryClient.setQueryData<UserSettings>(QUERY_KEYS.settings.user, {
+              ...currentSettings,
+              onboardingCompleted: true,
+            })
+            settingsApi.updateUserSettings({
+              ...currentSettings,
+              onboardingCompleted: true,
+            })
+          }
+        }
+      } catch {
+        // Non-critical — wizard trigger will still work on next page load
+      }
+
       // Update all caches with the new data
       queryClient.setQueryData(QUERY_KEYS.financial.assets, data.assets)
       queryClient.setQueryData(QUERY_KEYS.financial.investments, data.investments)

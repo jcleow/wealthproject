@@ -10,6 +10,11 @@ import type { ResidencyStatus } from './cpf'
 export type Gender = 'male' | 'female'
 
 /**
+ * Relationship type indicating how a person relates to the primary household member.
+ */
+export type Relationship = 'self' | 'spouse' | 'child' | 'parent' | 'sibling' | 'other'
+
+/**
  * Person represents a household member for income/CPF ownership and filtering.
  * Now includes personal attributes previously stored on CPF accounts:
  * - dateOfBirth: Required for CPF contribution calculations
@@ -27,6 +32,7 @@ export const personSchema = z.object({
   gender: z.enum(['male', 'female']) as z.ZodType<Gender>, // Required for CPF LIFE calculations
   residencyStatus: z.enum(['citizen', 'pr']) as z.ZodType<ResidencyStatus>,
   prGrantDate: z.string().optional().nullable(), // ISO date format, required if residencyStatus='pr'
+  relationship: z.enum(['self', 'spouse', 'child', 'parent', 'sibling', 'other']).default('self') as z.ZodType<Relationship>,
   createdAt: z.string(),
   updatedAt: z.string(),
   // Stats populated by ListPersonsWithStats endpoint
@@ -43,6 +49,7 @@ export interface PersonCreatePayload {
   gender: Gender // Required for CPF LIFE calculations
   residencyStatus?: ResidencyStatus // Defaults to 'citizen'
   prGrantDate?: string // Optional, format: YYYY-MM-DD
+  relationship?: Relationship // Defaults to 'self'
 }
 
 export interface PersonUpdatePayload {
@@ -53,6 +60,7 @@ export interface PersonUpdatePayload {
   gender?: Gender
   residencyStatus?: ResidencyStatus
   prGrantDate?: string | null // Can be cleared by passing null
+  relationship?: Relationship
 }
 
 /**

@@ -17,6 +17,7 @@ type personV2CreateInput struct {
 	Gender          string  `json:"gender"`          // Required: 'male' or 'female' for CPF LIFE calculations
 	ResidencyStatus string  `json:"residencyStatus"` // 'citizen' or 'pr' (PR year is computed from prGrantDate)
 	PRGrantDate     *string `json:"prGrantDate"`     // Required if residencyStatus='pr', format: "2006-01-02"
+	Relationship    string  `json:"relationship"`    // 'self', 'spouse', 'child', 'parent', 'sibling', 'other'
 }
 
 // personV2UpdateInput is the JSON-friendly input struct for updating a person.
@@ -28,6 +29,7 @@ type personV2UpdateInput struct {
 	Gender          string  `json:"gender"`          // Optional: 'male' or 'female'
 	ResidencyStatus string  `json:"residencyStatus"` // 'citizen' or 'pr'
 	PRGrantDate     *string `json:"prGrantDate"`     // Required if residencyStatus='pr', format: "2006-01-02"
+	Relationship    string  `json:"relationship"`    // Optional: 'self', 'spouse', 'child', 'parent', 'sibling', 'other'
 }
 
 // PersonV2Handler serves person v2 endpoints.
@@ -146,6 +148,7 @@ func (h *PersonV2Handler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		Gender:          input.Gender,
 		ResidencyStatus: residencyStatus,
 		PRGrantDate:     prGrantDate,
+		Relationship:    input.Relationship,
 	}
 	if input.DisplayColor != "" {
 		person.DisplayColor = &input.DisplayColor
@@ -274,6 +277,7 @@ func (h *PersonV2Handler) HandleUpdate(w http.ResponseWriter, r *http.Request, i
 		Gender:          gender,
 		ResidencyStatus: input.ResidencyStatus,
 		PRGrantDate:     prGrantDate,
+		Relationship:    input.Relationship,
 	}
 	if input.DisplayColor != "" {
 		person.DisplayColor = &input.DisplayColor

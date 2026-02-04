@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useShallow } from 'zustand/react/shallow'
 import { devtools } from 'zustand/middleware'
 import type { CPFLifeEstimateResponse } from '@/api/financial/cpf'
 
@@ -114,14 +115,16 @@ export const useCpfLifeEstimateMode = () =>
  * Select all inputs needed for the API call
  */
 export const useCpfLifeEstimateInputs = () =>
-  useCpfLifeEstimateStore((s) => ({
-    mode: s.mode,
-    cpfAccountId: s.cpfAccountId,
-    birthYear: s.birthYear,
-    gender: s.gender,
-    raBalanceAt65: s.raBalanceAt65,
-    payoutStartAge: s.payoutStartAge,
-  }))
+  useCpfLifeEstimateStore(
+    useShallow((s) => ({
+      mode: s.mode,
+      cpfAccountId: s.cpfAccountId,
+      birthYear: s.birthYear,
+      gender: s.gender,
+      raBalanceAt65: s.raBalanceAt65,
+      payoutStartAge: s.payoutStartAge,
+    }))
+  )
 
 /**
  * Select the last cached result
@@ -133,17 +136,19 @@ export const useCpfLifeEstimateResult = () =>
  * Select all actions for updating inputs
  */
 export const useCpfLifeEstimateActions = () =>
-  useCpfLifeEstimateStore((s) => ({
-    setMode: s.setMode,
-    setCpfAccountId: s.setCpfAccountId,
-    setBirthYear: s.setBirthYear,
-    setGender: s.setGender,
-    setRaBalanceAt65: s.setRaBalanceAt65,
-    setPayoutStartAge: s.setPayoutStartAge,
-    setLastResult: s.setLastResult,
-    reset: s.reset,
-    resetInputs: s.resetInputs,
-  }))
+  useCpfLifeEstimateStore(
+    useShallow((s) => ({
+      setMode: s.setMode,
+      setCpfAccountId: s.setCpfAccountId,
+      setBirthYear: s.setBirthYear,
+      setGender: s.setGender,
+      setRaBalanceAt65: s.setRaBalanceAt65,
+      setPayoutStartAge: s.setPayoutStartAge,
+      setLastResult: s.setLastResult,
+      reset: s.reset,
+      resetInputs: s.resetInputs,
+    }))
+  )
 
 /**
  * Check if the current inputs are valid for calculation

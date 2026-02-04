@@ -2,6 +2,7 @@
 
 import type { UserSettings, YearDisplayFormat } from '@/types/financial'
 import { CustomSelect } from '@/components/ui/CustomSelect'
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch'
 
 interface GeneralSettingsProps {
   settings: UserSettings
@@ -88,81 +89,30 @@ text-slate-200`}
       </div>
 
       <div className="pt-4 border-t border-white/[0.06]">
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="block text-sm font-medium text-slate-300">
-              Group Items by Category
-            </label>
-            <p className="text-xs text-slate-500 mt-1">
-              Organize financial items into collapsible category sections
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onGroupItemsByCategoryChange(!settings.groupItemsByCategory)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.groupItemsByCategory ? 'bg-blue-600' : 'bg-slate-600'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                settings.groupItemsByCategory ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
+        <ToggleSwitch
+          checked={settings.groupItemsByCategory}
+          onChange={onGroupItemsByCategoryChange}
+          label="Group Items by Category"
+          description="Organize financial items into collapsible category sections"
+        />
       </div>
 
       <div className="pt-4 border-t border-white/[0.06]">
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="block text-sm font-medium text-slate-300">
-              Chart Picture-in-Picture
-            </label>
-            <p className="text-xs text-slate-500 mt-1">
-              Show a mini floating chart when scrolling past the main chart
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onChartPictureInPictureChange(!settings.chartPictureInPicture)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.chartPictureInPicture ? 'bg-blue-600' : 'bg-slate-600'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                settings.chartPictureInPicture ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
+        <ToggleSwitch
+          checked={settings.chartPictureInPicture}
+          onChange={onChartPictureInPictureChange}
+          label="Chart Picture-in-Picture"
+          description="Show a mini floating chart when scrolling past the main chart"
+        />
       </div>
 
       <div className="pt-4 border-t border-white/[0.06]">
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="block text-sm font-medium text-slate-300">
-              Auto-Execute AI Actions
-            </label>
-            <p className="text-xs text-slate-500 mt-1">
-              Execute AI-suggested changes immediately without confirmation
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => onAutoExecuteToolsChange(!settings.autoExecuteTools)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              settings.autoExecuteTools ? 'bg-blue-600' : 'bg-slate-600'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                settings.autoExecuteTools ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
+        <ToggleSwitch
+          checked={settings.autoExecuteTools}
+          onChange={onAutoExecuteToolsChange}
+          label="Auto-Execute AI Actions"
+          description="Execute AI-suggested changes immediately without confirmation"
+        />
         {settings.autoExecuteTools && (
           <p className="mt-2 text-xs text-amber-400">
             ⚠️ Actions will be executed immediately. Use with caution.

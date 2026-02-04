@@ -24,7 +24,7 @@ shadow-glow`}>
             <Sparkles className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold tracking-tight text-white">Assetra Chat</h1>            
+            <h1 className="text-lg font-bold tracking-tight text-white">WealthProject Chat</h1>            
           </div>
         </div>
         {onCollapse && (

@@ -18,6 +18,8 @@ export interface FeatureModulesState {
   showPropertyPlanner: boolean
   propertyScenarioToEdit: string | null
   showLayoutModal: boolean
+  showOnboardingWizard: boolean
+  showPostResetChoice: boolean
 
   // Chat sidebar state
   isChatCollapsed: boolean
@@ -43,6 +45,14 @@ export interface FeatureModulesState {
   openLayoutModal: () => void
   closeLayoutModal: () => void
 
+  // Actions - Onboarding Wizard
+  openOnboardingWizard: () => void
+  closeOnboardingWizard: () => void
+
+  // Actions - Post-reset choice (Start Fresh flow)
+  openPostResetChoice: () => void
+  closePostResetChoice: () => void
+
   // Actions - Chat sidebar
   toggleChat: () => void
   collapseChat: () => void
@@ -64,6 +74,8 @@ const initialState = {
   showPropertyPlanner: false,
   propertyScenarioToEdit: null,
   showLayoutModal: false,
+  showOnboardingWizard: false,
+  showPostResetChoice: false,
   isChatCollapsed: true,
   isHistoryOpen: false,
   dashboardLayout: 'stacked' as DashboardLayout,
@@ -100,6 +112,14 @@ export const useFeatureModulesStore = create<FeatureModulesState>()(
       // Layout Modal
       openLayoutModal: () => set({ showLayoutModal: true }),
       closeLayoutModal: () => set({ showLayoutModal: false }),
+
+      // Onboarding Wizard
+      openOnboardingWizard: () => set({ showOnboardingWizard: true }),
+      closeOnboardingWizard: () => set({ showOnboardingWizard: false }),
+
+      // Post-reset choice
+      openPostResetChoice: () => set({ showPostResetChoice: true }),
+      closePostResetChoice: () => set({ showPostResetChoice: false }),
 
       // Chat sidebar
       toggleChat: () => set((state) => ({ isChatCollapsed: !state.isChatCollapsed })),
