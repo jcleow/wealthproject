@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { Users, Plus, Trash2, Pencil, X, Check, Briefcase, Save, Calendar, Flag } from 'lucide-react'
 import { clsx } from 'clsx'
 import { Modal } from '@/components/ui/Modal'
@@ -395,7 +396,8 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                 <div
                   key={person.id}
                   className={clsx(
-                    'flex items-center gap-3 p-3 rounded-lg border transition-all',
+                    'p-3 rounded-lg border transition-all',
+                    editingId !== person.id && 'flex items-center gap-3',
                     effectiveIncluded
                       ? (isMonet ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/5' : 'border-white/[0.08] bg-white/[0.02]')
                       : (isMonet ? 'border-[var(--monet-lavender)]/10 bg-transparent opacity-60' : 'border-white/[0.04] bg-transparent opacity-60'),
@@ -404,7 +406,7 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                 >
                   {editingId === person.id ? (
                     // Edit mode - expanded form
-                    <div className="flex-1 space-y-3">
+                    <div className="space-y-3">
                       {/* Row 1: Color and Name */}
                       <div className="flex items-center gap-3">
                         <ColorPicker value={editColor} onChange={setEditColor} isMonet={isMonet} />
@@ -423,8 +425,8 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                         />
                       </div>
 
-                      {/* Row 2: Date of Birth, Gender, Residency Status */}
-                      <div className="grid grid-cols-3 gap-3">
+                      {/* Row 2: Date of Birth, Gender */}
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Date of Birth</label>
                           <div className="relative">
@@ -461,6 +463,10 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                             ))}
                           </select>
                         </div>
+                      </div>
+
+                      {/* Row 3: Residency Status */}
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Residency</label>
                           <div className="relative">
@@ -625,8 +631,8 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                   />
                 </div>
 
-                {/* Row 2: Date of Birth, Gender, Residency Status */}
-                <div className="grid grid-cols-3 gap-3">
+                {/* Row 2: Date of Birth, Gender */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Date of Birth *</label>
                     <div className="relative">
@@ -663,6 +669,10 @@ export function PersonsModal({ isOpen, onClose }: PersonsModalProps) {
                       ))}
                     </select>
                   </div>
+                </div>
+
+                {/* Row 3: Residency Status */}
+                <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={clsx('block text-xs mb-1', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>Residency</label>
                     <div className="relative">
@@ -806,46 +816,99 @@ interface ColorPickerProps {
 
 function ColorPicker({ value, onChange, isMonet = false }: ColorPickerProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+
+  const updatePosition = useCallback(() => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect()
+      setPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+      })
+    }
+  }, [])
+
+  // Close on click outside
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
+          triggerRef.current && !triggerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [isOpen])
+
+  // Update position on open and scroll/resize
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition()
+      window.addEventListener('scroll', updatePosition, true)
+      window.addEventListener('resize', updatePosition)
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true)
+        window.removeEventListener('resize', updatePosition)
+      }
+    }
+  }, [isOpen, updatePosition])
 
   return (
-    <div className="relative">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={clsx(
-          'w-6 h-6 rounded-md border-2 transition-colors',
+          'flex-shrink-0 w-7 h-7 rounded-lg border-2 transition-all duration-200',
+          isOpen && 'ring-2 ring-white/[0.1]',
           isMonet
             ? 'border-[var(--monet-lavender)]/20 hover:border-[var(--monet-lavender)]/40'
-            : 'border-white/10 hover:border-white/20'
+            : 'border-white/[0.08] hover:border-white/[0.2]'
         )}
         style={{ backgroundColor: value || '#64748b' }}
       />
-      {isOpen && (
-        <div className={clsx(
-          'absolute left-0 top-full mt-1 z-50 p-2 rounded-lg border shadow-xl',
-          isMonet
-            ? 'bg-white border-[var(--monet-lavender)]/20'
-            : 'bg-[#1a1a1a] border-white/[0.1]'
-        )}>
-          <div className="grid grid-cols-4 gap-1">
-            {PERSON_COLORS.map((color) => (
-              <button
-                key={color}
-                type="button"
-                onClick={() => {
-                  onChange(color)
-                  setIsOpen(false)
-                }}
-                className={clsx(
-                  'w-6 h-6 rounded-md transition-transform hover:scale-110',
-                  value === color && (isMonet ? 'ring-2 ring-[var(--monet-purple)] ring-offset-2 ring-offset-white' : 'ring-2 ring-white ring-offset-2 ring-offset-[#1a1a1a]')
-                )}
-                style={{ backgroundColor: color }}
-              />
-            ))}
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={popoverRef}
+          style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 9999 }}
+          className="w-[232px] rounded-xl border border-white/[0.12] bg-[#0c0c0c] shadow-2xl shadow-black/60 overflow-hidden p-3"
+        >
+          <div className="grid grid-cols-4 gap-2">
+            {PERSON_COLORS.map((color) => {
+              const isSelected = color === value
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => { onChange(color); setIsOpen(false) }}
+                  className={clsx(
+                    'relative h-10 w-10 rounded-xl border-2 transition-all duration-200 hover:scale-110',
+                    isSelected
+                      ? 'border-white/50 ring-2 ring-white/20'
+                      : 'border-white/[0.08] hover:border-white/[0.2]'
+                  )}
+                  style={{ backgroundColor: color }}
+                >
+                  <div
+                    className="absolute inset-0 rounded-[10px] opacity-40"
+                    style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.3) 0%, transparent 50%)' }}
+                  />
+                  {isSelected && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Check className="h-4 w-4 text-white drop-shadow-md" />
+                    </div>
+                  )}
+                </button>
+              )
+            })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }

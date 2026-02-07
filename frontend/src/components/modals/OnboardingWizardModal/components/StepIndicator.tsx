@@ -1,4 +1,3 @@
-import { Check, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ONBOARDING_STEPS, type StepStatus } from '../types'
 
@@ -11,75 +10,44 @@ interface StepIndicatorProps {
 
 export function StepIndicator({ currentStepIndex, stepStatuses, onStepClick, isMonet }: StepIndicatorProps) {
   return (
-    <div className="flex items-center justify-center gap-0 py-4 px-6">
+    <div className="flex items-center gap-1 py-3 px-4 sm:px-6 flex-wrap">
       {ONBOARDING_STEPS.map((step, index) => {
         const status = stepStatuses[index]
         const isActive = index === currentStepIndex
         const isClickable = status === 'completed' || status === 'skipped'
 
         return (
-          <div key={step.key} className="flex items-center">
-            {/* Step circle + label */}
-            <button
-              type="button"
-              onClick={() => isClickable && onStepClick(index)}
-              disabled={!isClickable}
-              className={cn(
-                'flex flex-col items-center gap-1.5 group',
-                isClickable ? 'cursor-pointer' : 'cursor-default'
-              )}
-            >
-              {/* Circle */}
-              <div
-                className={cn(
-                  'flex items-center justify-center w-8 h-8 rounded-full text-xs font-semibold transition-all duration-200',
-                  isActive && !isMonet && 'border-2 border-emerald-400 bg-emerald-500/15 text-white',
-                  isActive && isMonet && 'border-2 border-[var(--monet-sage)] bg-[var(--monet-sage)]/15 text-[var(--monet-text-primary)]',
-                  status === 'completed' && !isMonet && 'bg-emerald-500 text-white',
-                  status === 'completed' && isMonet && 'bg-[var(--monet-sage)] text-white',
-                  status === 'skipped' && !isMonet && 'bg-amber-500/80 text-white',
-                  status === 'skipped' && isMonet && 'bg-amber-500/60 text-white',
-                  status === 'pending' && !isMonet && 'border border-slate-600 text-slate-600',
-                  status === 'pending' && isMonet && 'border border-[var(--monet-lavender)]/30 text-[var(--monet-text-muted)]',
-                )}
-              >
-                {status === 'completed' ? (
-                  <Check className="w-4 h-4" />
-                ) : status === 'skipped' ? (
-                  <Minus className="w-4 h-4" />
-                ) : (
-                  index + 1
-                )}
-              </div>
-
-              {/* Label */}
+          <button
+            key={step.key}
+            type="button"
+            onClick={() => isClickable && onStepClick(index)}
+            disabled={!isClickable && !isActive}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap',
+              // Active step: filled pill
+              isActive && !isMonet && 'bg-white/[0.1] text-white border border-white/[0.1]',
+              isActive && isMonet && 'bg-[var(--monet-sage)]/10 text-[var(--monet-text-primary)] border border-[var(--monet-sage)]/20',
+              // Completed/skipped steps: dot + text
+              (status === 'completed' || status === 'skipped') && !isMonet && 'text-emerald-400 hover:bg-white/[0.05] cursor-pointer',
+              (status === 'completed' || status === 'skipped') && isMonet && 'text-[var(--monet-sage)] hover:bg-[var(--monet-sage)]/5 cursor-pointer',
+              // Pending steps: muted
+              status === 'pending' && !isActive && !isMonet && 'text-slate-600 cursor-default',
+              status === 'pending' && !isActive && isMonet && 'text-[var(--monet-text-muted)] cursor-default',
+            )}
+          >
+            {/* Status dot */}
+            {(status === 'completed' || status === 'skipped') && (
               <span
                 className={cn(
-                  'text-[10px] font-medium whitespace-nowrap transition-colors',
-                  isActive && !isMonet && 'text-white',
-                  isActive && isMonet && 'text-[var(--monet-text-primary)]',
-                  (status === 'completed' || status === 'skipped') && !isMonet && 'text-slate-400 group-hover:text-slate-300',
-                  (status === 'completed' || status === 'skipped') && isMonet && 'text-[var(--monet-text-secondary)] group-hover:text-[var(--monet-text-primary)]',
-                  status === 'pending' && !isMonet && 'text-slate-600',
-                  status === 'pending' && isMonet && 'text-[var(--monet-text-muted)]',
-                )}
-              >
-                {step.label}
-              </span>
-            </button>
-
-            {/* Connector line between steps */}
-            {index < ONBOARDING_STEPS.length - 1 && (
-              <div
-                className={cn(
-                  'w-12 sm:w-20 h-px mx-2 mt-[-18px]',
-                  (status === 'completed' || status === 'skipped')
-                    ? isMonet ? 'bg-[var(--monet-sage)]/40' : 'bg-emerald-500/40'
-                    : isMonet ? 'bg-[var(--monet-lavender)]/15' : 'bg-white/[0.06]'
+                  'w-1.5 h-1.5 rounded-full flex-shrink-0',
+                  status === 'completed' && !isMonet && 'bg-emerald-400',
+                  status === 'completed' && isMonet && 'bg-[var(--monet-sage)]',
+                  status === 'skipped' && 'bg-amber-400',
                 )}
               />
             )}
-          </div>
+            {step.label}
+          </button>
         )
       })}
     </div>

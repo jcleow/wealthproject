@@ -16,6 +16,7 @@ export function ResizableCard({ id, children, disabled = false, isCollapsed = fa
   const contentRef = useRef<HTMLDivElement>(null)
   const [userHeight, setUserHeight] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const isDraggingRef = useRef(false)
   const dragStartY = useRef(0)
   const dragStartHeight = useRef(0)
   const currentHeightRef = useRef<number | null>(null)
@@ -45,6 +46,7 @@ export function ResizableCard({ id, children, disabled = false, isCollapsed = fa
     e.stopPropagation()
     const target = e.currentTarget as HTMLElement
     target.setPointerCapture(e.pointerId)
+    isDraggingRef.current = true
     setIsDragging(true)
     dragStartY.current = e.clientY
     dragStartHeight.current = currentHeightRef.current ?? getContentHeight()
@@ -52,24 +54,25 @@ export function ResizableCard({ id, children, disabled = false, isCollapsed = fa
 
   // Handle pointer move during drag
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!isDragging) return
+    if (!isDraggingRef.current) return
     const deltaY = e.clientY - dragStartY.current
     // Use MIN_HEIGHT as the minimum, not content height - allows shrinking below content
     const newHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, dragStartHeight.current + deltaY))
     setUserHeight(newHeight)
     currentHeightRef.current = newHeight
-  }, [isDragging])
+  }, [])
 
   // Handle pointer up to end drag
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
-    if (!isDragging) return
+    if (!isDraggingRef.current) return
     const target = e.currentTarget as HTMLElement
     target.releasePointerCapture(e.pointerId)
+    isDraggingRef.current = false
     setIsDragging(false)
     if (currentHeightRef.current !== null) {
       saveHeight(currentHeightRef.current)
     }
-  }, [isDragging, saveHeight])
+  }, [saveHeight])
 
   // Prevent click events from bubbling
   const handleClick = useCallback((e: React.MouseEvent) => {

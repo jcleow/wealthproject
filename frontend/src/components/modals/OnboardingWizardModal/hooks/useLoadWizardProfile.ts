@@ -3,7 +3,7 @@ import type { UseFormReturn } from 'react-hook-form'
 import { generateUUID } from '@/lib/utils'
 import { PERSON_COLORS } from '@/types/person'
 import { FINANCIAL_PROFILES } from '../../ProfileSelectionModal/profileConfigs'
-import type { ProfilePersonConfig, ProfileLiabilityConfig } from '../../ProfileSelectionModal/types'
+import type { ProfilePersonConfig, ProfileLiabilityConfig, ProfileAssetConfig } from '../../ProfileSelectionModal/types'
 import type {
   OnboardingFormData,
   OnboardingPerson,
@@ -104,9 +104,23 @@ function mapCpf(
   }
 }
 
+// ─── Asset mapping ──────────────────────────────────────────────────────────
+
+function mapAsset(asset: ProfileAssetConfig): OnboardingAsset {
+  return {
+    tempId: generateUUID(),
+    serverId: null,
+    name: asset.name,
+    category: asset.category,
+    currentValue: asset.currentValue,
+    growthRate: asset.growthRate,
+    propertyType: asset.propertyType ?? null,
+  }
+}
+
 // ─── Liability mapping ──────────────────────────────────────────────────────
 
-function mapLiability(liability: ProfileLiabilityConfig): OnboardingLiability {
+function mapLiability(liability: ProfileLiabilityConfig, linkedAssetTempId: string | null): OnboardingLiability {
   return {
     tempId: generateUUID(),
     serverId: null,
@@ -115,6 +129,7 @@ function mapLiability(liability: ProfileLiabilityConfig): OnboardingLiability {
     currentBalance: liability.currentBalance,
     interestRateApr: liability.interestRateApr,
     minimumPayment: liability.minimumPayment,
+    linkedAssetTempId,
   }
 }
 
@@ -152,11 +167,24 @@ function profileToFormData(profileId: string): OnboardingFormData | null {
         category: 'cash_savings',
         currentValue: Math.round(householdMonthlyIncome * 3),
         growthRate: 1.5,
+        propertyType: null,
       }]
     : []
 
-  // Map liabilities from profile config
-  const liabilities: OnboardingLiability[] = (profile.liabilities ?? []).map(mapLiability)
+  // Add profile-defined assets (map first so liabilities can reference their tempIds)
+  if (profile.assets) {
+    assets.push(...profile.assets.map(mapAsset))
+  }
+
+  // Map liabilities, resolving asset links by index into the profile's assets[]
+  // Note: profile assets start at index 1 in the form (index 0 is Emergency Fund)
+  const profileAssetOffset = householdMonthlyIncome > 0 ? 1 : 0
+  const liabilities: OnboardingLiability[] = (profile.liabilities ?? []).map((profileLiability) => {
+    const linkedAssetTempId = profileLiability.linkedAssetIndex != null
+      ? assets[profileLiability.linkedAssetIndex + profileAssetOffset]?.tempId ?? null
+      : null
+    return mapLiability(profileLiability, linkedAssetTempId)
+  })
 
   return {
     persons,

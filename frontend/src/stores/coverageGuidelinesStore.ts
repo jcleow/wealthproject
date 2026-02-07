@@ -1,3 +1,27 @@
+/**
+ * ⚠️  REFACTOR NEEDED — See GitHub issue for full context.
+ *
+ * This store uses Zustand persist (localStorage) for the coverage questionnaire wizard.
+ * Once backend persistence is in place, this should be refactored to:
+ *
+ *   1. React Hook Form + Zod for per-step validation in the wizard
+ *   2. React Query for server state (replace Zustand persist entirely)
+ *   3. Remove localStorage persistence — backend API becomes source of truth
+ *
+ * Current architecture:
+ *   Wizard steps → Zustand store (persist to localStorage) → consumed by multiple components
+ *
+ * Target architecture:
+ *   Wizard steps → RHF useForm() per step (local validation)
+ *     → on step complete, mutate via React Query → backend API
+ *     → React Query cache serves as shared state for CoverageJourney, JourneyTab, etc.
+ *
+ * Why this matters:
+ *   - RHF gives us proper validation, dirty tracking, error states per field
+ *   - React Query gives us cache invalidation, optimistic updates, loading states
+ *   - Eliminates localStorage stale data bugs (e.g. NaN from missing fields)
+ *   - Aligns with project conventions (CLAUDE.md: "Use RHF for forms, Zustand for shared state")
+ */
 import { create } from 'zustand'
 import { useShallow } from 'zustand/react/shallow'
 import { devtools, persist } from 'zustand/middleware'
@@ -35,6 +59,10 @@ export interface HospitalizationAnswers {
 /**
  * Life/TPD first-principles questions
  * Core question: Who depends on my income?
+ *
+ * By default, mortgageBalance, otherDebts, existingAssets are derived from existing
+ * financial data via useQuestionnaireAutoPopulate. Users can toggle to manual entry
+ * via useManualFinancials. spouseHasIncome/spouseIncome are always derived.
  */
 export interface LifeTpdAnswers {
   /** Selected dependent person IDs */
@@ -45,19 +73,29 @@ export interface LifeTpdAnswers {
   youngestDependentAge: number | null
   /** Years until youngest is financially independent */
   yearsUntilIndependent: number
-  /** Outstanding mortgage balance */
-  mortgageBalance: number
-  /** Other debts (car loans, education loans, etc.) */
-  otherDebts: number
-  /** Future obligations (children's education, etc.) */
+  /** Future obligations (children's education, etc.) — user-entered */
   futureObligations: number
-  /** Existing assets that could cover expenses (savings, investments) */
-  existingAssets: number
   /** Selected spouse person ID */
   spousePersonId: string | null
-  /** Spouse has own income? (derived from spousePersonId's incomes) */
+  /** If true, use manually entered values instead of plan data */
+  useManualFinancials: boolean
+  /** Manual override: mortgage balance (only used when useManualFinancials is true) */
+  manualMortgageBalance: number
+  /** Manual override: other debts (only used when useManualFinancials is true) */
+  manualOtherDebts: number
+  /** Manual override: existing assets (only used when useManualFinancials is true) */
+  manualExistingAssets: number
+}
+
+/**
+ * Financial data derived from existing tables (liabilities, assets, incomes).
+ * Passed as a parameter to coverage calculations rather than stored in questionnaire.
+ */
+export interface DerivedFinancials {
+  mortgageBalance: number
+  otherDebts: number
+  existingAssets: number
   spouseHasIncome: boolean
-  /** Spouse's annual income if applicable */
   spouseIncome: number
 }
 
@@ -118,6 +156,19 @@ export interface CoverageQuestionnaireAnswers {
 }
 
 /**
+ * Default derived financials (zeros)
+ */
+export function createDefaultDerivedFinancials(): DerivedFinancials {
+  return {
+    mortgageBalance: 0,
+    otherDebts: 0,
+    existingAssets: 0,
+    spouseHasIncome: false,
+    spouseIncome: 0,
+  }
+}
+
+/**
  * Default questionnaire answers
  */
 export function createDefaultQuestionnaireAnswers(): CoverageQuestionnaireAnswers {
@@ -130,13 +181,12 @@ export function createDefaultQuestionnaireAnswers(): CoverageQuestionnaireAnswer
       dependentCount: 0,
       youngestDependentAge: null,
       yearsUntilIndependent: 0,
-      mortgageBalance: 0,
-      otherDebts: 0,
       futureObligations: 0,
-      existingAssets: 0,
       spousePersonId: null,
-      spouseHasIncome: false,
-      spouseIncome: 0,
+      useManualFinancials: false,
+      manualMortgageBalance: 0,
+      manualOtherDebts: 0,
+      manualExistingAssets: 0,
     },
     criticalIllness: {
       emergencyFundMonths: 6,
@@ -160,11 +210,12 @@ export function createDefaultQuestionnaireAnswers(): CoverageQuestionnaireAnswer
 }
 
 /**
- * Calculate recommended coverage from questionnaire answers
+ * Calculate recommended coverage from questionnaire answers + derived financial data
  */
 export function calculateRecommendedCoverage(
   answers: CoverageQuestionnaireAnswers,
-  annualIncome: number
+  annualIncome: number,
+  derivedFinancials: DerivedFinancials = createDefaultDerivedFinancials()
 ): {
   hospitalization: { wardClass: WardClass; rider: boolean }
   lifeTpd: number
@@ -220,10 +271,10 @@ export function calculateRecommendedCoverage(
     : 0
   const lifeTpdRaw =
     incomeReplacement +
-    lifeTpd.mortgageBalance +
-    lifeTpd.otherDebts +
+    derivedFinancials.mortgageBalance +
+    derivedFinancials.otherDebts +
     lifeTpd.futureObligations -
-    lifeTpd.existingAssets
+    derivedFinancials.existingAssets
 
   // Apply self-insurance reduction
   let lifeTpdFinal = Math.max(0, lifeTpdRaw)
@@ -320,7 +371,7 @@ export interface CoverageGuidelinesState {
   setCriticalIllnessAnswers: (answers: Partial<CriticalIllnessAnswers>) => void
   setPersonalAccidentAnswers: (answers: Partial<PersonalAccidentAnswers>) => void
   setSelfInsuranceAnswers: (answers: Partial<SelfInsuranceAnswers>) => void
-  applyQuestionnaireRecommendations: () => void
+  applyQuestionnaireRecommendations: (derivedFinancials?: DerivedFinancials) => void
 }
 
 // ============================================
@@ -532,11 +583,12 @@ export const useCoverageGuidelinesStore = create<CoverageGuidelinesState>()(
             },
           })),
 
-        applyQuestionnaireRecommendations: () =>
+        applyQuestionnaireRecommendations: (derivedFinancials) =>
           set((state) => {
             const recommendations = calculateRecommendedCoverage(
               state.questionnaireAnswers,
-              state.guidelines.annualIncome
+              state.guidelines.annualIncome,
+              derivedFinancials
             )
 
             // Convert recommended coverage to income multipliers for the guidelines
@@ -611,11 +663,11 @@ export const useGuidelineTargets = () => {
 export const useQuestionnaireAnswers = () =>
   useCoverageGuidelinesStore((s) => s.questionnaireAnswers)
 
-// Computed selector for recommendations based on questionnaire
-export const useQuestionnaireRecommendations = () => {
+// Computed selector for recommendations based on questionnaire + derived financials
+export const useQuestionnaireRecommendations = (derivedFinancials?: DerivedFinancials) => {
   const answers = useCoverageGuidelinesStore((s) => s.questionnaireAnswers)
   const income = useCoverageGuidelinesStore((s) => s.guidelines.annualIncome)
-  return calculateRecommendedCoverage(answers, income)
+  return calculateRecommendedCoverage(answers, income, derivedFinancials)
 }
 
 // Actions selector - useShallow prevents infinite loops from new object references

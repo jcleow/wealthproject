@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { FormProvider } from 'react-hook-form'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useOnboardingForm } from './hooks/useOnboardingForm'
@@ -19,6 +19,7 @@ interface OnboardingWizardViewProps {
   onClose: () => void
   onSkipSetup: () => void
   isMonet: boolean
+  onStepChange?: (stepIndex: number) => void
 }
 
 const STEP_ANIMATION = {
@@ -35,7 +36,7 @@ const STEP_ANIMATION_BACK = {
   transition: { duration: 0.25, ease: 'easeInOut' as const },
 }
 
-export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: OnboardingWizardViewProps) {
+export function OnboardingWizardView({ onClose, onSkipSetup, isMonet, onStepChange }: OnboardingWizardViewProps) {
   const { form } = useOnboardingForm()
   const [currentStepIndex, setCurrentStepIndex] = useState(0)
   const [stepStatuses, setStepStatuses] = useState<StepStatus[]>(['active', 'pending', 'pending', 'pending'])
@@ -44,6 +45,11 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
 
   const { submitStep, isSubmitting, submissionError } = useOnboardingSubmit(form)
   const { loadProfile } = useLoadWizardProfile()
+
+  // Notify parent of step changes for header display
+  useEffect(() => {
+    onStepChange?.(currentStepIndex)
+  }, [currentStepIndex, onStepChange])
 
   // ─── Load sample profile ──────────────────────────────────────────────────
 
@@ -222,7 +228,7 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
                     : 'text-slate-600 hover:text-slate-400'
                 }`}
               >
-                Skip Setup
+                Skip setup
               </button>
               <span className={`text-xs ${isMonet ? 'text-[var(--monet-text-muted)]/30' : 'text-slate-700'}`}>·</span>
               <LoadSampleDataButton
@@ -237,26 +243,26 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet }: Onboardi
                 <button
                   type="button"
                   onClick={handleBack}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     isMonet
-                      ? 'text-[var(--monet-text-secondary)] hover:bg-[var(--monet-lavender)]/10'
-                      : 'text-slate-400 hover:bg-white/[0.05]'
+                      ? 'text-[var(--monet-text-secondary)] hover:bg-[var(--monet-lavender)]/10 border border-[var(--monet-lavender)]/15'
+                      : 'text-slate-300 hover:bg-white/[0.05] border border-white/[0.08]'
                   }`}
                 >
-                  &larr; Back
+                  Back
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleNext}
                 disabled={isSubmitting}
-                className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                className={`px-5 py-2 rounded-lg text-sm font-medium transition-all ${
                   isMonet
                     ? 'bg-[var(--monet-sage)] text-white hover:bg-[var(--monet-sage)]/90'
                     : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/25'
                 } disabled:opacity-50`}
               >
-                {isSubmitting ? 'Saving...' : currentStepIndex === 3 ? 'Finish \u2192' : 'Next \u2192'}
+                {isSubmitting ? 'Saving...' : currentStepIndex === 3 ? 'Finish' : 'Continue'}
               </button>
             </div>
           </div>

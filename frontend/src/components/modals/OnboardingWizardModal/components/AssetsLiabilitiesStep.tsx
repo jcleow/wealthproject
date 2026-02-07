@@ -21,6 +21,7 @@ function createEmptyAsset(): OnboardingAsset {
     category: 'cash_savings',
     currentValue: 0,
     growthRate: 3,
+    propertyType: null,
   }
 }
 
@@ -33,6 +34,7 @@ function createEmptyLiability(): OnboardingLiability {
     currentBalance: 0,
     interestRateApr: 0,
     minimumPayment: 0,
+    linkedAssetTempId: null,
   }
 }
 

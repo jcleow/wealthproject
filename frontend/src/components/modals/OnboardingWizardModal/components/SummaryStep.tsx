@@ -83,7 +83,7 @@ export function SummaryStep({ stepStatuses, onClose, onBack, isMonet }: SummaryS
         'text-lg font-semibold mb-6',
         isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white'
       )}>
-        Your Plan is Ready!
+        Your Plan is Almost Ready!
       </h3>
 
       {/* Summary card */}
@@ -176,7 +176,7 @@ export function SummaryStep({ stepStatuses, onClose, onBack, isMonet }: SummaryS
               : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/25'
           )}
         >
-          Go to Dashboard &rarr;
+          Create Financial Plan &rarr;
         </button>
       </div>
     </div>

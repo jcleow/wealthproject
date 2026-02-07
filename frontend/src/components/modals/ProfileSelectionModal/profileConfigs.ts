@@ -80,6 +80,16 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         },
       },
     ],
+    assets: [
+      {
+        name: '4-Room BTO Flat',
+        category: 'property',
+        currentValue: 480000,
+        growthRate: 3,
+        propertyType: 'hdb-bto',
+
+      },
+    ],
     liabilities: [
       {
         name: 'BTO Flat Mortgage',
@@ -87,6 +97,7 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         currentBalance: 350000,
         interestRateApr: 2.6,
         minimumPayment: 1500,
+        linkedAssetIndex: 0,
       },
     ],
   },
@@ -129,6 +140,16 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         },
       },
     ],
+    assets: [
+      {
+        name: '4-Room HDB Flat',
+        category: 'property',
+        currentValue: 550000,
+        growthRate: 3,
+        propertyType: 'hdb-resale',
+
+      },
+    ],
     liabilities: [
       {
         name: 'HDB Mortgage',
@@ -136,6 +157,7 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         currentBalance: 400000,
         interestRateApr: 2.6,
         minimumPayment: 1800,
+        linkedAssetIndex: 0,
       },
     ],
   },
@@ -172,6 +194,16 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         // No income - stay-at-home parent
       },
     ],
+    assets: [
+      {
+        name: 'Executive Condo',
+        category: 'property',
+        currentValue: 680000,
+        growthRate: 3,
+        propertyType: 'ec',
+
+      },
+    ],
     liabilities: [
       {
         name: 'HDB Executive Flat Mortgage',
@@ -179,6 +211,7 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         currentBalance: 450000,
         interestRateApr: 2.6,
         minimumPayment: 2000,
+        linkedAssetIndex: 0,
       },
       {
         name: 'Car Loan',
@@ -214,6 +247,16 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         },
       },
     ],
+    assets: [
+      {
+        name: 'Private Condo',
+        category: 'property',
+        currentValue: 1200000,
+        growthRate: 3,
+        propertyType: 'private-resale',
+
+      },
+    ],
     liabilities: [
       {
         name: 'Condo Mortgage',
@@ -221,6 +264,7 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         currentBalance: 280000,
         interestRateApr: 3.5,
         minimumPayment: 2500,
+        linkedAssetIndex: 0,
       },
     ],
   },

@@ -18,6 +18,7 @@ import {
   Plus,
   User,
   Edit3,
+  ExternalLink,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/format'
 import { useColorScheme } from '@/stores'
@@ -32,7 +33,7 @@ import {
   useQuestionnaireAnswers,
   useQuestionnaireRecommendations,
 } from '@/stores/coverageGuidelinesStore'
-import type { ReferenceMode } from '@/stores/coverageGuidelinesStore'
+import type { ReferenceMode, DerivedFinancials, LifeTpdAnswers } from '@/stores/coverageGuidelinesStore'
 import {
   guidelineCoverageConfig,
   wardClassConfig,
@@ -99,6 +100,39 @@ function calculateAnnualExpenses(
       const multiplier = frequencyMultipliers[expense.frequency] || 0
       return total + expense.amount * multiplier
     }, 0)
+}
+
+/**
+ * Build DerivedFinancials — respects the manual override toggle.
+ * When useManualFinancials is true, uses user-entered values.
+ * Otherwise uses auto-populated values from the financial plan.
+ */
+function toDerivedFinancials(
+  computed: {
+    totalMortgage: number
+    totalOtherDebts: number
+    totalAssets: number
+    spouseHasIncome: boolean
+    spouseIncome: number
+  },
+  lifeTpd?: LifeTpdAnswers
+): DerivedFinancials {
+  if (lifeTpd?.useManualFinancials) {
+    return {
+      mortgageBalance: lifeTpd.manualMortgageBalance ?? 0,
+      otherDebts: lifeTpd.manualOtherDebts ?? 0,
+      existingAssets: lifeTpd.manualExistingAssets ?? 0,
+      spouseHasIncome: computed.spouseHasIncome,
+      spouseIncome: computed.spouseIncome,
+    }
+  }
+  return {
+    mortgageBalance: computed.totalMortgage,
+    otherDebts: computed.totalOtherDebts,
+    existingAssets: computed.totalAssets,
+    spouseHasIncome: computed.spouseHasIncome,
+    spouseIncome: computed.spouseIncome,
+  }
 }
 
 /**
@@ -502,6 +536,9 @@ function CoverageMultiplierCard({
   const targets = useGuidelineTargets()
   const referenceMode = useReferenceMode()
   const answers = useQuestionnaireAnswers()
+  const selectedPersonId = useSelectedPersonId()
+  const autoPopulate = useQuestionnaireAutoPopulate(selectedPersonId)
+  const derivedFinancials = toDerivedFinancials(autoPopulate.computed, answers.lifeTpd)
   const {
     setMultiplier,
     toggleCoverage,
@@ -546,7 +583,7 @@ function CoverageMultiplierCard({
   // Recompute recommendations when inputs change
   const handleInputChange = () => {
     // Small delay to allow state to update
-    setTimeout(() => applyQuestionnaireRecommendations(), 0)
+    setTimeout(() => applyQuestionnaireRecommendations(derivedFinancials), 0)
   }
 
   return (
@@ -778,63 +815,148 @@ function CoverageMultiplierCard({
                         }}
                       />
                     </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
-                        Mortgage ($)
-                      </label>
-                      <input
-                        type="text"
-                        value={formatInputCurrency(answers.lifeTpd.mortgageBalance)}
-                        onChange={(e) => {
-                          setLifeTpdAnswers({ mortgageBalance: parseCurrency(e.target.value) })
-                          handleInputChange()
-                        }}
-                        placeholder="0"
-                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
+                  </div>
+
+                  {/* Financial data source toggle */}
+                  <div className="mt-3 pt-3" style={{ borderTop: `1px solid ${monetWizard.cardBorder}` }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <p
+                        className="text-[10px] uppercase tracking-wider"
+                        style={{ color: accent }}
+                      >
+                        Debts &amp; assets
+                      </p>
+                      <div
+                        className="inline-flex rounded-md p-0.5"
                         style={{
-                          color: monetWizard.textPrimary,
-                          borderColor: monetWizard.cardBorder,
+                          background: monetWizard.surfaceBg,
+                          border: `1px solid ${monetWizard.cardBorder}`,
                         }}
-                      />
+                      >
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLifeTpdAnswers({ useManualFinancials: false })
+                            handleInputChange()
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] font-medium transition-all duration-150 flex items-center gap-1"
+                          style={{
+                            background: !answers.lifeTpd.useManualFinancials ? `${accent}20` : 'transparent',
+                            color: !answers.lifeTpd.useManualFinancials ? monetWizard.textPrimary : monetWizard.textMuted,
+                          }}
+                        >
+                          <ExternalLink className="h-2.5 w-2.5" />
+                          Use plan data
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLifeTpdAnswers({
+                              useManualFinancials: true,
+                              // Seed manual values from plan data if starting fresh
+                              ...(!answers.lifeTpd.manualMortgageBalance &&
+                                !answers.lifeTpd.manualOtherDebts &&
+                                !answers.lifeTpd.manualExistingAssets
+                                ? {
+                                    manualMortgageBalance: autoPopulate.computed.totalMortgage,
+                                    manualOtherDebts: autoPopulate.computed.totalOtherDebts,
+                                    manualExistingAssets: autoPopulate.computed.totalAssets,
+                                  }
+                                : {}),
+                            })
+                            handleInputChange()
+                          }}
+                          className="px-2 py-0.5 rounded text-[10px] font-medium transition-all duration-150 flex items-center gap-1"
+                          style={{
+                            background: answers.lifeTpd.useManualFinancials ? `${accent}20` : 'transparent',
+                            color: answers.lifeTpd.useManualFinancials ? monetWizard.textPrimary : monetWizard.textMuted,
+                          }}
+                        >
+                          <Edit3 className="h-2.5 w-2.5" />
+                          Enter my own
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
-                        Other debts ($)
-                      </label>
-                      <input
-                        type="text"
-                        value={formatInputCurrency(answers.lifeTpd.otherDebts)}
-                        onChange={(e) => {
-                          setLifeTpdAnswers({ otherDebts: parseCurrency(e.target.value) })
-                          handleInputChange()
-                        }}
-                        placeholder="0"
-                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
-                        style={{
-                          color: monetWizard.textPrimary,
-                          borderColor: monetWizard.cardBorder,
-                        }}
-                      />
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                      <div>
+                        <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                          Mortgage ($)
+                        </label>
+                        <input
+                          type="text"
+                          value={formatInputCurrency(
+                            answers.lifeTpd.useManualFinancials
+                              ? (answers.lifeTpd.manualMortgageBalance ?? 0)
+                              : autoPopulate.computed.totalMortgage
+                          )}
+                          onChange={(e) => {
+                            setLifeTpdAnswers({ manualMortgageBalance: parseCurrency(e.target.value) })
+                            handleInputChange()
+                          }}
+                          disabled={!answers.lifeTpd.useManualFinancials}
+                          placeholder="0"
+                          className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1 disabled:opacity-50"
+                          style={{
+                            color: monetWizard.textPrimary,
+                            borderColor: answers.lifeTpd.useManualFinancials ? monetWizard.cardBorder : `${monetWizard.cardBorder}80`,
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                          Other debts ($)
+                        </label>
+                        <input
+                          type="text"
+                          value={formatInputCurrency(
+                            answers.lifeTpd.useManualFinancials
+                              ? (answers.lifeTpd.manualOtherDebts ?? 0)
+                              : autoPopulate.computed.totalOtherDebts
+                          )}
+                          onChange={(e) => {
+                            setLifeTpdAnswers({ manualOtherDebts: parseCurrency(e.target.value) })
+                            handleInputChange()
+                          }}
+                          disabled={!answers.lifeTpd.useManualFinancials}
+                          placeholder="0"
+                          className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1 disabled:opacity-50"
+                          style={{
+                            color: monetWizard.textPrimary,
+                            borderColor: answers.lifeTpd.useManualFinancials ? monetWizard.cardBorder : `${monetWizard.cardBorder}80`,
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
+                          Existing assets ($)
+                        </label>
+                        <input
+                          type="text"
+                          value={formatInputCurrency(
+                            answers.lifeTpd.useManualFinancials
+                              ? (answers.lifeTpd.manualExistingAssets ?? 0)
+                              : autoPopulate.computed.totalAssets
+                          )}
+                          onChange={(e) => {
+                            setLifeTpdAnswers({ manualExistingAssets: parseCurrency(e.target.value) })
+                            handleInputChange()
+                          }}
+                          disabled={!answers.lifeTpd.useManualFinancials}
+                          placeholder="0"
+                          className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1 disabled:opacity-50"
+                          style={{
+                            color: monetWizard.textPrimary,
+                            borderColor: answers.lifeTpd.useManualFinancials ? monetWizard.cardBorder : `${monetWizard.cardBorder}80`,
+                          }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="text-[10px] uppercase tracking-wider" style={{ color: monetWizard.textMuted }}>
-                        Existing assets ($)
-                      </label>
-                      <input
-                        type="text"
-                        value={formatInputCurrency(answers.lifeTpd.existingAssets)}
-                        onChange={(e) => {
-                          setLifeTpdAnswers({ existingAssets: parseCurrency(e.target.value) })
-                          handleInputChange()
-                        }}
-                        placeholder="0"
-                        className="w-full mt-1 px-2 py-1.5 rounded-lg text-xs font-mono tabular-nums bg-transparent border focus:outline-none focus:ring-1"
-                        style={{
-                          color: monetWizard.textPrimary,
-                          borderColor: monetWizard.cardBorder,
-                        }}
-                      />
-                    </div>
+                    {!answers.lifeTpd.useManualFinancials && (
+                      <p className="text-[10px] mt-2 flex items-center gap-1" style={{ color: monetWizard.textMuted }}>
+                        <ExternalLink className="h-2.5 w-2.5" />
+                        Sourced from your financial plan — edit liabilities &amp; assets there to update
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1523,6 +1645,7 @@ function LifeTpdQuestionnaire({
   const [subStep, setSubStep] = useState(0)
   const selectedPersonId = useSelectedPersonId()
   const autoPopulate = useQuestionnaireAutoPopulate(selectedPersonId)
+  const lifeTpdFinancials = toDerivedFinancials(autoPopulate.computed, answers.lifeTpd)
   const { includedPersons } = usePersonFilter()
   const { data: incomes = [] } = useIncomesQuery()
 
@@ -1559,7 +1682,7 @@ function LifeTpdQuestionnaire({
 
     // If the deselected person was the spouse, clear spouse too
     const spouseCleared = isSelected && personId === answers.lifeTpd.spousePersonId
-      ? { spousePersonId: null, spouseHasIncome: false, spouseIncome: 0 }
+      ? { spousePersonId: null }
       : {}
 
     setLifeTpdAnswers({
@@ -1601,10 +1724,10 @@ function LifeTpdQuestionnaire({
     : 0
   const sanitizedObligations = Math.max(0, answers.lifeTpd.futureObligations)
   const totalNeeded = incomeReplacement +
-    autoPopulate.computed.totalMortgage +
-    autoPopulate.computed.totalOtherDebts +
+    lifeTpdFinancials.mortgageBalance +
+    lifeTpdFinancials.otherDebts +
     sanitizedObligations -
-    autoPopulate.computed.totalAssets
+    lifeTpdFinancials.existingAssets
 
   return (
     <div className="max-w-xl mx-auto">
@@ -1717,13 +1840,7 @@ function LifeTpdQuestionnaire({
               <PersonSelector
                 value={answers.lifeTpd.spousePersonId}
                 onChange={(personId) => {
-                  const hasIncome = personId ? calculateAnnualIncomeForPerson(incomes, personId) > 0 : false
-                  const income = personId ? calculateAnnualIncomeForPerson(incomes, personId) : 0
-                  setLifeTpdAnswers({
-                    spousePersonId: personId,
-                    spouseHasIncome: hasIncome,
-                    spouseIncome: income,
-                  })
+                  setLifeTpdAnswers({ spousePersonId: personId })
                 }}
                 placeholder="None"
                 variant={colorScheme === 'monet' ? 'monet' : 'dark'}
@@ -1781,7 +1898,7 @@ function LifeTpdQuestionnaire({
                 Outstanding mortgage
               </span>
               <span className="text-sm font-mono tabular-nums font-medium" style={{ color: monetWizard.textPrimary }}>
-                {formatCurrency(autoPopulate.computed.totalMortgage)}
+                {formatCurrency(lifeTpdFinancials.mortgageBalance)}
               </span>
             </div>
 
@@ -1790,7 +1907,7 @@ function LifeTpdQuestionnaire({
                 Other debts
               </span>
               <span className="text-sm font-mono tabular-nums font-medium" style={{ color: monetWizard.textPrimary }}>
-                {formatCurrency(autoPopulate.computed.totalOtherDebts)}
+                {formatCurrency(lifeTpdFinancials.otherDebts)}
               </span>
             </div>
 
@@ -1802,7 +1919,7 @@ function LifeTpdQuestionnaire({
                 Existing assets
               </span>
               <span className="text-sm font-mono tabular-nums font-medium" style={{ color: monetWizard.textPrimary }}>
-                {formatCurrency(autoPopulate.computed.totalAssets)}
+                {formatCurrency(lifeTpdFinancials.existingAssets)}
               </span>
             </div>
 
@@ -1836,9 +1953,9 @@ function LifeTpdQuestionnaire({
             </div>
             <p className="text-xs font-mono tabular-nums" style={{ color: monetWizard.textSecondary }}>
               = {formatCurrency(incomeReplacement)} (income replacement) +
-              {formatCurrency(autoPopulate.computed.totalMortgage + autoPopulate.computed.totalOtherDebts)} (debts) +
+              {formatCurrency(lifeTpdFinancials.mortgageBalance + lifeTpdFinancials.otherDebts)} (debts) +
               {formatCurrency(sanitizedObligations)} (obligations) -
-              {formatCurrency(autoPopulate.computed.totalAssets)} (assets)
+              {formatCurrency(lifeTpdFinancials.existingAssets)} (assets)
             </p>
           </div>
         </div>
@@ -2305,13 +2422,14 @@ function SelfInsuranceQuestionnaire({
 
   const answers = useQuestionnaireAnswers()
   const { setSelfInsuranceAnswers, applyQuestionnaireRecommendations } = useGuidelinesActions()
-  const recommendations = useQuestionnaireRecommendations()
   const selectedPersonId = useSelectedPersonId()
   const autoPopulate = useQuestionnaireAutoPopulate(selectedPersonId)
+  const selfInsuranceDerivedFinancials = toDerivedFinancials(autoPopulate.computed, answers.lifeTpd)
+  const recommendations = useQuestionnaireRecommendations(selfInsuranceDerivedFinancials)
 
   const handleContinue = () => {
     // Apply all questionnaire recommendations to the guidelines
-    applyQuestionnaireRecommendations()
+    applyQuestionnaireRecommendations(selfInsuranceDerivedFinancials)
     onNext()
   }
 
@@ -2861,35 +2979,20 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
 
   const guidelines = useGuidelines()
   const targets = useGuidelineTargets()
-  const recommendations = useQuestionnaireRecommendations()
+  const answers = useQuestionnaireAnswers()
   const referenceMode = useReferenceMode()
   const selectedPersonId = useSelectedPersonId()
-  const { setMaxPremiumPercentage, resetToDefaults, unmarkAsConfigured, setLifeTpdAnswers } = useGuidelinesActions()
+  const { setMaxPremiumPercentage, resetToDefaults, unmarkAsConfigured } = useGuidelinesActions()
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   // Fetch expenses for "vs Expenses" mode
   const { data: expenses = [] } = useExpensesQuery()
   const annualExpenses = useMemo(() => calculateAnnualExpenses(expenses), [expenses])
 
-  // Keep mortgage/assets in sync with current financial data
+  // Derived financials from existing data (liabilities, assets, incomes)
   const autoPopulateData = useQuestionnaireAutoPopulate(selectedPersonId)
-  useEffect(() => {
-    if (!autoPopulateData.isLoading && (autoPopulateData.sources.liabilities || autoPopulateData.sources.assets)) {
-      setLifeTpdAnswers({
-        mortgageBalance: autoPopulateData.computed.totalMortgage,
-        otherDebts: autoPopulateData.computed.totalOtherDebts,
-        existingAssets: autoPopulateData.computed.totalAssets,
-      })
-    }
-  }, [
-    autoPopulateData.isLoading,
-    autoPopulateData.computed.totalMortgage,
-    autoPopulateData.computed.totalOtherDebts,
-    autoPopulateData.computed.totalAssets,
-    autoPopulateData.sources.liabilities,
-    autoPopulateData.sources.assets,
-    setLifeTpdAnswers,
-  ])
+  const reviewDerivedFinancials = toDerivedFinancials(autoPopulateData.computed, answers.lifeTpd)
+  const recommendations = useQuestionnaireRecommendations(reviewDerivedFinancials)
 
   const percentage = Math.round(guidelines.maxPremiumPercentage * 100)
 

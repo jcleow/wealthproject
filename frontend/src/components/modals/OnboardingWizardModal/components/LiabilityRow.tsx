@@ -6,8 +6,8 @@ import { formatCurrency } from '@/lib/format'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { CustomDropdown } from '@/components/modals/ScenarioEventModal/components/CustomDropdown'
 import type { OnboardingFormData } from '../types'
-import { LIABILITY_CATEGORY_LABELS } from '../types'
-import { LIABILITY_CATEGORY_ICONS } from './incomeExpensesConstants'
+import { LIABILITY_CATEGORY_LABELS, ASSET_CATEGORY_LABELS } from '../types'
+import { LIABILITY_CATEGORY_ICONS, ASSET_CATEGORY_ICONS } from './incomeExpensesConstants'
 
 const LIABILITY_CATEGORY_OPTIONS = Object.entries(LIABILITY_CATEGORY_LABELS).map(([value, label]) => ({
   value,
@@ -31,6 +31,7 @@ export function LiabilityRow({
 }: LiabilityRowProps) {
   const { watch, setValue, register, formState: { errors } } = useFormContext<OnboardingFormData>()
   const liability = watch(`liabilities.${fieldIndex}`)
+  const assets = watch('assets')
   const fieldErrors = errors.liabilities?.[fieldIndex]
 
   if (!liability) return null
@@ -50,6 +51,9 @@ export function LiabilityRow({
   // ─── Collapsed row ────────────────────────────────────────────────────────
   const hasAnyError = !!fieldErrors
   const displayName = liability.name || 'Untitled'
+  const linkedAsset = liability.linkedAssetTempId
+    ? assets.find((a) => a.tempId === liability.linkedAssetTempId)
+    : null
   const displayAmount = liability.currentBalance > 0 ? `(${formatCurrency(liability.currentBalance)})` : '—'
 
   if (!isExpanded) {
@@ -70,6 +74,11 @@ export function LiabilityRow({
           isMonet ? 'text-[var(--monet-text-primary)]' : 'text-slate-200'
         )}>
           {displayName} · {categoryLabel}
+          {linkedAsset && (
+            <span className={cn('ml-1.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+              → {linkedAsset.name || 'Untitled'}
+            </span>
+          )}
         </span>
         <span className={cn(
           'flex-shrink-0 text-sm font-mono tabular-nums text-right min-w-[100px]',
@@ -162,16 +171,36 @@ export function LiabilityRow({
           </div>
         </div>
 
-        {/* Row 3: Minimum Payment */}
-        <div className="max-w-[200px]">
-          <label className={cn('text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
-            Min. Monthly Payment
-          </label>
-          <CurrencyInput
-            value={liability.minimumPayment}
-            onChange={(val) => setValue(`liabilities.${fieldIndex}.minimumPayment`, val)}
-            size="sm"
-          />
+        {/* Row 3: Min Payment + Linked Asset */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className={cn('text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
+              Min. Monthly Payment
+            </label>
+            <CurrencyInput
+              value={liability.minimumPayment}
+              onChange={(val) => setValue(`liabilities.${fieldIndex}.minimumPayment`, val)}
+              size="sm"
+            />
+          </div>
+          <div>
+            <label className={cn('text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
+              Associated Asset
+            </label>
+            <CustomDropdown
+              value={liability.linkedAssetTempId ?? ''}
+              onChange={(val) => setValue(`liabilities.${fieldIndex}.linkedAssetTempId`, val || null)}
+              options={[
+                { value: '', label: 'None' },
+                ...assets.map((a) => ({
+                  value: a.tempId,
+                  label: `${ASSET_CATEGORY_ICONS[a.category] ?? '📦'} ${a.name || 'Untitled'} · ${ASSET_CATEGORY_LABELS[a.category] ?? a.category}`,
+                })),
+              ]}
+              variant={isMonet ? 'monet' : 'dark'}
+              minWidth="100%"
+            />
+          </div>
         </div>
 
         {/* Collapse / Delete actions */}

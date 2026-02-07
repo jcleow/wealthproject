@@ -22,6 +22,7 @@ export function OnboardingWizardModal({ isOpen, onClose }: OnboardingWizardModal
   const queryClient = useQueryClient()
   const [showExitConfirm, setShowExitConfirm] = useState(false)
   const showExitConfirmRef = useRef(false)
+  const [currentStepIndex, setCurrentStepIndex] = useState(0)
 
   // Keep ref in sync so the keydown listener always sees current state
   useEffect(() => {
@@ -114,7 +115,7 @@ export function OnboardingWizardModal({ isOpen, onClose }: OnboardingWizardModal
       onClose={handleCloseAttempt}
       overlayClassName={isMonet ? 'bg-black/30 backdrop-blur-sm' : 'bg-black/60 backdrop-blur-sm'}
       className={cn(
-        'w-full max-w-[900px] max-h-[90vh] mx-4 sm:mx-6 rounded-2xl border overflow-hidden flex flex-col relative',
+        'w-full max-w-[900px] h-[80vh] mx-4 sm:mx-6 rounded-2xl border overflow-hidden flex flex-col relative',
         isMonet
           ? 'border-[var(--monet-lavender)]/20 bg-white'
           : 'border-white/[0.08] bg-[#0a0a0a]'
@@ -122,17 +123,31 @@ export function OnboardingWizardModal({ isOpen, onClose }: OnboardingWizardModal
     >
       {/* Header */}
       <div className={cn(
-        'flex items-center justify-between px-4 sm:px-6 py-4 border-b flex-shrink-0',
+        'flex items-center justify-between px-4 sm:px-6 py-3 border-b flex-shrink-0',
         isMonet
           ? 'border-[var(--monet-lavender)]/10'
           : 'border-white/[0.06]'
       )}>
-        <h2 className={cn(
-          'text-base font-semibold',
-          isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white'
-        )}>
-          Quick Start: Creating a financial plan
-        </h2>
+        <div className="flex items-center gap-2">
+          <span className={cn(
+            'text-[10px] font-semibold uppercase tracking-wider',
+            isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500'
+          )}>
+            Financial Plan
+          </span>
+          <span className={cn(
+            'text-[10px] font-semibold uppercase tracking-wider',
+            isMonet ? 'text-[var(--monet-text-muted)]/50' : 'text-slate-700'
+          )}>
+            ·
+          </span>
+          <span className={cn(
+            'text-[10px] font-semibold uppercase tracking-wider',
+            isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500'
+          )}>
+            Step {currentStepIndex + 1} of 4
+          </span>
+        </div>
         <button
           type="button"
           onClick={handleCloseAttempt}
@@ -153,6 +168,7 @@ export function OnboardingWizardModal({ isOpen, onClose }: OnboardingWizardModal
           onClose={handleComplete}
           onSkipSetup={handleSkipSetup}
           isMonet={isMonet}
+          onStepChange={setCurrentStepIndex}
         />
       </div>
 

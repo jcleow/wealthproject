@@ -1,5 +1,5 @@
 import { useFormContext } from 'react-hook-form'
-import { Trash2 } from 'lucide-react'
+import { Trash2, Home } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
@@ -13,6 +13,14 @@ const ASSET_CATEGORY_OPTIONS = Object.entries(ASSET_CATEGORY_LABELS).map(([value
   value,
   label: `${ASSET_CATEGORY_ICONS[value] ?? ''} ${label}`,
 }))
+
+const PROPERTY_TYPE_OPTIONS = [
+  { value: 'hdb-resale', label: '🏠 HDB Resale' },
+  { value: 'hdb-bto', label: '🏗️ HDB BTO' },
+  { value: 'ec', label: '🏛️ Executive Condo' },
+  { value: 'private-resale', label: '🏢 Private Resale' },
+  { value: 'private-new', label: '🔨 New Launch' },
+]
 
 interface AssetRowProps {
   fieldIndex: number
@@ -143,7 +151,15 @@ export function AssetRow({
             </label>
             <CustomDropdown
               value={asset.category}
-              onChange={(val) => setValue(`assets.${fieldIndex}.category`, val as any)}
+              onChange={(val) => {
+                setValue(`assets.${fieldIndex}.category`, val as any)
+                // Auto-set / reset propertyType when category changes
+                if (val === 'property') {
+                  setValue(`assets.${fieldIndex}.propertyType`, 'hdb-resale')
+                } else {
+                  setValue(`assets.${fieldIndex}.propertyType`, null)
+                }
+              }}
               options={ASSET_CATEGORY_OPTIONS}
               variant={isMonet ? 'monet' : 'dark'}
               minWidth="100%"
@@ -161,6 +177,37 @@ export function AssetRow({
             />
           </div>
         </div>
+
+        {/* Conditional: Property Type picker + scenario hint */}
+        {asset.category === 'property' && (
+          <>
+            <div>
+              <label className={cn('text-[10px] font-medium uppercase tracking-wider mb-1 block', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-600')}>
+                Property Type
+              </label>
+              <CustomDropdown
+                value={asset.propertyType ?? 'hdb-resale'}
+                onChange={(val) => setValue(`assets.${fieldIndex}.propertyType`, val as any)}
+                options={PROPERTY_TYPE_OPTIONS}
+                variant={isMonet ? 'monet' : 'dark'}
+                minWidth="100%"
+              />
+            </div>
+            {asset.propertyType && (
+              <div className={cn(
+                'flex items-start gap-2 rounded-lg px-3 py-2',
+                isMonet
+                  ? 'bg-[var(--monet-sage)]/8 border border-[var(--monet-sage)]/15'
+                  : 'bg-indigo-500/[0.06] border border-indigo-500/15'
+              )}>
+                <Home className={cn('w-3.5 h-3.5 mt-0.5 shrink-0', isMonet ? 'text-[var(--monet-sage)]' : 'text-indigo-400')} />
+                <p className={cn('text-[11px] leading-relaxed', isMonet ? 'text-[var(--monet-text-secondary)]' : 'text-slate-400')}>
+                  A <span className={cn('font-medium', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-slate-300')}>Property Scenario</span> will be auto-created with default loan terms, fees, and a 10-year sale projection. You can refine it later in the Property Planner.
+                </p>
+              </div>
+            )}
+          </>
+        )}
 
         {/* Collapse / Delete actions */}
         <div className="flex items-center justify-between pt-1">
