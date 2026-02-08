@@ -13,6 +13,8 @@ import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
 import { useInsurancePoliciesQuery } from '@/hooks/queries/useInsurancePoliciesQuery'
 import type { InsurancePolicyRecord } from '@/api/financial/insurance'
+import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
+import { useGuidelineTargets } from '@/stores/coverageGuidelinesStore'
 
 // ============================================================================
 // CATEGORY DEFINITIONS
@@ -118,6 +120,13 @@ interface MyCoverageTabProps {
 export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
   const { data: policies = [] } = useInsurancePoliciesQuery()
   const activePolicies = policies.filter((p) => p.isActive)
+  const guidelineTargets = useGuidelineTargets()
+
+  // Map category IDs to guideline store targets (falls back to hardcoded default)
+  const targetForCategory = (categoryId: string, fallback: number): number => {
+    const storeTarget = guidelineTargets[categoryId as keyof typeof guidelineTargets]
+    return typeof storeTarget === 'number' && storeTarget > 0 ? storeTarget : fallback
+  }
 
   // Calculate per-category data
   const categoryData = COVERAGE_CATEGORIES.map((category) => {
@@ -137,6 +146,7 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
       annualPremium,
       hasCoverage,
       primaryPolicy,
+      resolvedTarget: targetForCategory(category.id, category.defaultTarget),
     }
   })
 
@@ -193,7 +203,7 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
 
       {/* Coverage Breakdown */}
       <div className="space-y-5">
-        <h2 className="text-xl font-semibold text-white">Coverage Breakdown</h2>
+        <h2 className="text-sm font-semibold text-white">Coverage Breakdown</h2>
 
         {/* Cards Grid - 2x2 */}
         <div className="grid grid-cols-2 gap-5">
@@ -287,7 +297,7 @@ function CoverageScoreCard({ percentage }: { percentage: number }) {
               bgRing
             )}
           >
-            <span className={cn('text-2xl font-bold font-mono tabular-nums', textColor)}>
+            <span className={cn('text-xl font-bold font-mono tabular-nums', textColor)}>
               {percentage}%
             </span>
           </div>
@@ -296,7 +306,7 @@ function CoverageScoreCard({ percentage }: { percentage: number }) {
 
       {/* Label */}
       <div>
-        <span className="text-lg font-semibold text-white">Covered</span>
+        <span className={cn(T.sectionTitle, 'text-white')}>Covered</span>
       </div>
     </div>
   )
@@ -325,11 +335,11 @@ function MetricCell({
         hasBorderRight && 'border-r border-white/[0.06]'
       )}
     >
-      <span className="text-[11px] font-medium font-mono tracking-wider uppercase text-slate-500">
+      <span className={cn(T.cardLabel, 'text-slate-500')}>
         {label}
       </span>
-      <span className="text-2xl font-semibold text-white">{value}</span>
-      <span className="text-xs text-slate-500 line-clamp-1">
+      <span className={cn(T.cardValue, 'text-white')}>{value}</span>
+      <span className={cn(T.cardDescription, 'text-slate-500 line-clamp-1')}>
         {description}
       </span>
     </div>
@@ -353,6 +363,7 @@ interface CategoryCardData {
   hasCoverage: boolean
   primaryPolicy: InsurancePolicyRecord | null
   defaultTarget: number
+  resolvedTarget: number
 }
 
 function HospitalizationCard({
@@ -384,27 +395,27 @@ function HospitalizationCard({
             {/* Detail rows */}
             <div className="flex gap-6">
               <div className="flex-1 flex flex-col gap-1">
-                <span className="text-[11px] font-medium font-mono tracking-wider uppercase text-slate-500">
+                <span className={cn(T.cardLabel, 'text-slate-500')}>
                   EXPENSES COVERED
                 </span>
                 <div className="flex items-center gap-2.5">
-                  <span className="text-base font-semibold text-white">
+                  <span className={cn(T.cardDetailValue, 'text-white')}>
                     ~6 months
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className={cn(T.cardDescription, 'text-slate-500')}>
                     Based on avg ward stay cost
                   </span>
                 </div>
               </div>
               <div className="flex-1 flex flex-col gap-1">
-                <span className="text-[11px] font-medium font-mono tracking-wider uppercase text-slate-500">
+                <span className={cn(T.cardLabel, 'text-slate-500')}>
                   ANNUAL PREMIUM
                 </span>
                 <div className="flex items-center gap-2.5">
-                  <span className="text-base font-semibold text-white">
+                  <span className={cn(T.cardDetailValue, 'text-white')}>
                     {formatCurrency(annualPremium)}/yr
                   </span>
-                  <span className="text-xs text-slate-500">
+                  <span className={cn(T.cardDescription, 'text-slate-500')}>
                     {primaryPolicy?.insurerName
                       ? `${primaryPolicy.insurerName}`
                       : 'MediShield Life'}
@@ -420,11 +431,16 @@ function HospitalizationCard({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-slate-500" />
-                <span className="text-sm text-slate-400">
+                <span className={cn(T.bodyText, 'text-slate-400')}>
                   {primaryPolicy?.name ?? 'No policy name'}
                 </span>
+                {primaryPolicy?.personName && (
+                  <span className={cn(T.metaText, 'text-slate-500')}>
+                    · {primaryPolicy.personName}
+                  </span>
+                )}
               </div>
-              <span className="text-sm font-medium font-mono tabular-nums text-slate-300">
+              <span className="text-[13px] font-medium font-mono tabular-nums text-slate-300">
                 {wardClass}
               </span>
             </div>
@@ -451,13 +467,13 @@ function ProgressCoverageCard({
 }) {
   const {
     coverageAmount,
-    defaultTarget,
+    resolvedTarget,
     annualPremium,
     primaryPolicy,
   } = category
   const Icon = category.icon
 
-  const targetAmount = defaultTarget
+  const targetAmount = resolvedTarget
   const percentage =
     targetAmount > 0
       ? Math.min(100, Math.round((coverageAmount / targetAmount) * 100))
@@ -466,10 +482,10 @@ function ProgressCoverageCard({
   const isFullyCovered = percentage >= 100
 
   // Progress bar color
-  const barColor = isFullyCovered ? 'bg-emerald-500' : 'bg-rose-500'
+  const barColor = isFullyCovered ? 'bg-emerald-500' : 'bg-amber-600'
   const barTextColor = isFullyCovered
     ? 'text-emerald-400'
-    : 'text-rose-400'
+    : 'text-amber-500'
   const barMessage = isFullyCovered
     ? '100% of target \u2014 fully covered'
     : `${percentage}% of target \u2014 ${formatCurrency(gapAmount)} gap`
@@ -490,14 +506,14 @@ function ProgressCoverageCard({
           {/* Current / Target row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <span className="text-base font-semibold text-white">
+              <span className={cn(T.cardDetailValue, 'text-white')}>
                 {formatCurrency(coverageAmount)}
               </span>
-              <span className="text-xs text-slate-500">current</span>
+              <span className={cn(T.metaText, 'text-slate-500')}>current</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-500">Target:</span>
-              <span className="text-xs font-medium text-slate-300">
+              <span className={cn(T.metaText, 'text-slate-500')}>Target:</span>
+              <span className={cn(T.metaText, 'font-medium text-slate-300')}>
                 {formatCurrency(targetAmount)}
               </span>
             </div>
@@ -512,7 +528,7 @@ function ProgressCoverageCard({
           </div>
 
           {/* Percentage message */}
-          <span className={cn('text-xs font-medium font-mono', barTextColor)}>
+          <span className={cn(T.metaText, 'font-medium font-mono', barTextColor)}>
             {barMessage}
           </span>
         </div>
@@ -522,9 +538,6 @@ function ProgressCoverageCard({
 
         {/* Coverage details */}
         <div className="flex flex-col gap-2.5">
-          <span className="text-[11px] font-medium font-mono tracking-wider uppercase text-slate-500">
-            COVERAGE DETAILS
-          </span>
           <CoverageDetailStats
             categoryId={category.id}
             policy={primaryPolicy}
@@ -541,11 +554,16 @@ function ProgressCoverageCard({
             <>
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-slate-500" />
-                <span className="text-sm text-slate-400">
+                <span className={cn(T.bodyText, 'text-slate-400')}>
                   {primaryPolicy.name}
                 </span>
+                {primaryPolicy.personName && (
+                  <span className={cn(T.metaText, 'text-slate-500')}>
+                    · {primaryPolicy.personName}
+                  </span>
+                )}
               </div>
-              <span className="text-sm font-medium font-mono tabular-nums text-slate-300">
+              <span className="text-[13px] font-medium font-mono tabular-nums text-slate-300">
                 {formatCurrency(annualPremium)}/yr
               </span>
             </>
@@ -553,9 +571,9 @@ function ProgressCoverageCard({
             <>
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-slate-500" />
-                <span className="text-sm text-slate-400">No active policy</span>
+                <span className={cn(T.bodyText, 'text-slate-400')}>No active policy</span>
               </div>
-              <span className="text-sm font-medium font-mono tabular-nums text-slate-300">
+              <span className="text-[13px] font-medium font-mono tabular-nums text-slate-300">
                 $0/yr
               </span>
             </>
@@ -612,8 +630,8 @@ function CoverageDetailStats({
     <div className="flex gap-6">
       {stats.map((stat) => (
         <div key={stat.label} className="flex flex-col gap-0.5">
-          <span className="text-xs text-slate-500">{stat.label}</span>
-          <span className="text-sm font-medium text-slate-200">
+          <span className={cn(T.metaText, 'text-slate-500')}>{stat.label}</span>
+          <span className={cn(T.bodyText, 'font-medium text-slate-200')}>
             {stat.value}
           </span>
         </div>
@@ -639,11 +657,11 @@ function CardHeader({
     <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
       <div className="flex items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-md bg-white/[0.05]">
-          <Icon className="h-[18px] w-[18px] text-slate-400" />
+          <Icon className={cn(T.categoryIconSize, 'text-slate-400')} />
         </div>
         <div className="flex flex-col gap-px">
-          <span className="text-base font-semibold text-white">{title}</span>
-          <span className="text-xs text-slate-500">{subtitle}</span>
+          <span className={cn(T.sectionTitle, 'text-white')}>{title}</span>
+          <span className={cn(T.metaText, 'text-slate-500')}>{subtitle}</span>
         </div>
       </div>
       <button
@@ -666,14 +684,14 @@ function EmptyPolicyState({
       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.04]">
         <Shield className="h-5 w-5 text-slate-500" />
       </div>
-      <p className="text-sm text-slate-500 text-center">
+      <p className={cn(T.bodyText, 'text-slate-500 text-center')}>
         No active policies in this category
       </p>
       {onAddPolicy && (
         <button
           type="button"
           onClick={onAddPolicy}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors"
+          className={cn(T.bodyText, 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-medium text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors')}
         >
           <Plus className="h-3.5 w-3.5" />
           Add Policy

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Plus, Shield, Loader2, MoreHorizontal } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect } from 'react'
+import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, Users } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
 import { useColorScheme } from '@/stores'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
@@ -12,6 +12,9 @@ import {
   useDeleteInsurancePolicyMutation,
 } from '@/hooks/queries/useInsurancePoliciesQuery'
 import type { InsurancePolicyCreateInput, InsurancePolicyRecord } from '@/api/financial/insurance'
+import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
+import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
+import type { Person } from '@/types/person'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -118,6 +121,142 @@ function formatRenewalDate(startDate: string, endDate: string | null, renewalDat
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Person Multi-Select Filter
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PersonMultiSelect({
+  persons,
+  selectedIds,
+  onToggle,
+  onSelectAll,
+  onClearAll,
+  theme,
+}: {
+  persons: Person[]
+  selectedIds: Set<string>
+  onToggle: (personId: string) => void
+  onSelectAll: () => void
+  onClearAll: () => void
+  theme: ReturnType<typeof getInsuranceTheme>
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  const allSelected = persons.length > 0 && selectedIds.size === persons.length
+  const noneSelected = selectedIds.size === 0
+  const triggerLabel = noneSelected
+    ? 'All Persons'
+    : selectedIds.size === 1
+      ? persons.find((p) => selectedIds.has(p.id))?.name ?? '1 person'
+      : `${selectedIds.size} persons`
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition-all duration-200"
+        style={{
+          background: theme.controlBg,
+          border: `1px solid ${theme.controlBorder}`,
+          color: noneSelected ? theme.textSecondary : theme.textPrimary,
+        }}
+      >
+        <Users className="h-3.5 w-3.5" />
+        <span>{triggerLabel}</span>
+        <ChevronDown
+          className="h-3 w-3 transition-transform duration-200"
+          style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          className="absolute right-0 top-full z-30 mt-1.5 min-w-[220px] rounded-lg py-1 shadow-xl"
+          style={{
+            background: theme.panelBg,
+            border: `1px solid ${theme.cardBorder}`,
+          }}
+        >
+          {/* Select All / Clear All */}
+          <button
+            type="button"
+            onClick={allSelected ? onClearAll : onSelectAll}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs transition-colors hover:bg-white/[0.04]"
+            style={{ color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` }}
+          >
+            <div
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+              style={{
+                background: allSelected ? '#3b82f6' : 'transparent',
+                border: `1.5px solid ${allSelected ? '#3b82f6' : theme.textMuted}`,
+              }}
+            >
+              {allSelected && <Check className="h-2.5 w-2.5 text-white" />}
+            </div>
+            <span>{allSelected ? 'Deselect All' : 'Select All'}</span>
+          </button>
+
+          {/* Person options */}
+          {persons.map((person) => {
+            const isSelected = selectedIds.has(person.id)
+            return (
+              <button
+                key={person.id}
+                type="button"
+                onClick={() => onToggle(person.id)}
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-xs transition-colors hover:bg-white/[0.04]"
+                style={{ color: theme.textPrimary }}
+              >
+                <div
+                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+                  style={{
+                    background: isSelected ? '#3b82f6' : 'transparent',
+                    border: `1.5px solid ${isSelected ? '#3b82f6' : theme.textMuted}`,
+                  }}
+                >
+                  {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
+                </div>
+                <span
+                  className="h-2.5 w-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: person.displayColor || '#64748b' }}
+                />
+                <span className="truncate">{person.name}</span>
+                {person.relationship && person.relationship !== 'self' && (
+                  <span
+                    className="ml-auto text-[10px] shrink-0"
+                    style={{ color: theme.textMuted }}
+                  >
+                    ({person.relationship})
+                  </span>
+                )}
+              </button>
+            )
+          })}
+
+          {persons.length === 0 && (
+            <div className="px-3 py-3 text-xs text-center" style={{ color: theme.textMuted }}>
+              No persons added yet
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Summary Cards
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -181,19 +320,19 @@ function SummaryCards({
           }}
         >
           <span
-            className="font-mono text-xs font-medium uppercase tracking-wider"
+            className={T.cardLabel}
             style={{ color: theme.textMuted }}
           >
             {item.label}
           </span>
           <span
-            className="text-2xl font-semibold"
+            className={T.cardValue}
             style={{ color: theme.textPrimary }}
           >
             {item.value}
           </span>
           <span
-            className="text-sm"
+            className={T.cardDescription}
             style={{ color: theme.textMuted }}
           >
             {item.description}
@@ -211,11 +350,13 @@ function SummaryCards({
 function PolicyCard({
   policy,
   theme,
+  personColor,
   onEdit,
   onDelete,
 }: {
   policy: InsurancePolicyRecord
   theme: ReturnType<typeof getInsuranceTheme>
+  personColor?: string
   onEdit: (policy: InsurancePolicyRecord) => void
   onDelete: (id: string) => void
 }) {
@@ -257,7 +398,7 @@ function PolicyCard({
           {/* Policy Info */}
           <div>
             <p
-              className="text-[15px] font-semibold"
+              className="text-sm font-semibold"
               style={{ color: theme.textPrimary }}
             >
               {policy.name}
@@ -268,6 +409,17 @@ function PolicyCard({
                 : policy.category}
               {policy.policyNumber ? ` · Policy #${policy.policyNumber}` : ''}
             </p>
+            {policy.personName && (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: personColor || '#64748b' }}
+                />
+                <span className="text-[11px]" style={{ color: theme.textMuted }}>
+                  {policy.personName}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -333,45 +485,45 @@ function PolicyCard({
       <div className="grid grid-cols-4 gap-6 px-6 py-4">
         <div className="flex flex-col gap-0.5">
           <span
-            className="font-mono text-xs font-medium uppercase tracking-wider"
+            className={T.cardLabel}
             style={{ color: theme.textMuted }}
           >
             COVERAGE
           </span>
-          <span className="text-[15px] font-medium" style={{ color: theme.textPrimary }}>
+          <span className="text-[13px] font-medium" style={{ color: theme.textPrimary }}>
             {categoryLabel}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span
-            className="font-mono text-xs font-medium uppercase tracking-wider"
+            className={T.cardLabel}
             style={{ color: theme.textMuted }}
           >
             SUM ASSURED
           </span>
-          <span className="text-[15px] font-medium" style={{ color: theme.textPrimary }}>
+          <span className="text-[13px] font-medium" style={{ color: theme.textPrimary }}>
             {formatAmount(policy.coverageAmount)}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span
-            className="font-mono text-xs font-medium uppercase tracking-wider"
+            className={T.cardLabel}
             style={{ color: theme.textMuted }}
           >
             PREMIUM
           </span>
-          <span className="text-[15px] font-medium" style={{ color: theme.textPrimary }}>
+          <span className="text-[13px] font-medium" style={{ color: theme.textPrimary }}>
             {formatPremiumWithFrequency(policy.premiumAmount, policy.premiumFrequency)}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
           <span
-            className="font-mono text-xs font-medium uppercase tracking-wider"
+            className={T.cardLabel}
             style={{ color: theme.textMuted }}
           >
             RENEWAL
           </span>
-          <span className="text-[15px] font-medium" style={{ color: theme.textPrimary }}>
+          <span className="text-[13px] font-medium" style={{ color: theme.textPrimary }}>
             {renewalDate}
           </span>
         </div>
@@ -395,6 +547,35 @@ export function PoliciesTab() {
   const createMutation = useCreateInsurancePolicyMutation()
   const updateMutation = useUpdateInsurancePolicyMutation()
   const deleteMutation = useDeleteInsurancePolicyMutation()
+
+  const { data: personsData } = usePersonsQuery()
+  const persons = useMemo(() => personsData ?? [], [personsData])
+  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
+
+  const personColorMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const person of persons) {
+      map[person.id] = person.displayColor || '#64748b'
+    }
+    return map
+  }, [persons])
+
+  const handleTogglePerson = (personId: string) => {
+    setSelectedPersonIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(personId)) next.delete(personId)
+      else next.add(personId)
+      return next
+    })
+  }
+
+  const handleSelectAllPersons = () => {
+    setSelectedPersonIds(new Set(persons.map((p) => p.id)))
+  }
+
+  const handleClearAllPersons = () => {
+    setSelectedPersonIds(new Set())
+  }
 
   const handleEdit = (policy: InsurancePolicyRecord) => {
     setEditingPolicy(policy)
@@ -478,6 +659,12 @@ export function PoliciesTab() {
     () => (policies ?? []).filter((p) => p.isActive),
     [policies]
   )
+
+  const filteredPolicies = useMemo(() => {
+    if (selectedPersonIds.size === 0) return activePolicies
+    return activePolicies.filter((p) => p.personId && selectedPersonIds.has(p.personId))
+  }, [activePolicies, selectedPersonIds])
+
   const hasPolicies = activePolicies.length > 0
 
   return (
@@ -485,7 +672,7 @@ export function PoliciesTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2
-          className="text-2xl font-semibold"
+          className="text-lg font-semibold"
           style={{
             color: theme.textPrimary,
             fontFamily: isMonet ? "'Cormorant Garamond', Georgia, serif" : 'inherit',
@@ -493,15 +680,27 @@ export function PoliciesTab() {
         >
           Insurance Planner
         </h2>
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 rounded px-3.5 py-2 text-sm font-medium text-white transition-all duration-200 hover:brightness-110"
-          style={{ background: '#C53D43' }}
-        >
-          <Plus className="h-4 w-4" />
-          Add Policy
-        </button>
+        <div className="flex items-center gap-2.5">
+          {persons.length > 0 && (
+            <PersonMultiSelect
+              persons={persons}
+              selectedIds={selectedPersonIds}
+              onToggle={handleTogglePerson}
+              onSelectAll={handleSelectAllPersons}
+              onClearAll={handleClearAllPersons}
+              theme={theme}
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="flex items-center gap-2 rounded px-3.5 py-2 text-sm font-medium text-white transition-all duration-200 hover:brightness-110"
+            style={{ background: '#C53D43' }}
+          >
+            <Plus className="h-4 w-4" />
+            Add Policy
+          </button>
+        </div>
       </div>
 
       {/* Loading */}
@@ -530,7 +729,7 @@ export function PoliciesTab() {
             <Shield className="h-10 w-10" style={{ color: theme.textMuted }} />
           </div>
           <h3
-            className="mt-5 text-lg font-semibold"
+            className="mt-5 text-sm font-semibold"
             style={{
               color: theme.textPrimary,
               fontFamily: isMonet ? "'Cormorant Garamond', Georgia, serif" : 'inherit',
@@ -556,17 +755,27 @@ export function PoliciesTab() {
       {/* Summary Cards + Policy List */}
       {!isLoading && hasPolicies && (
         <>
-          <SummaryCards policies={activePolicies} theme={theme} />
+          <SummaryCards policies={filteredPolicies} theme={theme} />
           <div className="flex flex-col gap-4">
-            {activePolicies.map((policy) => (
-              <PolicyCard
-                key={policy.id}
-                policy={policy}
-                theme={theme}
-                onEdit={handleEdit}
-                onDelete={(id) => deleteMutation.mutate(id)}
-              />
-            ))}
+            {filteredPolicies.length > 0 ? (
+              filteredPolicies.map((policy) => (
+                <PolicyCard
+                  key={policy.id}
+                  policy={policy}
+                  theme={theme}
+                  personColor={policy.personId ? personColorMap[policy.personId] : undefined}
+                  onEdit={handleEdit}
+                  onDelete={(id) => deleteMutation.mutate(id)}
+                />
+              ))
+            ) : (
+              <div
+                className="py-8 text-center text-sm"
+                style={{ color: theme.textMuted }}
+              >
+                No policies match the selected persons
+              </div>
+            )}
           </div>
         </>
       )}

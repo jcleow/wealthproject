@@ -13,7 +13,7 @@ import {
   type ChartData,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import { Shield, HeartPulse, Zap, AlertCircle, CheckCircle2, Calendar, GraduationCap, Home, Sunset } from 'lucide-react'
+import { Shield, HeartPulse, Zap, AlertCircle, CheckCircle2, Calendar, GraduationCap, Home, Sunset, ChevronDown, ChevronRight, Check, Baby } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { useQuestionnaireAutoPopulate } from '@/hooks/useQuestionnaireAutoPopulate'
@@ -21,6 +21,7 @@ import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useColorScheme } from '@/stores'
 import { PersonSelector } from '@/components/ui/PersonSelector'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
+import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
 import {
   generateCoverageProjection,
   calculateMilestones,
@@ -49,8 +50,945 @@ interface JourneyTabProps {
   className?: string
 }
 
+type CategoryFilter = 'all' | 'lifeTpd' | 'criticalIllness' | 'personalAccident'
+
 // =============================================================================
-// Coverage Comparison (Light Theme)
+// Dark Mode Palette (from Pencil design bpFdW)
+// =============================================================================
+
+const DARK_PALETTE = {
+  pageBg: '#0a0a0a',
+  cardBg: 'rgba(255, 255, 255, 0.03)',
+  cardBorder: 'rgba(255, 255, 255, 0.08)',
+  milestoneInnerBg: 'rgba(255, 255, 255, 0.04)',
+  contentAreaBg: 'rgba(255, 255, 255, 0.02)',
+  textPrimary: '#F0F0F0',
+  textMuted: '#71717A',
+  textSecondaryMuted: '#9CA3AF',
+  red: '#D97706',
+  green: '#22C55E',
+  blueLifeTpd: '#3D5A80',
+  blueLightAccent: '#7CB3D8',
+  grayCriticalIllness: '#6B7280',
+  grayCriticalIllnessChip: '#A1A1AA',
+  goldPersonalAccident: '#E5A100',
+  gapCardBg: 'rgba(217, 119, 6, 0.08)',
+  gapCardBorder: 'rgba(217, 119, 6, 0.20)',
+  chipActiveBg: '#F0F0F0',
+  chipActiveText: '#111113',
+  chipInactiveBg: 'rgba(255, 255, 255, 0.02)',
+} as const
+
+// =============================================================================
+// Dark Mode: Category color config
+// =============================================================================
+
+const DARK_CATEGORY_CONFIG = {
+  lifeTpd: {
+    chartLine: DARK_PALETTE.blueLifeTpd,
+    chartFill: '#3D5A8060',
+    chipCheckColor: DARK_PALETTE.blueLifeTpd,
+    legendDotFill: '#3D5A8060',
+    legendDotStroke: DARK_PALETTE.blueLifeTpd,
+    icon: Shield,
+    label: 'Life/TPD',
+  },
+  criticalIllness: {
+    chartLine: DARK_PALETTE.grayCriticalIllness,
+    chartFill: '#6B728060',
+    chipCheckColor: DARK_PALETTE.grayCriticalIllnessChip,
+    legendDotFill: '#6B728060',
+    legendDotStroke: DARK_PALETTE.grayCriticalIllness,
+    icon: HeartPulse,
+    label: 'Critical Illness',
+  },
+  personalAccident: {
+    chartLine: DARK_PALETTE.goldPersonalAccident,
+    chartFill: '#E5A10060',
+    chipCheckColor: DARK_PALETTE.goldPersonalAccident,
+    legendDotFill: '#E5A10060',
+    legendDotStroke: DARK_PALETTE.goldPersonalAccident,
+    icon: Zap,
+    label: 'Personal Accident',
+  },
+} as const
+
+// =============================================================================
+// Dark Mode: Summary Cards
+// =============================================================================
+
+function DarkSummaryCards({
+  targetTotal,
+  currentCoverage,
+  coverageGap,
+  categoryCount,
+}: {
+  targetTotal: number
+  currentCoverage: number
+  coverageGap: number
+  categoryCount: number
+}) {
+  const uncoveredCategoryCount = categoryCount
+
+  return (
+    <div className="flex gap-4">
+      {/* Target Total */}
+      <div
+        className="flex-1 rounded-sm p-5"
+        style={{
+          background: DARK_PALETTE.cardBg,
+          border: `1px solid ${DARK_PALETTE.cardBorder}`,
+        }}
+      >
+        <div
+          className={cn(T.cardLabel, 'mb-1.5')}
+          style={{ color: DARK_PALETTE.textMuted }}
+        >
+          TARGET TOTAL
+        </div>
+        <div className="flex items-end gap-3">
+          <span
+            className={T.cardValue}
+            style={{ color: DARK_PALETTE.textPrimary }}
+          >
+            {formatCoverageAmount(targetTotal)}
+          </span>
+          <span
+            className={cn(T.cardDescription, 'mb-0.5')}
+            style={{ color: DARK_PALETTE.textMuted }}
+          >
+            Across all categories
+          </span>
+        </div>
+      </div>
+
+      {/* Current Coverage */}
+      <div
+        className="flex-1 rounded-sm p-5"
+        style={{
+          background: DARK_PALETTE.cardBg,
+          border: `1px solid ${DARK_PALETTE.cardBorder}`,
+        }}
+      >
+        <div
+          className={cn(T.cardLabel, 'mb-1.5')}
+          style={{ color: DARK_PALETTE.textMuted }}
+        >
+          CURRENT COVERAGE
+        </div>
+        <div className="flex items-end gap-2">
+          <span
+            className={T.cardValue}
+            style={{ color: DARK_PALETTE.textPrimary }}
+          >
+            {formatCoverageAmount(currentCoverage)}
+          </span>
+          <span
+            className={cn(T.cardDescription, 'mb-0.5')}
+            style={{ color: DARK_PALETTE.textMuted }}
+          >
+            {currentCoverage === 0 ? 'No active policies' : 'From active policies'}
+          </span>
+        </div>
+      </div>
+
+      {/* Coverage Gap */}
+      <div
+        className="flex-1 rounded-sm p-5"
+        style={{
+          background: DARK_PALETTE.gapCardBg,
+          border: `1px solid ${DARK_PALETTE.gapCardBorder}`,
+        }}
+      >
+        <div
+          className={cn(T.cardLabel, 'mb-1.5')}
+          style={{ color: DARK_PALETTE.textMuted }}
+        >
+          COVERAGE GAP
+        </div>
+        <div className="flex items-end gap-2">
+          <span
+            className={T.cardValue}
+            style={{ color: DARK_PALETTE.red }}
+          >
+            {formatCoverageAmount(coverageGap)}
+          </span>
+          <span
+            className={cn(T.cardDescription, 'mb-0.5')}
+            style={{ color: DARK_PALETTE.textMuted }}
+          >
+            {uncoveredCategoryCount} {uncoveredCategoryCount === 1 ? 'category' : 'categories'} unprotected
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// =============================================================================
+// Dark Mode: Category Filter Chips
+// =============================================================================
+
+function DarkCategoryFilterChips({
+  activeFilter,
+  onFilterChange,
+}: {
+  activeFilter: CategoryFilter
+  onFilterChange: (filter: CategoryFilter) => void
+}) {
+  const chipBaseClassName = cn('flex items-center gap-1.5 rounded-full px-3 py-[5px] cursor-pointer transition-all duration-150', T.chipText)
+
+  const allCategories: { key: CategoryFilter; label: string; checkColor: string }[] = [
+    { key: 'all', label: 'All Categories', checkColor: DARK_PALETTE.chipActiveText },
+    { key: 'lifeTpd', label: 'Life/TPD', checkColor: DARK_CATEGORY_CONFIG.lifeTpd.chipCheckColor },
+    { key: 'criticalIllness', label: 'Critical Illness', checkColor: DARK_CATEGORY_CONFIG.criticalIllness.chipCheckColor },
+    { key: 'personalAccident', label: 'Personal Accident', checkColor: DARK_CATEGORY_CONFIG.personalAccident.chipCheckColor },
+  ]
+
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className={T.metaText} style={{ color: DARK_PALETTE.textMuted }}>
+        Analyze:
+      </span>
+      {allCategories.map((category) => {
+        const isActive = activeFilter === category.key
+
+        return (
+          <button
+            key={category.key}
+            type="button"
+            onClick={() => onFilterChange(category.key)}
+            className={chipBaseClassName}
+            style={isActive ? {
+              background: DARK_PALETTE.chipActiveBg,
+              color: DARK_PALETTE.chipActiveText,
+              fontWeight: 500,
+            } : {
+              background: DARK_PALETTE.chipInactiveBg,
+              border: `1px solid ${DARK_PALETTE.cardBorder}`,
+              color: DARK_PALETTE.textPrimary,
+            }}
+          >
+            <Check
+              className="h-3 w-3"
+              style={{ color: isActive ? DARK_PALETTE.chipActiveText : category.checkColor }}
+            />
+            {category.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// =============================================================================
+// Dark Mode: Chart Legend
+// =============================================================================
+
+function DarkChartLegend() {
+  const legendItems = [
+    DARK_CATEGORY_CONFIG.lifeTpd,
+    DARK_CATEGORY_CONFIG.criticalIllness,
+    DARK_CATEGORY_CONFIG.personalAccident,
+  ]
+
+  return (
+    <div className="flex items-center gap-3">
+      {legendItems.map((item) => (
+        <div key={item.label} className="flex items-center gap-1.5">
+          <div
+            className="w-3 h-3 rounded-md"
+            style={{
+              background: item.legendDotFill,
+              border: `1.5px solid ${item.legendDotStroke}`,
+            }}
+          />
+          <span className={T.legendText} style={{ color: DARK_PALETTE.textMuted }}>
+            {item.label}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// =============================================================================
+// Dark Mode: Coverage Chart
+// =============================================================================
+
+function DarkCoverageChart({
+  projections,
+  milestones,
+  currentAge,
+  selectedAge,
+  onAgeSelect,
+  activeFilter,
+}: {
+  projections: CoverageProjectionYear[]
+  milestones: CoverageMilestone[]
+  currentAge: number
+  selectedAge: number
+  onAgeSelect: (age: number) => void
+  activeFilter: CategoryFilter
+}) {
+  const chartRef = useRef<ChartJS<'line'> | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [isDraggingAge, setIsDraggingAge] = useState(false)
+  // Flips to true once the chart has rendered its scales, triggering a
+  // re-render so milestone icons can read pixel positions from Chart.js
+  const [chartScalesReady, setChartScalesReady] = useState(false)
+
+  const getChartArea = useCallback(() => {
+    const chart = chartRef.current
+    if (!chart) return null
+    return chart.chartArea
+  }, [])
+
+  const pixelToAge = useCallback((pixelX: number): number => {
+    const chart = chartRef.current
+    const chartArea = getChartArea()
+    if (!chart || !chartArea) return selectedAge
+
+    const relativeX = Math.max(0, Math.min(1, (pixelX - chartArea.left) / (chartArea.right - chartArea.left)))
+    const minAge = projections[0]?.age ?? 25
+    const maxAge = projections[projections.length - 1]?.age ?? 75
+    const age = Math.round(minAge + relativeX * (maxAge - minAge))
+    return Math.max(minAge, Math.min(maxAge, age))
+  }, [projections, selectedAge, getChartArea])
+
+  const selectedAgeIndex = useMemo(() => {
+    return projections.findIndex(p => p.age === selectedAge)
+  }, [projections, selectedAge])
+
+  const showLifeTpd = activeFilter === 'all' || activeFilter === 'lifeTpd'
+  const showCriticalIllness = activeFilter === 'all' || activeFilter === 'criticalIllness'
+  const showPersonalAccident = activeFilter === 'all' || activeFilter === 'personalAccident'
+
+  const chartData: ChartData<'line'> = useMemo(() => {
+    const labels = projections.map(p => p.age.toString())
+    const datasets = []
+
+    if (showLifeTpd) {
+      datasets.push({
+        label: 'Life/TPD',
+        data: projections.map(p => p.recommendedLifeTpd),
+        borderColor: DARK_CATEGORY_CONFIG.lifeTpd.chartLine,
+        backgroundColor: DARK_CATEGORY_CONFIG.lifeTpd.chartFill,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.lifeTpd.chartLine,
+        pointHoverBorderColor: DARK_PALETTE.textPrimary,
+        pointHoverBorderWidth: 2,
+        borderWidth: 2,
+      })
+    }
+
+    if (showCriticalIllness) {
+      datasets.push({
+        label: 'Critical Illness',
+        data: projections.map(p => p.recommendedCriticalIllness),
+        borderColor: DARK_CATEGORY_CONFIG.criticalIllness.chartLine,
+        backgroundColor: DARK_CATEGORY_CONFIG.criticalIllness.chartFill,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.criticalIllness.chartLine,
+        pointHoverBorderColor: DARK_PALETTE.textPrimary,
+        pointHoverBorderWidth: 2,
+        borderWidth: 1.5,
+      })
+    }
+
+    if (showPersonalAccident) {
+      datasets.push({
+        label: 'Personal Accident',
+        data: projections.map(p => p.recommendedPersonalAccident),
+        borderColor: DARK_CATEGORY_CONFIG.personalAccident.chartLine,
+        backgroundColor: DARK_CATEGORY_CONFIG.personalAccident.chartFill,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.personalAccident.chartLine,
+        pointHoverBorderColor: DARK_PALETTE.textPrimary,
+        pointHoverBorderWidth: 2,
+        borderWidth: 1,
+      })
+    }
+
+    return { labels, datasets }
+  }, [projections, showLifeTpd, showCriticalIllness, showPersonalAccident])
+
+  const handleMarkerMouseDown = useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setIsDraggingAge(true)
+  }, [])
+
+  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingAge) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const newAge = pixelToAge(x)
+    if (newAge !== selectedAge) {
+      onAgeSelect(newAge)
+    }
+  }, [isDraggingAge, pixelToAge, selectedAge, onAgeSelect])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDraggingAge(false)
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    if (isDraggingAge) setIsDraggingAge(false)
+  }, [isDraggingAge])
+
+  const handleChartClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (isDraggingAge) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const newAge = pixelToAge(x)
+    onAgeSelect(newAge)
+  }, [isDraggingAge, pixelToAge, onAgeSelect])
+
+  // After the chart mounts and renders, its scales become available.
+  // We need one re-render to read pixel positions for milestone icons.
+  const chartScalesReadyRef = useRef(chartScalesReady)
+  chartScalesReadyRef.current = chartScalesReady
+
+  const chartOptions: ChartOptions<'line'> = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: {
+      onComplete: () => {
+        if (!chartScalesReadyRef.current) {
+          setChartScalesReady(true)
+        }
+      },
+    },
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        enabled: !isDraggingAge,
+        backgroundColor: DARK_PALETTE.cardBg,
+        titleColor: DARK_PALETTE.textPrimary,
+        bodyColor: DARK_PALETTE.textMuted,
+        borderColor: DARK_PALETTE.cardBorder,
+        borderWidth: 1,
+        padding: 12,
+        cornerRadius: 4,
+        displayColors: true,
+        callbacks: {
+          title: (items) => {
+            if (items.length > 0) {
+              const age = projections[items[0].dataIndex]?.age
+              const isCurrent = age === currentAge
+              return `Age ${age}${isCurrent ? ' (Current)' : ''}`
+            }
+            return ''
+          },
+          label: (context) => {
+            const value = context.raw as number
+            return ` ${context.dataset.label}: ${formatCoverageAmount(value)}`
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        grid: { color: DARK_PALETTE.cardBorder, drawTicks: false },
+        ticks: {
+          color: DARK_PALETTE.textMuted,
+          font: { size: 11 },
+          maxRotation: 0,
+          callback: function (_value, index) {
+            const age = projections[index]?.age
+            if (age !== undefined && age % 5 === 0) return age
+            return ''
+          },
+        },
+        border: { display: false },
+      },
+      y: {
+        grid: { color: DARK_PALETTE.cardBorder, drawTicks: false },
+        ticks: {
+          color: DARK_PALETTE.textMuted,
+          font: { size: 11 },
+          callback: (value) => formatCoverageAmount(value as number),
+          maxTicksLimit: 5,
+        },
+        border: { display: false },
+        beginAtZero: true,
+      },
+    },
+  }), [projections, currentAge, isDraggingAge])
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative h-[340px]"
+      style={{ cursor: isDraggingAge ? 'ew-resize' : 'crosshair' }}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleChartClick}
+    >
+      <Line ref={chartRef} data={chartData} options={chartOptions} />
+
+      {/* Selected age marker (draggable) */}
+      {selectedAgeIndex >= 0 && (
+        <div
+          className="absolute top-0 bottom-0 transition-all"
+          style={{
+            left: `calc(${(selectedAgeIndex / (projections.length - 1)) * 100}% + 12px)`,
+            width: 2,
+            background: DARK_PALETTE.textPrimary,
+            cursor: 'ew-resize',
+            zIndex: 10,
+          }}
+          onMouseDown={handleMarkerMouseDown}
+        >
+          {/* Age badge at top */}
+          <div
+            className="absolute -top-1 left-1/2 -translate-x-1/2 flex items-center justify-center px-2.5 py-1 rounded-xl text-[11px] font-semibold whitespace-nowrap"
+            style={{
+              background: DARK_PALETTE.textPrimary,
+              color: DARK_PALETTE.pageBg,
+              cursor: 'ew-resize',
+            }}
+          >
+            Age {selectedAge}
+          </div>
+
+          {/* Drag affordance dots */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col gap-1">
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: DARK_PALETTE.pageBg }} />
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: DARK_PALETTE.pageBg }} />
+            <div className="w-1.5 h-1.5 rounded-full" style={{ background: DARK_PALETTE.pageBg }} />
+          </div>
+        </div>
+      )}
+
+      {/* Milestone markers on chart — positioned relative to the data curve */}
+      {milestones.map((milestone, idx) => {
+        const minAge = projections[0]?.age ?? 25
+        const maxAge = projections[projections.length - 1]?.age ?? 75
+        if (milestone.age < minAge || milestone.age > maxAge) return null
+
+        const chart = chartRef.current
+        if (!chart || !chart.chartArea) return null
+
+        const Icon = getDarkMilestoneIcon(milestone.category)
+        const iconBgColor = milestone.category === 'debt' ? DARK_PALETTE.red : DARK_PALETTE.blueLifeTpd
+
+        // Find the data index for this milestone's age
+        const dataIndex = projections.findIndex(p => p.age === milestone.age)
+        if (dataIndex < 0) return null
+
+        // Get X pixel from Chart.js scale (accounts for chart padding/margins)
+        const pixelX = chart.scales.x.getPixelForValue(dataIndex)
+
+        // Find the highest visible dataset value at this age
+        const projection = projections[dataIndex]
+        const visibleValues: number[] = []
+        if (showLifeTpd) visibleValues.push(projection.recommendedLifeTpd)
+        if (showCriticalIllness) visibleValues.push(projection.recommendedCriticalIllness)
+        if (showPersonalAccident) visibleValues.push(projection.recommendedPersonalAccident)
+        const maxValue = visibleValues.length > 0 ? Math.max(...visibleValues) : 0
+
+        // Convert data value to pixel Y, then offset 24px above the curve
+        const ICON_OFFSET_ABOVE_CURVE = 24
+        const pixelY = chart.scales.y.getPixelForValue(maxValue) - ICON_OFFSET_ABOVE_CURVE
+
+        return (
+          <div
+            key={idx}
+            className="absolute pointer-events-none"
+            style={{
+              left: pixelX,
+              top: pixelY,
+              transform: 'translate(-50%, -50%)',
+              zIndex: 5,
+            }}
+            title={`${milestone.event} (Age ${milestone.age})`}
+          >
+            <div
+              className="flex items-center justify-center w-8 h-8 rounded-full shadow-lg"
+              style={{ background: iconBgColor }}
+            >
+              <Icon className="h-4 w-4" style={{ color: DARK_PALETTE.pageBg }} />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// =============================================================================
+// Dark Mode: Coverage Breakdown Card (bottom-left)
+// =============================================================================
+
+function DarkCoverageBreakdownCard({
+  projections,
+  selectedAge,
+  persons,
+}: {
+  projections: CoverageProjectionYear[]
+  selectedAge: number
+  persons: Array<{ id: string; name: string; displayColor?: string | null; isIncluded?: boolean }>
+}) {
+  const [expandedCategory, setExpandedCategory] = useState<string | null>('lifeTpd')
+
+  const selectedProjection = projections.find(p => p.age === selectedAge)
+  if (!selectedProjection) return null
+
+  const includedPersons = persons.filter(p => p.isIncluded)
+
+  const categories = [
+    {
+      key: 'lifeTpd',
+      label: 'Life/TPD',
+      icon: Shield,
+      iconColor: DARK_PALETTE.blueLifeTpd,
+      recommended: selectedProjection.recommendedLifeTpd,
+      current: selectedProjection.currentLifeTpd,
+    },
+    {
+      key: 'criticalIllness',
+      label: 'Critical Illness',
+      icon: HeartPulse,
+      iconColor: DARK_PALETTE.grayCriticalIllnessChip,
+      recommended: selectedProjection.recommendedCriticalIllness,
+      current: selectedProjection.currentCriticalIllness,
+    },
+    {
+      key: 'personalAccident',
+      label: 'Personal Accident',
+      icon: Zap,
+      iconColor: DARK_PALETTE.goldPersonalAccident,
+      recommended: selectedProjection.recommendedPersonalAccident,
+      current: selectedProjection.currentPersonalAccident,
+    },
+  ]
+
+  return (
+    <div
+      className="rounded-sm"
+      style={{
+        background: DARK_PALETTE.cardBg,
+        border: `1px solid ${DARK_PALETTE.cardBorder}`,
+      }}
+    >
+      <div className="p-6 pb-0">
+        <div
+          className={T.cardLabel}
+          style={{ color: DARK_PALETTE.textMuted }}
+        >
+          POLICY COVERAGES
+        </div>
+      </div>
+
+      <div
+        className="mx-6 mt-3 mb-0 h-px"
+        style={{ background: DARK_PALETTE.cardBorder }}
+      />
+
+      <div className="px-6 pb-6">
+        {categories.map((category, idx) => {
+          const Icon = category.icon
+          const gap = category.recommended - category.current
+          const hasGap = gap > 0
+          const isExpanded = expandedCategory === category.key
+          const ChevIcon = isExpanded ? ChevronDown : ChevronRight
+
+          return (
+            <div key={category.key}>
+              {/* Category header row */}
+              <button
+                type="button"
+                onClick={() => setExpandedCategory(isExpanded ? null : category.key)}
+                className="flex items-center justify-between w-full py-3 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Icon className={T.categoryIconSize} style={{ color: category.iconColor }} />
+                  <span className={T.categoryLabel} style={{ color: DARK_PALETTE.textPrimary }}>
+                    {category.label}
+                  </span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      className="w-2 h-2 rounded"
+                      style={{ background: hasGap ? DARK_PALETTE.red : DARK_PALETTE.green }}
+                    />
+                    <span
+                      className={T.statusText}
+                      style={{ color: hasGap ? DARK_PALETTE.red : DARK_PALETTE.green }}
+                    >
+                      {hasGap ? `Gap: ${formatCoverageAmount(gap)}` : 'On Target'}
+                    </span>
+                  </div>
+                  <ChevIcon className="h-4 w-4" style={{ color: DARK_PALETTE.textSecondaryMuted }} />
+                </div>
+              </button>
+
+              {/* Expanded per-person breakdown */}
+              {isExpanded && includedPersons.length > 0 && (
+                <div
+                  className="rounded-sm mb-2"
+                  style={{ background: DARK_PALETTE.contentAreaBg }}
+                >
+                  {/* Sub-header */}
+                  <div
+                    className="flex items-center gap-3 px-4 py-2"
+                  >
+                    <span
+                      className={cn(T.legendText, 'flex-1')}
+                      style={{ color: DARK_PALETTE.textMuted }}
+                    >
+                      Person
+                    </span>
+                    <span
+                      className={cn(T.legendText, 'w-20 text-right')}
+                      style={{ color: DARK_PALETTE.textMuted }}
+                    >
+                      Target
+                    </span>
+                    <span
+                      className={cn(T.legendText, 'w-20 text-right')}
+                      style={{ color: DARK_PALETTE.textMuted }}
+                    >
+                      Current
+                    </span>
+                    <span
+                      className={cn(T.legendText, 'w-24 text-right')}
+                      style={{ color: DARK_PALETTE.textMuted }}
+                    >
+                      Gap
+                    </span>
+                  </div>
+
+                  {/* Person rows */}
+                  {includedPersons.map((person) => {
+                    // Split the target evenly across persons for display
+                    const perPersonTarget = Math.round(category.recommended / includedPersons.length)
+                    const perPersonCurrent = Math.round(category.current / includedPersons.length)
+                    const perPersonGap = perPersonTarget - perPersonCurrent
+
+                    return (
+                      <div
+                        key={person.id}
+                        className="flex items-center gap-3 px-4 py-2.5"
+                        style={{ borderTop: `1px solid ${DARK_PALETTE.cardBorder}` }}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div
+                            className="w-5 h-5 rounded-full flex-shrink-0"
+                            style={{ background: person.displayColor || '#64748b' }}
+                          />
+                          <span className={cn(T.bodyText, 'truncate')} style={{ color: DARK_PALETTE.textPrimary }}>
+                            {person.name}
+                          </span>
+                        </div>
+                        <span
+                          className={cn(T.bodyText, 'w-20 text-right')}
+                          style={{ color: DARK_PALETTE.textPrimary }}
+                        >
+                          {formatCoverageAmount(perPersonTarget)}
+                        </span>
+                        <span
+                          className={cn(T.bodyText, 'w-20 text-right')}
+                          style={{ color: DARK_PALETTE.textPrimary }}
+                        >
+                          {formatCoverageAmount(perPersonCurrent)}
+                        </span>
+                        <span
+                          className={cn(T.bodyText, 'w-24 text-right')}
+                          style={{ color: perPersonGap > 0 ? DARK_PALETTE.red : DARK_PALETTE.green }}
+                        >
+                          {perPersonGap > 0 ? `(\u2212${formatCoverageAmount(perPersonGap)})` : 'OK'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Divider between categories */}
+              {idx < categories.length - 1 && (
+                <div className="h-px" style={{ background: DARK_PALETTE.cardBorder }} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// =============================================================================
+// Dark Mode: Milestones Card (bottom-right)
+// =============================================================================
+
+function getDarkMilestoneIcon(category: CoverageMilestone['category']) {
+  switch (category) {
+    case 'dependent':
+      return Baby
+    case 'debt':
+      return Home
+    case 'retirement':
+      return Sunset
+    default:
+      return Calendar
+  }
+}
+
+function getDarkMilestoneIconBg(category: CoverageMilestone['category']): string {
+  switch (category) {
+    case 'debt':
+      return DARK_PALETTE.red
+    case 'dependent':
+    case 'retirement':
+    default:
+      return DARK_PALETTE.blueLifeTpd
+  }
+}
+
+function getDarkMilestoneYearColor(category: CoverageMilestone['category']): string {
+  switch (category) {
+    case 'debt':
+      return DARK_PALETTE.red
+    case 'dependent':
+    case 'retirement':
+    default:
+      return DARK_PALETTE.blueLightAccent
+  }
+}
+
+function DarkMilestonesCard({
+  milestones,
+  currentYear,
+}: {
+  milestones: CoverageMilestone[]
+  currentYear: number
+}) {
+  if (milestones.length === 0) {
+    return (
+      <div
+        className="rounded-sm p-6"
+        style={{
+          background: DARK_PALETTE.cardBg,
+          border: `1px solid ${DARK_PALETTE.cardBorder}`,
+        }}
+      >
+        <div
+          className={cn(T.cardLabel, 'mb-4')}
+          style={{ color: DARK_PALETTE.textMuted }}
+        >
+          UPCOMING MILESTONES
+        </div>
+        <p className={cn(T.bodyText, 'text-center py-6')} style={{ color: DARK_PALETTE.textMuted }}>
+          No upcoming milestones detected
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="rounded-sm"
+      style={{
+        background: DARK_PALETTE.cardBg,
+        border: `1px solid ${DARK_PALETTE.cardBorder}`,
+      }}
+    >
+      <div className="p-6 pb-0">
+        <div
+          className={T.cardLabel}
+          style={{ color: DARK_PALETTE.textMuted }}
+        >
+          UPCOMING MILESTONES
+        </div>
+      </div>
+
+      <div
+        className="mx-6 mt-3 mb-0 h-px"
+        style={{ background: DARK_PALETTE.cardBorder }}
+      />
+
+      <div className="p-6 pt-4 flex flex-col gap-4">
+        {milestones.map((milestone, idx) => {
+          const Icon = getDarkMilestoneIcon(milestone.category)
+          const iconBgColor = getDarkMilestoneIconBg(milestone.category)
+          const yearColor = getDarkMilestoneYearColor(milestone.category)
+          const yearsAway = milestone.year - currentYear
+
+          // Determine impact color: positive coverage change = red (gap grows), negative = green (gap shrinks)
+          const impactColor = milestone.coverageChange > 0
+            ? DARK_PALETTE.red
+            : milestone.coverageChange < 0
+              ? DARK_PALETTE.green
+              : DARK_PALETTE.textMuted
+
+          return (
+            <div
+              key={idx}
+              className="flex gap-4 rounded-md p-4"
+              style={{ background: DARK_PALETTE.milestoneInnerBg }}
+            >
+              {/* Icon circle */}
+              <div
+                className="flex items-center justify-center w-9 h-9 rounded-2xl flex-shrink-0"
+                style={{ background: iconBgColor }}
+              >
+                <Icon className={T.categoryIconSize} style={{ color: DARK_PALETTE.pageBg }} />
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                {/* Meta row: year + time away */}
+                <div className="flex items-center gap-2">
+                  <span className={cn(T.metaText, 'font-semibold')} style={{ color: yearColor }}>
+                    {milestone.year}
+                  </span>
+                  <span className={T.metaText} style={{ color: DARK_PALETTE.textMuted }}>
+                    &middot;
+                  </span>
+                  <span className={T.metaText} style={{ color: DARK_PALETTE.textMuted }}>
+                    {yearsAway === 1 ? 'In 1 year' : `In ${yearsAway} years`}
+                  </span>
+                </div>
+
+                {/* Title */}
+                <h4 className={T.milestoneTitle} style={{ color: DARK_PALETTE.textPrimary }}>
+                  {milestone.event}
+                </h4>
+
+                {/* Description */}
+                <p className={T.milestoneDescription} style={{ color: DARK_PALETTE.textMuted }}>
+                  {milestone.description}
+                </p>
+
+                {/* Impact */}
+                <p className={T.milestoneImpact} style={{ color: impactColor }}>
+                  {milestone.impact}
+                </p>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// =============================================================================
+// Coverage Comparison (Monet/Light Theme) — preserved as-is
 // =============================================================================
 
 function CoverageComparisonLight({
@@ -78,16 +1016,16 @@ function CoverageComparisonLight({
         className="flex items-center gap-4 pb-2"
         style={{ borderBottom: '1px solid rgba(155, 139, 180, 0.15)' }}
       >
-        <div className="flex-1 text-xs font-medium" style={{ color: monetColors.textMuted }}>
+        <div className={cn('flex-1', T.metaText)} style={{ color: monetColors.textMuted }}>
           Category
         </div>
-        <div className="w-28 text-right text-xs font-medium" style={{ color: monetColors.textMuted }}>
+        <div className={cn('w-28 text-right', T.metaText)} style={{ color: monetColors.textMuted }}>
           Recommended
         </div>
-        <div className="w-28 text-right text-xs font-medium" style={{ color: monetColors.textMuted }}>
+        <div className={cn('w-28 text-right', T.metaText)} style={{ color: monetColors.textMuted }}>
           Current
         </div>
-        <div className="w-28 text-right text-xs font-medium" style={{ color: monetColors.textMuted }}>
+        <div className={cn('w-28 text-right', T.metaText)} style={{ color: monetColors.textMuted }}>
           Status
         </div>
       </div>
@@ -106,13 +1044,13 @@ function CoverageComparisonLight({
           >
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <Icon className="h-4 w-4" style={{ color: monetColors.lavender }} />
-              <span className="text-sm" style={{ color: monetColors.textSecondary }}>
+              <span className={T.bodyText} style={{ color: monetColors.textSecondary }}>
                 {cat.name}
               </span>
             </div>
             <div className="w-28 text-right">
               <span
-                className="text-sm font-mono"
+                className={cn(T.bodyText, 'font-mono')}
                 style={{ color: monetColors.textMuted }}
               >
                 {formatCoverageAmount(cat.recommended)}
@@ -120,7 +1058,7 @@ function CoverageComparisonLight({
             </div>
             <div className="w-28 text-right">
               <span
-                className="text-sm font-mono"
+                className={cn(T.bodyText, 'font-mono')}
                 style={{ color: monetColors.textPrimary }}
               >
                 {formatCoverageAmount(cat.current)}
@@ -130,14 +1068,14 @@ function CoverageComparisonLight({
               {hasGap ? (
                 <>
                   <AlertCircle className="h-3.5 w-3.5" style={{ color: monetColors.coralRose }} />
-                  <span className="text-xs font-medium" style={{ color: monetColors.coralRose }}>
+                  <span className={T.statusText} style={{ color: monetColors.coralRose }}>
                     Gap: {formatCoverageAmount(gap)}
                   </span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="h-3.5 w-3.5" style={{ color: monetColors.sage }} />
-                  <span className="text-xs font-medium" style={{ color: monetColors.sage }}>
+                  <span className={T.statusText} style={{ color: monetColors.sage }}>
                     On Target
                   </span>
                 </>
@@ -151,7 +1089,7 @@ function CoverageComparisonLight({
 }
 
 // =============================================================================
-// Milestone Cards (Light Theme)
+// Milestone Cards (Monet/Light Theme) — preserved as-is
 // =============================================================================
 
 function getMilestoneIcon(category: CoverageMilestone['category']) {
@@ -210,7 +1148,7 @@ function MilestoneAlertsLight({
   if (milestones.length === 0) {
     return (
       <div className="py-6 text-center">
-        <p className="text-sm" style={{ color: monetColors.textMuted }}>
+        <p className={T.bodyText} style={{ color: monetColors.textMuted }}>
           No upcoming milestones detected
         </p>
       </div>
@@ -243,28 +1181,28 @@ function MilestoneAlertsLight({
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-medium" style={{ color: monetColors.textMuted }}>
+                  <span className={T.metaText} style={{ color: monetColors.textMuted }}>
                     {milestone.year}
                   </span>
-                  <span className="text-[10px]" style={{ color: monetColors.textMuted }}>•</span>
-                  <span className="text-[10px]" style={{ color: monetColors.textMuted }}>
+                  <span className={T.legendText} style={{ color: monetColors.textMuted }}>•</span>
+                  <span className={T.legendText} style={{ color: monetColors.textMuted }}>
                     {yearsAway === 1 ? 'In 1 year' : `In ${yearsAway} years`}
                   </span>
                 </div>
 
                 <h4
-                  className="text-sm font-medium mb-0.5"
+                  className={cn(T.milestoneTitle, 'mb-0.5')}
                   style={{ color: monetColors.textPrimary }}
                 >
                   {milestone.event}
                 </h4>
 
-                <p className="text-xs" style={{ color: monetColors.textSecondary }}>
+                <p className={T.milestoneDescription} style={{ color: monetColors.textSecondary }}>
                   {milestone.description}
                 </p>
 
                 <div
-                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg mt-2 text-xs"
+                  className={cn(T.milestoneImpact, 'inline-flex items-center gap-1.5 px-2 py-1 rounded-lg mt-2')}
                   style={{ background: monetColors.surfaceBg, color: colors.text }}
                 >
                   {milestone.impact}
@@ -279,7 +1217,7 @@ function MilestoneAlertsLight({
 }
 
 // =============================================================================
-// Coverage Chart (Light Theme) - Interactive with Draggable Age Marker
+// Coverage Chart (Monet/Light Theme) — preserved as-is
 // =============================================================================
 
 function getChartColors(theme: ReturnType<typeof getInsuranceTheme>) {
@@ -325,6 +1263,9 @@ function CoverageChartLight({
 
   // Drag state for the age marker
   const [isDraggingAge, setIsDraggingAge] = useState(false)
+  // Flips to true once the chart has rendered its scales, triggering a
+  // re-render so milestone icons can read pixel positions from Chart.js
+  const [chartScalesReady, setChartScalesReady] = useState(false)
 
   // Calculate chart area bounds
   const getChartArea = useCallback(() => {
@@ -453,10 +1394,22 @@ function CoverageChartLight({
     onAgeSelect(newAge)
   }, [isDraggingAge, pixelToAge, onAgeSelect])
 
+  // After the chart mounts and renders, its scales become available.
+  // We need one re-render to read pixel positions for milestone icons.
+  const chartScalesReadyRef = useRef(chartScalesReady)
+  chartScalesReadyRef.current = chartScalesReady
+
   const chartOptions: ChartOptions<'line'> = useMemo(() => {
     return {
       responsive: true,
       maintainAspectRatio: false,
+      animation: {
+        onComplete: () => {
+          if (!chartScalesReadyRef.current) {
+            setChartScalesReady(true)
+          }
+        },
+      },
       interaction: {
         mode: 'index',
         intersect: false,
@@ -544,11 +1497,11 @@ function CoverageChartLight({
       {/* Header with selected age display */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-sm" style={{ color: monetColors.textSecondary }}>
+          <span className={T.bodyText} style={{ color: monetColors.textSecondary }}>
             Viewing age
           </span>
           <span
-            className="text-sm font-semibold px-2 py-0.5 rounded-lg"
+            className={cn(T.bodyText, 'font-semibold px-2 py-0.5 rounded-lg')}
             style={{
               background: isCurrentAge ? `${monetColors.sage}20` : `${monetColors.lavender}20`,
               color: isCurrentAge ? monetColors.sage : monetColors.lavenderDark,
@@ -558,7 +1511,7 @@ function CoverageChartLight({
             {isCurrentAge && ' (You)'}
           </span>
         </div>
-        <span className="text-xs" style={{ color: monetColors.textMuted }}>
+        <span className={T.metaText} style={{ color: monetColors.textMuted }}>
           Drag the marker to explore
         </span>
       </div>
@@ -657,7 +1610,7 @@ function CoverageChartLight({
           />
         )}
 
-        {/* Milestone markers on chart */}
+        {/* Milestone markers on chart — positioned relative to the data curve */}
         {milestones.map((milestone, idx) => {
           const minAge = projections[0]?.age ?? 25
           const maxAge = projections[projections.length - 1]?.age ?? 75
@@ -665,17 +1618,38 @@ function CoverageChartLight({
           // Skip milestones outside the chart range
           if (milestone.age < minAge || milestone.age > maxAge) return null
 
-          const positionPercent = ((milestone.age - minAge) / (maxAge - minAge)) * 100
+          const chart = chartRef.current
+          if (!chart || !chart.chartArea) return null
+
           const Icon = getMilestoneIcon(milestone.category)
           const colors = getMilestoneColor(milestone.category, monetColors, true)
+
+          // Find the data index for this milestone's age
+          const dataIndex = projections.findIndex(p => p.age === milestone.age)
+          if (dataIndex < 0) return null
+
+          // Get X pixel from Chart.js scale
+          const pixelX = chart.scales.x.getPixelForValue(dataIndex)
+
+          // Find the highest dataset value at this age
+          const projection = projections[dataIndex]
+          const maxValue = Math.max(
+            projection.recommendedLifeTpd,
+            projection.recommendedCriticalIllness,
+            projection.recommendedPersonalAccident
+          )
+
+          // Convert data value to pixel Y, offset 24px above the curve
+          const ICON_OFFSET_ABOVE_CURVE = 24
+          const pixelY = chart.scales.y.getPixelForValue(maxValue) - ICON_OFFSET_ABOVE_CURVE
 
           return (
             <div
               key={idx}
               className="absolute pointer-events-none"
               style={{
-                left: `calc(${positionPercent}% + 12px)`,
-                top: '50%',
+                left: pixelX,
+                top: pixelY,
                 transform: 'translate(-50%, -50%)',
                 zIndex: 5,
               }}
@@ -700,17 +1674,17 @@ function CoverageChartLight({
         <div className="flex items-center gap-2">
           <Shield className="h-3.5 w-3.5" style={{ color: monetColors.lavender }} />
           <div className="w-3 h-0.5 rounded-full" style={{ background: monetColors.lavender }} />
-          <span className="text-xs" style={{ color: monetColors.textMuted }}>Life/TPD</span>
+          <span className={T.legendText} style={{ color: monetColors.textMuted }}>Life/TPD</span>
         </div>
         <div className="flex items-center gap-2">
           <HeartPulse className="h-3.5 w-3.5" style={{ color: monetColors.sage }} />
           <div className="w-3 h-0.5 rounded-full" style={{ background: monetColors.sage }} />
-          <span className="text-xs" style={{ color: monetColors.textMuted }}>Critical Illness</span>
+          <span className={T.legendText} style={{ color: monetColors.textMuted }}>Critical Illness</span>
         </div>
         <div className="flex items-center gap-2">
           <Zap className="h-3.5 w-3.5" style={{ color: monetColors.coralRose }} />
           <div className="w-3 h-0.5 rounded-full" style={{ background: monetColors.coralRose }} />
-          <span className="text-xs" style={{ color: monetColors.textMuted }}>Personal Accident</span>
+          <span className={T.legendText} style={{ color: monetColors.textMuted }}>Personal Accident</span>
         </div>
       </div>
     </div>
@@ -731,6 +1705,9 @@ export function JourneyTab({ className }: JourneyTabProps) {
 
   // Person selection state - default to first included person
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
+
+  // Category filter state (dark mode only)
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
 
   // Initialize/update selected person when includedPersons changes
   const effectivePersonId = selectedPersonId && includedPersons.some(p => p.id === selectedPersonId)
@@ -782,12 +1759,38 @@ export function JourneyTab({ className }: JourneyTabProps) {
   const isCurrentAge = selectedAge === currentAge
   const yearsFromNow = selectedAge - currentAge
 
+  // Compute summary totals for dark mode cards
+  const summaryTotals = useMemo(() => {
+    const proj = selectedProjection
+    if (!proj) return { targetTotal: 0, currentCoverage: 0, coverageGap: 0, uncoveredCount: 0 }
+
+    const targetTotal = proj.recommendedLifeTpd + proj.recommendedCriticalIllness + proj.recommendedPersonalAccident
+    const currentCoverage = proj.currentLifeTpd + proj.currentCriticalIllness + proj.currentPersonalAccident
+    const coverageGap = targetTotal - currentCoverage
+
+    let uncoveredCount = 0
+    if (proj.recommendedLifeTpd > proj.currentLifeTpd) uncoveredCount++
+    if (proj.recommendedCriticalIllness > proj.currentCriticalIllness) uncoveredCount++
+    if (proj.recommendedPersonalAccident > proj.currentPersonalAccident) uncoveredCount++
+
+    return { targetTotal, currentCoverage, coverageGap, uncoveredCount }
+  }, [selectedProjection])
+
   if (personsLoading || autoPopulated.isLoading) {
     return (
       <div className={cn('animate-pulse space-y-4 p-8', className)}>
-        <div className="h-12 bg-white/40 rounded-xl" />
-        <div className="h-[200px] bg-white/40 rounded-xl" />
-        <div className="h-32 bg-white/40 rounded-xl" />
+        <div
+          className="h-12 rounded-xl"
+          style={{ background: isMonet ? 'rgba(255,255,255,0.4)' : DARK_PALETTE.cardBg }}
+        />
+        <div
+          className="h-[200px] rounded-xl"
+          style={{ background: isMonet ? 'rgba(255,255,255,0.4)' : DARK_PALETTE.cardBg }}
+        />
+        <div
+          className="h-32 rounded-xl"
+          style={{ background: isMonet ? 'rgba(255,255,255,0.4)' : DARK_PALETTE.cardBg }}
+        />
       </div>
     )
   }
@@ -795,21 +1798,115 @@ export function JourneyTab({ className }: JourneyTabProps) {
   if (!selectedPerson) {
     return (
       <div className={cn('text-center py-12', className)}>
-        <Shield className="h-12 w-12 mx-auto mb-4" style={{ color: monetColors.lavenderLight }} />
-        <p className="text-sm" style={{ color: monetColors.textMuted }}>
+        <Shield
+          className="h-12 w-12 mx-auto mb-4"
+          style={{ color: isMonet ? monetColors.lavenderLight : DARK_PALETTE.blueLifeTpd }}
+        />
+        <p className="text-sm" style={{ color: isMonet ? monetColors.textMuted : DARK_PALETTE.textMuted }}>
           Select a person to view their coverage journey
         </p>
       </div>
     )
   }
 
+  // =========================================================================
+  // DARK MODE RENDER
+  // =========================================================================
+  if (!isMonet) {
+    return (
+      <div className={cn('space-y-6 px-8 py-6', className)}>
+        {/* Summary Metric Cards */}
+        <DarkSummaryCards
+          targetTotal={summaryTotals.targetTotal}
+          currentCoverage={summaryTotals.currentCoverage}
+          coverageGap={summaryTotals.coverageGap}
+          categoryCount={summaryTotals.uncoveredCount}
+        />
+
+        {/* Coverage Projection Chart Card */}
+        <div
+          className="rounded-sm p-6"
+          style={{
+            background: DARK_PALETTE.cardBg,
+            border: `1px solid ${DARK_PALETTE.cardBorder}`,
+          }}
+        >
+          {/* Chart header */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-col gap-1">
+              <h3
+                className={T.sectionTitle}
+                style={{ color: DARK_PALETTE.textPrimary }}
+              >
+                Coverage Analysis Over Time
+              </h3>
+              <p className={T.sectionSubtitle} style={{ color: DARK_PALETTE.textMuted }}>
+                How your coverage gap changes as you age — drag marker to explore
+              </p>
+            </div>
+
+            {/* Person Selector */}
+            {includedPersons.length > 1 && (
+              <PersonSelector
+                value={effectivePersonId}
+                onChange={(id) => setSelectedPersonId(id)}
+                variant="dark"
+                showCreate={false}
+                required
+                className="w-44"
+              />
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="h-px mb-5" style={{ background: DARK_PALETTE.cardBorder }} />
+
+          {/* Filters row: chips + legend */}
+          <div className="flex items-center justify-between mb-5">
+            <DarkCategoryFilterChips
+              activeFilter={categoryFilter}
+              onFilterChange={setCategoryFilter}
+            />
+            <DarkChartLegend />
+          </div>
+
+          {/* Chart */}
+          <DarkCoverageChart
+            projections={projections}
+            milestones={milestones}
+            currentAge={currentAge}
+            selectedAge={selectedAge}
+            onAgeSelect={setSelectedAge}
+            activeFilter={categoryFilter}
+          />
+        </div>
+
+        {/* Bottom 2-column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <DarkCoverageBreakdownCard
+            projections={projections}
+            selectedAge={selectedAge}
+            persons={persons ?? []}
+          />
+          <DarkMilestonesCard
+            milestones={milestones}
+            currentYear={currentYear}
+          />
+        </div>
+      </div>
+    )
+  }
+
+  // =========================================================================
+  // MONET (LIGHT) MODE RENDER — preserved as-is
+  // =========================================================================
   return (
     <div className={cn('space-y-6 p-8', className)}>
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2
-            className="text-xl font-semibold"
+            className={T.sectionTitle}
             style={{
               color: monetColors.textPrimary,
               fontFamily: "'Cormorant Garamond', Georgia, serif",
@@ -817,7 +1914,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
           >
             Coverage Journey
           </h2>
-          <p className="text-sm mt-1" style={{ color: monetColors.textSecondary }}>
+          <p className={cn(T.cardDescription, 'mt-1')} style={{ color: monetColors.textSecondary }}>
             How your insurance needs change over time
           </p>
         </div>
@@ -827,7 +1924,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
           <PersonSelector
             value={effectivePersonId}
             onChange={(id) => setSelectedPersonId(id)}
-            variant={isMonet ? 'monet' : 'dark'}
+            variant="monet"
             showCreate={false}
             required
             className="w-48"
@@ -865,7 +1962,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
         }}
       >
         <div
-          className="text-xs font-medium uppercase tracking-wide mb-3"
+          className={cn(T.cardLabel, 'mb-3')}
           style={{ color: monetColors.textMuted }}
         >
           Coverage Needs Over Time
@@ -895,12 +1992,12 @@ export function JourneyTab({ className }: JourneyTabProps) {
           <div className="flex items-center justify-between mb-4">
             <div>
               <div
-                className="text-xs font-medium uppercase tracking-wide"
+                className={T.cardLabel}
                 style={{ color: monetColors.textMuted }}
               >
                 At Age {selectedAge}
               </div>
-              <div className="text-sm mt-0.5" style={{ color: monetColors.textSecondary }}>
+              <div className={cn(T.cardDescription, 'mt-0.5')} style={{ color: monetColors.textSecondary }}>
                 {isCurrentAge ? (
                   <span style={{ color: monetColors.sage }}>Your current age</span>
                 ) : yearsFromNow > 0 ? (
@@ -914,7 +2011,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
               <button
                 type="button"
                 onClick={() => setSelectedAge(currentAge)}
-                className="text-xs transition-colors"
+                className={cn(T.metaText, 'transition-colors')}
                 style={{ color: monetColors.lavender }}
               >
                 ← Back to current
@@ -942,7 +2039,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
             }}
           >
             <div
-              className="text-xs font-medium uppercase tracking-wide mb-3"
+              className={cn(T.cardLabel, 'mb-3')}
               style={{ color: monetColors.textMuted }}
             >
               Upcoming Milestones
