@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo, useRef, useEffect } from 'react'
-import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, Users } from 'lucide-react'
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
 import { useColorScheme } from '@/stores'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
@@ -17,7 +18,7 @@ import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import type { Person } from '@/types/person'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Constants
+// Constants & Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 const providerLabels: Record<string, string> = {
@@ -33,7 +34,6 @@ const providerLabels: Record<string, string> = {
   other: 'Other',
 }
 
-// Insurer abbreviation colors (deterministic from name)
 const INSURER_COLORS = [
   '#E05A63', '#F04858', '#4A90D9', '#E8A64C', '#45B08C',
   '#9B6BB4', '#D97B4A', '#5A9BD4', '#C75C8A', '#6BB5A0',
@@ -49,14 +49,12 @@ function getInsurerColor(name: string): string {
 
 function getInsurerAbbreviation(name: string | null): string {
   if (!name) return '—'
-  // Known abbreviations
   const known: Record<string, string> = {
     'AIA': 'AIA', 'Prudential': 'PRU', 'NTUC Income': 'NTUC',
     'Great Eastern': 'GE', 'Manulife': 'MAN', 'Aviva (Singlife)': 'AVV',
     'Tokio Marine': 'TM', 'FWD': 'FWD', 'CPF Board': 'CPF',
   }
   if (known[name]) return known[name]
-  // Fallback: first 2-3 chars uppercase
   return name.slice(0, 3).toUpperCase()
 }
 
@@ -111,7 +109,6 @@ function formatCategoryLabel(category: string, subcategory: string | null): stri
 function formatRenewalDate(startDate: string, endDate: string | null, renewalDate: string | null): string {
   const dateToFormat = renewalDate ?? endDate
   if (!dateToFormat) {
-    // Default: 1 year from start
     const start = new Date(startDate)
     const renewal = new Date(start)
     renewal.setFullYear(renewal.getFullYear() + 1)
@@ -120,141 +117,49 @@ function formatRenewalDate(startDate: string, endDate: string | null, renewalDat
   return new Date(dateToFormat).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Person Multi-Select Filter
-// ─────────────────────────────────────────────────────────────────────────────
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((word) => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
 
-function PersonMultiSelect({
-  persons,
-  selectedIds,
-  onToggle,
-  onSelectAll,
-  onClearAll,
-  theme,
-}: {
-  persons: Person[]
-  selectedIds: Set<string>
-  onToggle: (personId: string) => void
-  onSelectAll: () => void
-  onClearAll: () => void
-  theme: ReturnType<typeof getInsuranceTheme>
-}) {
-  const [isOpen, setIsOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!isOpen) return
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
+function formatSumOrClass(policy: InsurancePolicyRecord): string {
+  if (policy.category === 'health' || policy.category === 'hospitalization') {
+    if (policy.notes) {
+      try {
+        const parsed = JSON.parse(policy.notes)
+        if (parsed.wardClass) return `Class ${parsed.wardClass}`
+      } catch {
+        /* fall through to default */
       }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen])
-
-  const allSelected = persons.length > 0 && selectedIds.size === persons.length
-  const noneSelected = selectedIds.size === 0
-  const triggerLabel = noneSelected
-    ? 'All Persons'
-    : selectedIds.size === 1
-      ? persons.find((p) => selectedIds.has(p.id))?.name ?? '1 person'
-      : `${selectedIds.size} persons`
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded px-3 py-2 text-sm font-medium transition-all duration-200"
-        style={{
-          background: theme.controlBg,
-          border: `1px solid ${theme.controlBorder}`,
-          color: noneSelected ? theme.textSecondary : theme.textPrimary,
-        }}
-      >
-        <Users className="h-3.5 w-3.5" />
-        <span>{triggerLabel}</span>
-        <ChevronDown
-          className="h-3 w-3 transition-transform duration-200"
-          style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}
-        />
-      </button>
-
-      {isOpen && (
-        <div
-          className="absolute right-0 top-full z-30 mt-1.5 min-w-[220px] rounded-lg py-1 shadow-xl"
-          style={{
-            background: theme.panelBg,
-            border: `1px solid ${theme.cardBorder}`,
-          }}
-        >
-          {/* Select All / Clear All */}
-          <button
-            type="button"
-            onClick={allSelected ? onClearAll : onSelectAll}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs transition-colors hover:bg-white/[0.04]"
-            style={{ color: theme.textSecondary, borderBottom: `1px solid ${theme.cardBorder}` }}
-          >
-            <div
-              className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
-              style={{
-                background: allSelected ? '#3b82f6' : 'transparent',
-                border: `1.5px solid ${allSelected ? '#3b82f6' : theme.textMuted}`,
-              }}
-            >
-              {allSelected && <Check className="h-2.5 w-2.5 text-white" />}
-            </div>
-            <span>{allSelected ? 'Deselect All' : 'Select All'}</span>
-          </button>
-
-          {/* Person options */}
-          {persons.map((person) => {
-            const isSelected = selectedIds.has(person.id)
-            return (
-              <button
-                key={person.id}
-                type="button"
-                onClick={() => onToggle(person.id)}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-xs transition-colors hover:bg-white/[0.04]"
-                style={{ color: theme.textPrimary }}
-              >
-                <div
-                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
-                  style={{
-                    background: isSelected ? '#3b82f6' : 'transparent',
-                    border: `1.5px solid ${isSelected ? '#3b82f6' : theme.textMuted}`,
-                  }}
-                >
-                  {isSelected && <Check className="h-2.5 w-2.5 text-white" />}
-                </div>
-                <span
-                  className="h-2.5 w-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: person.displayColor || '#64748b' }}
-                />
-                <span className="truncate">{person.name}</span>
-                {person.relationship && person.relationship !== 'self' && (
-                  <span
-                    className="ml-auto text-[10px] shrink-0"
-                    style={{ color: theme.textMuted }}
-                  >
-                    ({person.relationship})
-                  </span>
-                )}
-              </button>
-            )
-          })}
-
-          {persons.length === 0 && (
-            <div className="px-3 py-3 text-xs text-center" style={{ color: theme.textMuted }}>
-              No persons added yet
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
+  }
+  return formatAmount(policy.coverageAmount)
 }
+
+function formatSubtitle(policy: InsurancePolicyRecord): string {
+  const parts: string[] = []
+  if (policy.subcategory) {
+    parts.push(
+      policy.subcategory
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+    )
+  } else {
+    parts.push(policy.category)
+  }
+  if (policy.policyNumber) parts.push(`#${policy.policyNumber}`)
+  return parts.join(' \u00b7 ')
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Column header style
+// ─────────────────────────────────────────────────────────────────────────────
+
+const columnHeaderClass = 'shrink-0 font-mono text-[9px] font-medium uppercase tracking-wider'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Summary Cards
@@ -270,10 +175,10 @@ function SummaryCards({
   const activePolicies = policies.filter((p) => p.isActive)
   const uniqueInsurers = new Set(activePolicies.map((p) => p.insurerName).filter(Boolean))
   const totalAnnualPremium = activePolicies.reduce(
-    (sum, p) => sum + annualizePremium(p.premiumAmount, p.premiumFrequency), 0
+    (sum, p) => sum + annualizePremium(p.premiumAmount, p.premiumFrequency),
+    0
   )
 
-  // Find nearest renewal
   const now = new Date()
   let nearestRenewal: { date: string; policyName: string } | null = null
   for (const policy of activePolicies) {
@@ -290,19 +195,26 @@ function SummaryCards({
     {
       label: 'ACTIVE POLICIES',
       value: activePolicies.length.toString(),
-      description: uniqueInsurers.size > 0
-        ? `Across ${uniqueInsurers.size} insurer${uniqueInsurers.size === 1 ? '' : 's'}`
-        : 'No active policies',
+      description:
+        uniqueInsurers.size > 0
+          ? `Across ${uniqueInsurers.size} insurer${uniqueInsurers.size === 1 ? '' : 's'}`
+          : 'No active policies',
     },
     {
       label: 'ANNUAL PREMIUM',
       value: formatAmount(totalAnnualPremium),
-      description: totalAnnualPremium > 0 ? `${formatPremiumWithFrequency(totalAnnualPremium / 12, 'monthly')} avg` : 'No premiums',
+      description:
+        totalAnnualPremium > 0
+          ? `${Math.round((totalAnnualPremium / 12) * 100) / 100 >= 1 ? formatAmount(Math.round(totalAnnualPremium / 12)) + '/mo avg' : 'No premiums'}`
+          : 'No premiums',
     },
     {
       label: 'NEXT RENEWAL',
       value: nearestRenewal
-        ? new Date(nearestRenewal.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+        ? new Date(nearestRenewal.date).toLocaleDateString('en-US', {
+            month: 'short',
+            year: 'numeric',
+          })
         : 'N/A',
       description: nearestRenewal?.policyName ?? 'No upcoming renewals',
     },
@@ -319,22 +231,13 @@ function SummaryCards({
             border: `1px solid ${theme.cardBorder}`,
           }}
         >
-          <span
-            className={T.cardLabel}
-            style={{ color: theme.textMuted }}
-          >
+          <span className={T.cardLabel} style={{ color: theme.textMuted }}>
             {item.label}
           </span>
-          <span
-            className={T.cardValue}
-            style={{ color: theme.textPrimary }}
-          >
+          <span className="text-2xl font-semibold" style={{ color: theme.textPrimary }}>
             {item.value}
           </span>
-          <span
-            className={T.cardDescription}
-            style={{ color: theme.textMuted }}
-          >
+          <span className="text-[11px]" style={{ color: theme.textMuted }}>
             {item.description}
           </span>
         </div>
@@ -344,190 +247,393 @@ function SummaryCards({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Policy Card
+// Beneficiary Filter Dropdown (inline in table header)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PolicyCard({
-  policy,
+function BeneficiaryFilter({
+  persons,
+  selectedIds,
+  onToggle,
   theme,
-  personColor,
+}: {
+  persons: Person[]
+  selectedIds: Set<string>
+  onToggle: (personId: string) => void
+  theme: ReturnType<typeof getInsuranceTheme>
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    setDropdownPos({ top: rect.bottom + 6, left: rect.left })
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) return
+    updatePosition()
+
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node
+      if (
+        triggerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) return
+      setIsOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [isOpen, updatePosition])
+
+  return (
+    <div className="w-[100px] shrink-0">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-1 ${columnHeaderClass}`}
+        style={{ color: theme.textMuted }}
+      >
+        <span>Beneficiary</span>
+        <ChevronDown
+          className="h-2.5 w-2.5 transition-transform duration-200"
+          style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}
+        />
+      </button>
+
+      {isOpen &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="fixed z-50 min-w-[220px] rounded-lg py-2 shadow-xl"
+            style={{
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              background: '#111113',
+              border: `1px solid ${theme.cardBorder}`,
+              backdropFilter: 'blur(16px)',
+            }}
+          >
+            {persons.map((person) => {
+              const isSelected = selectedIds.has(person.id)
+              const initials = getInitials(person.name)
+              return (
+                <button
+                  key={person.id}
+                  type="button"
+                  onClick={() => onToggle(person.id)}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
+                >
+                  <div
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+                    style={{
+                      background: isSelected ? '#F0F0F0' : 'transparent',
+                      border: `1.5px solid ${isSelected ? '#F0F0F0' : '#52525B'}`,
+                    }}
+                  >
+                    {isSelected && (
+                      <Check className="h-2.5 w-2.5" style={{ color: '#111113' }} />
+                    )}
+                  </div>
+                  <div
+                    className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: person.displayColor || '#64748b' }}
+                  >
+                    <span className="text-[8px] font-semibold text-white">{initials}</span>
+                  </div>
+                  <div className="flex flex-col gap-px text-left">
+                    <span
+                      className="text-[11px] font-medium"
+                      style={{ color: theme.textPrimary }}
+                    >
+                      {person.name}
+                    </span>
+                    {person.relationship && (
+                      <span className="text-[10px]" style={{ color: theme.textMuted }}>
+                        {person.relationship === 'self'
+                          ? 'You'
+                          : person.relationship.charAt(0).toUpperCase() +
+                            person.relationship.slice(1)}
+                      </span>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+
+            {persons.length === 0 && (
+              <div
+                className="px-3 py-3 text-center text-xs"
+                style={{ color: theme.textMuted }}
+              >
+                No persons added yet
+              </div>
+            )}
+          </div>,
+          document.body
+        )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Policy Table
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PolicyTable({
+  policies,
+  persons,
+  selectedPersonIds,
+  onTogglePerson,
+  personColorMap,
+  theme,
   onEdit,
   onDelete,
 }: {
-  policy: InsurancePolicyRecord
+  policies: InsurancePolicyRecord[]
+  persons: Person[]
+  selectedPersonIds: Set<string>
+  onTogglePerson: (id: string) => void
+  personColorMap: Record<string, string>
   theme: ReturnType<typeof getInsuranceTheme>
-  personColor?: string
   onEdit: (policy: InsurancePolicyRecord) => void
   onDelete: (id: string) => void
 }) {
-  const [showMenu, setShowMenu] = useState(false)
-  const insurerName = policy.insurerName ?? 'Unknown'
-  const insurerAbbr = getInsurerAbbreviation(policy.insurerName)
-  const insurerColor = getInsurerColor(insurerName)
-  const categoryLabel = formatCategoryLabel(policy.category, policy.subcategory)
-  const renewalDate = formatRenewalDate(policy.startDate, policy.endDate, policy.renewalDate)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
   return (
     <div
+      className="overflow-hidden rounded-sm"
       style={{
         background: theme.cardBg,
         border: `1px solid ${theme.cardBorder}`,
       }}
     >
-      {/* Header */}
+      {/* ── Table Header ── */}
       <div
-        className="flex items-center justify-between px-6 py-4"
+        className="flex items-center gap-3 px-5 py-2.5"
         style={{ borderBottom: `1px solid ${theme.cardBorder}` }}
       >
-        <div className="flex items-center gap-3.5">
-          {/* Insurer Logo */}
+        <span className={`w-[220px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
+          Policy
+        </span>
+
+        <BeneficiaryFilter
+          persons={persons}
+          selectedIds={selectedPersonIds}
+          onToggle={onTogglePerson}
+          theme={theme}
+        />
+
+        <span className={`w-[110px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
+          Coverage
+        </span>
+        <span className={`w-[100px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
+          Sum / Class
+        </span>
+        <span className={`w-[85px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
+          Premium
+        </span>
+        <span className={`w-[80px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
+          Renewal
+        </span>
+        <span className={`w-[60px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
+          Status
+        </span>
+        <div className="flex-1" />
+      </div>
+
+      {/* ── Policy Rows ── */}
+      {policies.map((policy, index) => {
+        const insurerName = policy.insurerName ?? 'Unknown'
+        const insurerAbbr = getInsurerAbbreviation(policy.insurerName)
+        const insurerColor = getInsurerColor(insurerName)
+        const categoryLabel = formatCategoryLabel(policy.category, policy.subcategory)
+        const renewalDate = formatRenewalDate(policy.startDate, policy.endDate, policy.renewalDate)
+        const personColor = policy.personId ? personColorMap[policy.personId] : '#64748b'
+        const personName = policy.personName
+        const personInitials = personName ? getInitials(personName) : ''
+        const personFirstName = personName?.split(' ')[0] ?? ''
+        const isLastRow = index === policies.length - 1
+        const isMenuOpen = openMenuId === policy.id
+        const subtitle = formatSubtitle(policy)
+
+        return (
           <div
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
+            key={policy.id}
+            className="flex items-center gap-3 px-5 py-3"
             style={{
-              background: theme.surfaceBg,
-              border: `1px solid ${theme.cardBorder}`,
+              borderBottom: isLastRow ? 'none' : `1px solid ${theme.cardBorder}`,
             }}
           >
-            <span
-              className="text-xs font-bold"
-              style={{ color: insurerColor }}
-            >
-              {insurerAbbr}
-            </span>
-          </div>
-          {/* Policy Info */}
-          <div>
-            <p
-              className="text-sm font-semibold"
-              style={{ color: theme.textPrimary }}
-            >
-              {policy.name}
-            </p>
-            <p className="text-sm" style={{ color: theme.textMuted }}>
-              {policy.subcategory
-                ? `${policy.subcategory.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}`
-                : policy.category}
-              {policy.policyNumber ? ` · Policy #${policy.policyNumber}` : ''}
-            </p>
-            {policy.personName && (
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span
-                  className="h-2 w-2 rounded-full shrink-0"
-                  style={{ backgroundColor: personColor || '#64748b' }}
-                />
-                <span className="text-[11px]" style={{ color: theme.textMuted }}>
-                  {policy.personName}
+            {/* Policy name + insurer logo */}
+            <div className="flex w-[220px] shrink-0 items-center gap-2.5">
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
+                style={{
+                  background: theme.surfaceBg,
+                  border: `1px solid ${theme.cardBorder}`,
+                }}
+              >
+                <span className="text-[8px] font-bold" style={{ color: insurerColor }}>
+                  {insurerAbbr}
                 </span>
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          {/* Active Badge */}
-          {policy.isActive && (
-            <div
-              className="rounded px-2.5 py-1"
-              style={{ background: 'rgba(34, 197, 94, 0.12)' }}
-            >
-              <span className="text-xs font-semibold" style={{ color: '#34D673' }}>
-                Active
-              </span>
-            </div>
-          )}
-          {/* Menu Button */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowMenu(!showMenu)}
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-md transition-colors"
-              style={{
-                background: theme.surfaceBg,
-                border: `1px solid ${theme.cardBorder}`,
-              }}
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" style={{ color: theme.textMuted }} />
-            </button>
-            {showMenu && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                <div
-                  className="absolute right-0 top-full z-20 mt-1 min-w-[120px] rounded-lg py-1 shadow-xl"
-                  style={{
-                    background: theme.panelBg,
-                    border: `1px solid ${theme.cardBorder}`,
-                  }}
+              <div className="flex min-w-0 flex-col gap-px">
+                <span
+                  className="truncate text-[13px] font-medium"
+                  style={{ color: theme.textPrimary }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => { onEdit(policy); setShowMenu(false) }}
-                    className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-white/5"
-                    style={{ color: theme.textPrimary }}
-                  >
-                    Edit Policy
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { onDelete(policy.id); setShowMenu(false) }}
-                    className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-red-500/10"
-                    style={{ color: '#F04858' }}
-                  >
-                    Delete Policy
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+                  {policy.name}
+                </span>
+                <span className="truncate text-[10px]" style={{ color: theme.textMuted }}>
+                  {subtitle}
+                </span>
+              </div>
+            </div>
 
-      {/* Body - 4 columns */}
-      <div className="grid grid-cols-4 gap-6 px-6 py-4">
-        <div className="flex flex-col gap-0.5">
-          <span
-            className={T.cardLabel}
-            style={{ color: theme.textMuted }}
-          >
-            COVERAGE
-          </span>
-          <span className="text-[13px] font-medium" style={{ color: theme.textPrimary }}>
-            {categoryLabel}
-          </span>
+            {/* Beneficiary */}
+            <div className="flex w-[100px] shrink-0 items-center gap-1.5">
+              {personName ? (
+                <>
+                  <div
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: personColor }}
+                  >
+                    <span className="text-[7px] font-semibold text-white">{personInitials}</span>
+                  </div>
+                  <span
+                    className="truncate text-[11px]"
+                    style={{ color: theme.textSecondary }}
+                  >
+                    {personFirstName}
+                  </span>
+                </>
+              ) : (
+                <span className="text-[11px]" style={{ color: theme.textMuted }}>
+                  —
+                </span>
+              )}
+            </div>
+
+            {/* Coverage */}
+            <span
+              className="w-[110px] shrink-0 text-xs"
+              style={{ color: theme.textSecondary }}
+            >
+              {categoryLabel}
+            </span>
+
+            {/* Sum / Class */}
+            <span
+              className="w-[100px] shrink-0 text-xs font-medium"
+              style={{ color: theme.textPrimary }}
+            >
+              {formatSumOrClass(policy)}
+            </span>
+
+            {/* Premium */}
+            <span
+              className="w-[85px] shrink-0 text-xs font-medium"
+              style={{ color: theme.textPrimary }}
+            >
+              {formatPremiumWithFrequency(policy.premiumAmount, policy.premiumFrequency)}
+            </span>
+
+            {/* Renewal */}
+            <span
+              className="w-[80px] shrink-0 text-xs"
+              style={{ color: theme.textSecondary }}
+            >
+              {renewalDate}
+            </span>
+
+            {/* Status badge */}
+            <div className="w-[60px] shrink-0">
+              {policy.isActive && (
+                <div
+                  className="flex justify-center rounded px-2 py-0.5"
+                  style={{ background: 'rgba(34, 197, 94, 0.08)' }}
+                >
+                  <span className="text-[10px] font-semibold" style={{ color: '#22C55E' }}>
+                    Active
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Actions menu */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOpenMenuId(isMenuOpen ? null : policy.id)}
+                className="flex h-7 w-[30px] items-center justify-center rounded-md transition-colors"
+                style={{ border: `1px solid ${theme.cardBorder}` }}
+              >
+                <MoreHorizontal
+                  className="h-3.5 w-3.5"
+                  style={{ color: theme.textSecondary }}
+                />
+              </button>
+              {isMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setOpenMenuId(null)}
+                  />
+                  <div
+                    className="absolute right-0 top-full z-20 mt-1 min-w-[120px] rounded-lg py-1 shadow-xl"
+                    style={{
+                      background: theme.panelBg,
+                      border: `1px solid ${theme.cardBorder}`,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onEdit(policy)
+                        setOpenMenuId(null)
+                      }}
+                      className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-white/5"
+                      style={{ color: theme.textPrimary }}
+                    >
+                      Edit Policy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDelete(policy.id)
+                        setOpenMenuId(null)
+                      }}
+                      className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-red-500/10"
+                      style={{ color: '#F04858' }}
+                    >
+                      Delete Policy
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )
+      })}
+
+      {/* Empty state inside table */}
+      {policies.length === 0 && (
+        <div className="py-8 text-center text-sm" style={{ color: theme.textMuted }}>
+          No policies match the selected filter
         </div>
-        <div className="flex flex-col gap-0.5">
-          <span
-            className={T.cardLabel}
-            style={{ color: theme.textMuted }}
-          >
-            SUM ASSURED
-          </span>
-          <span className="text-[13px] font-medium" style={{ color: theme.textPrimary }}>
-            {formatAmount(policy.coverageAmount)}
-          </span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <span
-            className={T.cardLabel}
-            style={{ color: theme.textMuted }}
-          >
-            PREMIUM
-          </span>
-          <span className="text-[13px] font-medium" style={{ color: theme.textPrimary }}>
-            {formatPremiumWithFrequency(policy.premiumAmount, policy.premiumFrequency)}
-          </span>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <span
-            className={T.cardLabel}
-            style={{ color: theme.textMuted }}
-          >
-            RENEWAL
-          </span>
-          <span className="text-[13px] font-medium" style={{ color: theme.textPrimary }}>
-            {renewalDate}
-          </span>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
@@ -569,14 +675,6 @@ export function PoliciesTab() {
     })
   }
 
-  const handleSelectAllPersons = () => {
-    setSelectedPersonIds(new Set(persons.map((p) => p.id)))
-  }
-
-  const handleClearAllPersons = () => {
-    setSelectedPersonIds(new Set())
-  }
-
   const handleEdit = (policy: InsurancePolicyRecord) => {
     setEditingPolicy(policy)
     setIsModalOpen(true)
@@ -592,36 +690,32 @@ export function PoliciesTab() {
     monthlyPremium: number
     startDate: string
     endDate: string
-    // Life-specific
     deathBenefit?: number
     tpdBenefit?: number
     criticalIllnessRider?: boolean
-    // Health-specific
     wardClass?: string
     annualLimit?: number
     ispRider?: boolean
     deductible?: string
-    // CI-specific
     criticalIllnessBenefit?: number
     earlyCiCoverage?: boolean
     multiPayCoverage?: boolean
-    // LTC-specific
     governmentScheme?: string
     payoutAmount?: number
     payoutFrequency?: string
-    // PA-specific
     dailyHospitalCash?: boolean
     medicalExpenses?: number
     notes: string
   }) => {
-    // Build structured notes for fields that lack dedicated backend columns
     const structuredNotes: Record<string, unknown> = {}
     if (formData.wardClass) structuredNotes.wardClass = formData.wardClass
     if (formData.annualLimit) structuredNotes.annualLimit = formData.annualLimit
     if (formData.ispRider !== undefined) structuredNotes.ispRider = formData.ispRider
     if (formData.deductible) structuredNotes.deductible = formData.deductible
-    if (formData.earlyCiCoverage !== undefined) structuredNotes.earlyCiCoverage = formData.earlyCiCoverage
-    if (formData.multiPayCoverage !== undefined) structuredNotes.multiPayCoverage = formData.multiPayCoverage
+    if (formData.earlyCiCoverage !== undefined)
+      structuredNotes.earlyCiCoverage = formData.earlyCiCoverage
+    if (formData.multiPayCoverage !== undefined)
+      structuredNotes.multiPayCoverage = formData.multiPayCoverage
     if (formData.medicalExpenses) structuredNotes.medicalExpenses = formData.medicalExpenses
 
     const hasStructuredNotes = Object.keys(structuredNotes).length > 0
@@ -630,7 +724,11 @@ export function PoliciesTab() {
       : formData.notes || undefined
 
     const payload: InsurancePolicyCreateInput = {
-      name: formData.policyName || `${formData.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())} Policy`,
+      name:
+        formData.policyName ||
+        `${formData.type
+          .replace(/_/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase())} Policy`,
       category: formData.category,
       subcategory: formData.type,
       coverageAmount: formData.sumAssured.toString(),
@@ -680,27 +778,15 @@ export function PoliciesTab() {
         >
           Insurance Planner
         </h2>
-        <div className="flex items-center gap-2.5">
-          {persons.length > 0 && (
-            <PersonMultiSelect
-              persons={persons}
-              selectedIds={selectedPersonIds}
-              onToggle={handleTogglePerson}
-              onSelectAll={handleSelectAllPersons}
-              onClearAll={handleClearAllPersons}
-              theme={theme}
-            />
-          )}
-          <button
-            type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 rounded px-3.5 py-2 text-sm font-medium text-white transition-all duration-200 hover:brightness-110"
-            style={{ background: '#C53D43' }}
-          >
-            <Plus className="h-4 w-4" />
-            Add Policy
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsModalOpen(true)}
+          className="flex items-center gap-2 rounded px-3.5 py-2 text-sm font-medium text-white transition-all duration-200 hover:brightness-110"
+          style={{ background: '#C53D43' }}
+        >
+          <Plus className="h-4 w-4" />
+          Add Policy
+        </button>
       </div>
 
       {/* Loading */}
@@ -737,7 +823,10 @@ export function PoliciesTab() {
           >
             No policies yet
           </h3>
-          <p className="mt-2 text-sm max-w-xs text-center" style={{ color: theme.textSecondary }}>
+          <p
+            className="mt-2 max-w-xs text-center text-sm"
+            style={{ color: theme.textSecondary }}
+          >
             Add your insurance policies to track coverage and analyze gaps in your protection
           </p>
           <button
@@ -752,37 +841,30 @@ export function PoliciesTab() {
         </div>
       )}
 
-      {/* Summary Cards + Policy List */}
+      {/* Summary Cards + Policy Table */}
       {!isLoading && hasPolicies && (
         <>
           <SummaryCards policies={filteredPolicies} theme={theme} />
-          <div className="flex flex-col gap-4">
-            {filteredPolicies.length > 0 ? (
-              filteredPolicies.map((policy) => (
-                <PolicyCard
-                  key={policy.id}
-                  policy={policy}
-                  theme={theme}
-                  personColor={policy.personId ? personColorMap[policy.personId] : undefined}
-                  onEdit={handleEdit}
-                  onDelete={(id) => deleteMutation.mutate(id)}
-                />
-              ))
-            ) : (
-              <div
-                className="py-8 text-center text-sm"
-                style={{ color: theme.textMuted }}
-              >
-                No policies match the selected persons
-              </div>
-            )}
-          </div>
+
+          <PolicyTable
+            policies={filteredPolicies}
+            persons={persons}
+            selectedPersonIds={selectedPersonIds}
+            onTogglePerson={handleTogglePerson}
+            personColorMap={personColorMap}
+            theme={theme}
+            onEdit={handleEdit}
+            onDelete={(id) => deleteMutation.mutate(id)}
+          />
         </>
       )}
 
       <AddPolicyModal
         isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setEditingPolicy(null) }}
+        onClose={() => {
+          setIsModalOpen(false)
+          setEditingPolicy(null)
+        }}
         onSave={handleSave}
         editingPolicy={editingPolicy}
       />
