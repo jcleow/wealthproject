@@ -9,7 +9,6 @@ import {
   type InsuranceTabId,
 } from '@/components/insurance/InsuranceTabs'
 import { PoliciesTab } from '@/components/insurance/tabs/PoliciesTab'
-import { GuidelinesTab } from '@/components/insurance/tabs/GuidelinesTab'
 import { JourneyTab } from '@/components/insurance/tabs/JourneyTab'
 import { MyCoverageTab } from '@/components/insurance/tabs/MyCoverageTab'
 import { useColorScheme } from '@/stores'
@@ -205,7 +204,7 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
 
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
-        {activeTab === 'overview' && <GuidelinesTab onNavigateToPolicy={handleNavigateToPolicy} />}
+        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} />}
         {activeTab === 'journey' && <JourneyTab />}
         {activeTab === 'policies' && <PoliciesTab />}
       </main>
@@ -356,7 +355,7 @@ export default function InsurancePlannerPage() {
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
         <div className="mx-auto max-w-7xl">
-          {activeTab === 'overview' && <GuidelinesTab onNavigateToPolicy={handleNavigateToPolicy} />}
+          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} />}
           {activeTab === 'journey' && <JourneyTab />}
           {activeTab === 'policies' && <PoliciesTab />}
         </div>
