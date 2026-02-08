@@ -11,6 +11,7 @@ import {
 import { PoliciesTab } from '@/components/insurance/tabs/PoliciesTab'
 import { GuidelinesTab } from '@/components/insurance/tabs/GuidelinesTab'
 import { JourneyTab } from '@/components/insurance/tabs/JourneyTab'
+import { MyCoverageTab } from '@/components/insurance/tabs/MyCoverageTab'
 import { useColorScheme } from '@/stores'
 
 // ============================================================================

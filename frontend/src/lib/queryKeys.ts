@@ -30,6 +30,7 @@ export const QUERY_KEYS = {
     growth: ['financial', 'growth'] as const,
     persons: ['financial', 'persons'] as const,
     cpf: ['financial', 'cpf'] as const,
+    insurancePolicies: ['financial', 'insurance-policies'] as const,
   },
 
   // Settings namespace

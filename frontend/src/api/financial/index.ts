@@ -13,6 +13,7 @@ export * as settingsApi from './settings'
 export * as cpfApi from './cpf'
 export * as personsApi from './persons'
 export * as fundFlowRulesApi from './fundFlowRules'
+export * as insuranceApi from './insurance'
 
 import * as assets from './assets'
 import * as investments from './investments'
@@ -29,6 +30,7 @@ import * as settings from './settings'
 import * as cpf from './cpf'
 import * as persons from './persons'
 import * as fundFlowRules from './fundFlowRules'
+import * as insurance from './insurance'
 
 /**
  * Reset all user data in a single atomic transaction.
@@ -60,5 +62,6 @@ export const financialApi = {
   ...cpf,
   ...persons,
   ...fundFlowRules,
+  ...insurance,
   resetAllUserData,
 }

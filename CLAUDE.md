@@ -11,6 +11,10 @@
 - Combine with **Zod** for schema validation
 - See existing patterns in `frontend/src/components/modals/` for reference
 
+## useEffect & Callbacks
+- Never put callback props (e.g., `onClose`, `onSave`, `onChange`) directly in `useEffect` dependency arrays — unstable references cause the effect to re-run on every parent re-render, which breaks focus management, triggers unwanted side effects, etc.
+- Instead, store callbacks in a ref: `const onCloseRef = useRef(onClose); onCloseRef.current = onClose` and reference `onCloseRef.current` inside the effect. Only put primitive/stable values (like `isOpen`) in the dependency array.
+
 ## Test Account (Development Only)
 For Playwright testing and AI-assisted debugging sessions:
 - **Email:** `asdf@gmail.com`
