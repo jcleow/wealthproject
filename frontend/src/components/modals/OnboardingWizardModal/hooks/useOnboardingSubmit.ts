@@ -177,6 +177,11 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
   // Persistent map across steps: tempId → serverId
   const personIdMapRef = useRef<PersonIdMap>(new Map())
 
+  // Clear submission state when form data is fundamentally replaced (e.g. sample data load)
+  const resetSubmitState = useCallback(() => {
+    personIdMapRef.current.clear()
+  }, [])
+
   // ─── Step 1: Create persons + update planning horizon ─────────────────────
 
   const submitStep1 = useCallback(async (): Promise<boolean> => {
@@ -189,11 +194,23 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
       return false
     }
 
+    // Fetch existing persons to detect stale serverIds (e.g. after Reset All Data)
+    const existingPersonsResponse = await personsApi.listPersons()
+    const existingPersonIds = new Set(existingPersonsResponse.data.map(p => p.id))
+
     for (const person of validPersons) {
-      // Skip if already saved
-      if (person.serverId) {
+      // Only trust serverId if the person still exists in the DB
+      if (person.serverId && existingPersonIds.has(person.serverId)) {
         personIdMapRef.current.set(person.tempId, person.serverId)
         continue
+      }
+
+      // Clear stale serverId so future steps don't reuse a deleted person reference
+      if (person.serverId) {
+        const stalePersonIndex = persons.findIndex(p => p.tempId === person.tempId)
+        if (stalePersonIndex >= 0) {
+          form.setValue(`persons.${stalePersonIndex}.serverId`, null)
+        }
       }
 
       const created = await personsApi.createPerson({
@@ -428,5 +445,5 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
     }
   }, [stepSubmitters, form])
 
-  return { submitStep, isSubmitting, submissionError }
+  return { submitStep, isSubmitting, submissionError, resetSubmitState }
 }

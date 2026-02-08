@@ -46,7 +46,7 @@ func (s *Store) ListPersons(ctx context.Context, userID string) ([]Person, error
 }
 
 // ListPersonsWithStats retrieves all persons for a user with income/CPF counts.
-func (s *Store) ListPersonsWithStats(ctx context.Context, userID string) ([]Person, error) {
+func (s *Store) ListPersonsWithStats(ctx context.Context, userID string, pagination PaginationParams) (PaginatedResult[Person], error) {
 	query := `
 	SELECT
 		p.id, p.user_id, p.name, p.display_color, p.is_included,
@@ -70,15 +70,30 @@ func (s *Store) ListPersonsWithStats(ctx context.Context, userID string) ([]Pers
 	WHERE p.user_id = $1
 	ORDER BY p.created_at ASC`
 
-	logQuery(query, []any{userID})
+	args := []any{userID}
+	argIdx := 2
 
-	rows, err := s.pool.Query(ctx, query, userID)
+	// Add pagination
+	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	if paginationSubQuery != "" {
+		query += " " + paginationSubQuery
+		if pagination.Limit != nil {
+			args = append(args, *pagination.Limit)
+		}
+		if pagination.Offset != nil {
+			args = append(args, *pagination.Offset)
+		}
+	}
+
+	logQuery(query, args)
+
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list persons with stats: %w", err)
+		return PaginatedResult[Person]{}, fmt.Errorf("failed to list persons with stats: %w", err)
 	}
 	defer rows.Close()
 
-	var persons []Person
+	persons := []Person{}
 	for rows.Next() {
 		var p Person
 		if err := rows.Scan(
@@ -86,16 +101,21 @@ func (s *Store) ListPersonsWithStats(ctx context.Context, userID string) ([]Pers
 			&p.DateOfBirth, &p.Gender, &p.ResidencyStatus, &p.PRGrantDate,
 			&p.Relationship, &p.CreatedAt, &p.UpdatedAt, &p.IncomeCount, &p.CPFCount,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan person with stats: %w", err)
+			return PaginatedResult[Person]{}, fmt.Errorf("failed to scan person with stats: %w", err)
 		}
 		persons = append(persons, p)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows iteration error: %w", err)
+		return PaginatedResult[Person]{}, fmt.Errorf("rows iteration error: %w", err)
 	}
 
-	return persons, nil
+	return PaginatedResult[Person]{
+		Data:   persons,
+		Count:  len(persons),
+		Limit:  pagination.Limit,
+		Offset: pagination.Offset,
+	}, nil
 }
 
 // GetPerson retrieves a single person by ID.

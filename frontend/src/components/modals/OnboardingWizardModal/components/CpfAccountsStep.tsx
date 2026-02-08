@@ -84,7 +84,7 @@ export function CpfAccountsStep({ isMonet }: CpfAccountsStepProps) {
           CPF Account Balances
         </h3>
         <p className={cn('text-xs mt-0.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
-          Enter your current CPF balances (check cpf.gov.sg)
+          Enter your current CPF balances
         </p>
       </div>
 

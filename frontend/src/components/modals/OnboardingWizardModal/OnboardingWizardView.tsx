@@ -43,7 +43,7 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet, onStepChan
   const [animationDirection, setAnimationDirection] = useState<'forward' | 'back'>('forward')
   const [showSummary, setShowSummary] = useState(false)
 
-  const { submitStep, isSubmitting, submissionError } = useOnboardingSubmit(form)
+  const { submitStep, isSubmitting, submissionError, resetSubmitState } = useOnboardingSubmit(form)
   const { loadProfile } = useLoadWizardProfile()
 
   // Notify parent of step changes for header display
@@ -56,13 +56,15 @@ export function OnboardingWizardView({ onClose, onSkipSetup, isMonet, onStepChan
   const handleLoadProfile = useCallback((profileId: string) => {
     const success = loadProfile(profileId, form)
     if (success) {
+      // Clear stale tempId→serverId mappings from previous submissions
+      resetSubmitState()
       // Reset wizard navigation to step 0 with all steps active
       setStepStatuses(['active', 'pending', 'pending', 'pending'])
       setCurrentStepIndex(0)
       setAnimationDirection('forward')
       setShowSummary(false)
     }
-  }, [loadProfile, form])
+  }, [loadProfile, form, resetSubmitState])
 
   // ─── Navigation ─────────────────────────────────────────────────────────────
 
