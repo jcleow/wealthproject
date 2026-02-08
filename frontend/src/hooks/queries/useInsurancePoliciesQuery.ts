@@ -61,3 +61,17 @@ export function useDeleteInsurancePolicyMutation() {
     },
   })
 }
+
+export function useDeleteAllInsurancePoliciesMutation() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: () => insuranceApi.deleteAllInsurancePolicies(),
+    onSuccess: () => {
+      queryClient.setQueryData<InsurancePolicyRecord[]>(
+        INSURANCE_POLICIES_QUERY_KEY,
+        []
+      )
+    },
+  })
+}

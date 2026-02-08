@@ -9,13 +9,13 @@ authenticatedTest.describe('Insurance Planner CRUD', () => {
   })
 
   authenticatedTest('should load sample data, verify policies, edit, and delete', async ({ authenticatedPage: page }) => {
-    // ── 1. Load sample data (button is now in the top-level header) ──
-    const loadSampleButton = page.getByRole('button', { name: /load sample data/i })
+    // ── 1. Load sample data (icon-only button with title attribute) ──
+    const loadSampleButton = page.getByTitle('Load sample data')
     await expect(loadSampleButton).toBeVisible({ timeout: 5000 })
     await loadSampleButton.click()
 
-    // Wait for loading to finish
-    await expect(loadSampleButton).not.toContainText('Loading', { timeout: 15000 })
+    // Wait for the spinner to disappear (Loader2 swaps back to Database icon)
+    await expect(loadSampleButton.locator('.animate-spin')).not.toBeVisible({ timeout: 15000 })
 
     // ── 2. Navigate to Policies tab ──────────────────────────────────
     const policiesTab = page.getByRole('tab', { name: /policies/i })

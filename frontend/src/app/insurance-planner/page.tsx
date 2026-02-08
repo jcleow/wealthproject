@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, RotateCcw, X, Database, Loader2 } from 'lucide-react'
+import { Plus, RotateCcw, X, Database, Loader2, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import {
   InsuranceTabs,
@@ -14,6 +14,7 @@ import { MyCoverageTab } from '@/components/insurance/tabs/MyCoverageTab'
 import { useColorScheme } from '@/stores'
 import { useCoverageGuidelinesStore } from '@/stores/coverageGuidelinesStore'
 import { useLoadSampleInsuranceData } from '@/hooks/queries/useLoadSampleInsuranceData'
+import { useDeleteAllInsurancePoliciesMutation } from '@/hooks/queries/useInsurancePoliciesQuery'
 
 // ============================================================================
 // THEME-AWARE DESIGN SYSTEM
@@ -104,6 +105,7 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
 
   const resetToDefaults = useCoverageGuidelinesStore((s) => s.resetToDefaults)
   const loadSampleMutation = useLoadSampleInsuranceData()
+  const deleteAllMutation = useDeleteAllInsurancePoliciesMutation()
 
   const handleNavigateToPolicy = () => {
     setActiveTab('policies')
@@ -163,18 +165,35 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
               type="button"
               onClick={() => loadSampleMutation.mutate()}
               disabled={loadSampleMutation.isPending}
-              className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                color: isMonet ? '#6B7280' : '#A1A1AA',
-                border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
+                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
+                color: isMonet ? '#9B9B9B' : '#64748b',
               }}
+              title="Load sample data"
             >
               {loadSampleMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Database className="h-3.5 w-3.5" />
+                <Database className="h-4 w-4" />
               )}
-              {loadSampleMutation.isPending ? 'Loading...' : 'Load Sample Data'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (window.confirm('Delete all insurance policies? This cannot be undone.')) deleteAllMutation.mutate() }}
+              disabled={deleteAllMutation.isPending}
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
+                color: isMonet ? '#9B9B9B' : '#64748b',
+              }}
+              title="Clear all policies"
+            >
+              {deleteAllMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
             </button>
             <button
               type="button"
@@ -237,6 +256,7 @@ export default function InsurancePlannerPage() {
 
   const resetToDefaults = useCoverageGuidelinesStore((s) => s.resetToDefaults)
   const loadSampleMutation = useLoadSampleInsuranceData()
+  const deleteAllMutation = useDeleteAllInsurancePoliciesMutation()
 
   const handleClose = () => {
     router.push('/dashboard')
@@ -320,18 +340,35 @@ export default function InsurancePlannerPage() {
               type="button"
               onClick={() => loadSampleMutation.mutate()}
               disabled={loadSampleMutation.isPending}
-              className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                color: isMonet ? '#6B7280' : '#A1A1AA',
-                border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
+                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
+                color: isMonet ? '#9B9B9B' : '#64748b',
               }}
+              title="Load sample data"
             >
               {loadSampleMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Database className="h-3.5 w-3.5" />
+                <Database className="h-4 w-4" />
               )}
-              {loadSampleMutation.isPending ? 'Loading...' : 'Load Sample Data'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (window.confirm('Delete all insurance policies? This cannot be undone.')) deleteAllMutation.mutate() }}
+              disabled={deleteAllMutation.isPending}
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
+                color: isMonet ? '#9B9B9B' : '#64748b',
+              }}
+              title="Clear all policies"
+            >
+              {deleteAllMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
             </button>
             <button
               type="button"

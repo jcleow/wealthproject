@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Building2,
   Heart,
@@ -10,7 +11,10 @@ import {
   MoreHorizontal,
   Plus,
   ChevronDown,
+  ChevronRight,
   Check,
+  Pencil,
+  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
@@ -84,16 +88,23 @@ const COVERAGE_CATEGORIES: CategoryDefinition[] = [
 // HELPERS
 // ============================================================================
 
+/** Safely coerce any value to a finite number (guards against string/NaN from API) */
+function toNum(value: unknown): number {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
 function getAnnualPremium(policy: InsurancePolicyRecord): number {
+  const amount = toNum(policy.premiumAmount)
   switch (policy.premiumFrequency) {
     case 'monthly':
-      return policy.premiumAmount * 12
+      return amount * 12
     case 'quarterly':
-      return policy.premiumAmount * 4
+      return amount * 4
     case 'annually':
-      return policy.premiumAmount
+      return amount
     default:
-      return policy.premiumAmount
+      return amount
   }
 }
 
@@ -107,7 +118,7 @@ function getCategoryPolicies(
 }
 
 function getCategoryCoverageAmount(policies: InsurancePolicyRecord[]): number {
-  return policies.reduce((sum, p) => sum + p.coverageAmount, 0)
+  return policies.reduce((sum, p) => sum + toNum(p.coverageAmount), 0)
 }
 
 function getCategoryAnnualPremium(policies: InsurancePolicyRecord[]): number {
@@ -272,6 +283,7 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
   const { data: personsData } = usePersonsQuery()
   const persons = useMemo(() => personsData ?? [], [personsData])
   const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
+  const [targetDisplayMode, setTargetDisplayMode] = useState<TargetDisplayMode>('cash')
   const guidelineTargets = useGuidelineTargets()
 
   const handleTogglePerson = (personId: string) => {
@@ -394,6 +406,9 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
                   key={category.id}
                   category={category}
                   onAddPolicy={onNavigateToPolicy}
+                  onViewPolicies={onNavigateToPolicy}
+                  targetDisplayMode={targetDisplayMode}
+                  onChangeTargetDisplay={setTargetDisplayMode}
                 />
               )
             }
@@ -402,6 +417,9 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
                 key={category.id}
                 category={category}
                 onAddPolicy={onNavigateToPolicy}
+                onViewPolicies={onNavigateToPolicy}
+                targetDisplayMode={targetDisplayMode}
+                onChangeTargetDisplay={setTargetDisplayMode}
               />
             )
           })}
@@ -417,24 +435,24 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
 // ============================================================================
 
 function CoverageScoreCard({ percentage }: { percentage: number }) {
-  // Determine color based on coverage level
-  const isGood = percentage >= 75
-  const isMedium = percentage >= 40 && percentage < 75
+  // Determine color based on coverage level: green (100%), amber (30-99%), red (<30%)
+  const isGood = percentage >= 100
+  const isMedium = percentage >= 30
   const ringColor = isGood
     ? 'stroke-emerald-500'
     : isMedium
       ? 'stroke-amber-500'
-      : 'stroke-slate-500'
+      : 'stroke-red-500'
   const textColor = isGood
     ? 'text-emerald-400'
     : isMedium
       ? 'text-amber-400'
-      : 'text-slate-400'
+      : 'text-red-400'
   const bgRing = isGood
     ? 'bg-emerald-500/10'
     : isMedium
       ? 'bg-amber-500/10'
-      : 'bg-slate-500/10'
+      : 'bg-red-500/10'
 
   // SVG circle progress
   const radius = 38
@@ -549,9 +567,15 @@ interface CategoryCardData {
 function HospitalizationCard({
   category,
   onAddPolicy,
+  onViewPolicies,
+  targetDisplayMode,
+  onChangeTargetDisplay,
 }: {
   category: CategoryCardData
   onAddPolicy?: () => void
+  onViewPolicies?: () => void
+  targetDisplayMode: TargetDisplayMode
+  onChangeTargetDisplay: (mode: TargetDisplayMode) => void
 }) {
   const { primaryPolicy, annualPremium, hasCoverage } = category
   const Icon = category.icon
@@ -566,6 +590,9 @@ function HospitalizationCard({
         icon={Icon}
         title={category.title}
         subtitle={category.subtitle}
+        onViewPolicies={onViewPolicies}
+        targetDisplayMode={targetDisplayMode}
+        onChangeTargetDisplay={onChangeTargetDisplay}
       />
 
       {/* Body */}
@@ -641,9 +668,15 @@ function HospitalizationCard({
 
 function ProgressCoverageCard({
   category,
+  onViewPolicies,
+  targetDisplayMode,
+  onChangeTargetDisplay,
 }: {
   category: CategoryCardData
   onAddPolicy?: () => void
+  onViewPolicies?: () => void
+  targetDisplayMode: TargetDisplayMode
+  onChangeTargetDisplay: (mode: TargetDisplayMode) => void
 }) {
   const {
     coverageAmount,
@@ -653,19 +686,23 @@ function ProgressCoverageCard({
   } = category
   const Icon = category.icon
 
-  const targetAmount = resolvedTarget
+  const targetAmount = toNum(resolvedTarget)
+  const safeCoverage = toNum(coverageAmount)
   const percentage =
     targetAmount > 0
-      ? Math.min(100, Math.round((coverageAmount / targetAmount) * 100))
+      ? Math.min(100, Math.round((safeCoverage / targetAmount) * 100))
       : 0
-  const gapAmount = Math.max(0, targetAmount - coverageAmount)
+  const gapAmount = Math.max(0, targetAmount - safeCoverage)
   const isFullyCovered = percentage >= 100
 
-  // Progress bar color
-  const barColor = isFullyCovered ? 'bg-emerald-500' : 'bg-amber-600'
+  // Progress bar color: green (100%), amber (30-99%), red (<30%)
+  const isLowCoverage = percentage < 30
+  const barColor = isFullyCovered ? 'bg-emerald-500' : isLowCoverage ? 'bg-red-500' : 'bg-amber-600'
   const barTextColor = isFullyCovered
     ? 'text-emerald-400'
-    : 'text-amber-500'
+    : isLowCoverage
+      ? 'text-red-400'
+      : 'text-amber-500'
   const barMessage = isFullyCovered
     ? '100% of target \u2014 fully covered'
     : `${percentage}% of target \u2014 ${formatCurrency(gapAmount)} gap`
@@ -677,6 +714,9 @@ function ProgressCoverageCard({
         icon={Icon}
         title={category.title}
         subtitle={category.subtitle}
+        onViewPolicies={onViewPolicies}
+        targetDisplayMode={targetDisplayMode}
+        onChangeTargetDisplay={onChangeTargetDisplay}
       />
 
       {/* Body */}
@@ -687,7 +727,7 @@ function ProgressCoverageCard({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <span className={cn(T.cardDetailValue, 'text-white')}>
-                {formatCurrency(coverageAmount)}
+                {formatCurrency(safeCoverage)}
               </span>
               <span className={cn(T.metaText, 'text-slate-500')}>current</span>
             </div>
@@ -821,6 +861,208 @@ function CoverageDetailStats({
 }
 
 // ============================================================================
+// TARGET DISPLAY MODE
+// ============================================================================
+
+type TargetDisplayMode = 'cash' | 'months_income' | 'months_expenses'
+
+const TARGET_DISPLAY_OPTIONS: { value: TargetDisplayMode; label: string }[] = [
+  { value: 'months_income', label: 'Months of Income' },
+  { value: 'months_expenses', label: 'Months of Expenses' },
+  { value: 'cash', label: 'Cash Amount' },
+]
+
+// ============================================================================
+// CARD ACTION MENU (Ellipsis dropdown + nested submenu)
+// ============================================================================
+
+function CardActionMenu({
+  onEditTargets,
+  onViewPolicies,
+  targetDisplayMode,
+  onChangeTargetDisplay,
+}: {
+  onEditTargets?: () => void
+  onViewPolicies?: () => void
+  targetDisplayMode: TargetDisplayMode
+  onChangeTargetDisplay: (mode: TargetDisplayMode) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [showSubmenu, setShowSubmenu] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const submenuTriggerRef = useRef<HTMLButtonElement>(null)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
+  const [submenuPos, setSubmenuPos] = useState({ top: 0, left: 0 })
+
+  // Compute dropdown position from trigger button's bounding rect
+  const updateDropdownPos = useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    setDropdownPos({
+      top: rect.bottom + 4,
+      left: rect.right - 210, // right-align: dropdown right edge = trigger right edge
+    })
+  }, [])
+
+  // Compute submenu position from the "View Target As" row's bounding rect
+  const updateSubmenuPos = useCallback(() => {
+    if (!dropdownRef.current) return
+    const dropdownRect = dropdownRef.current.getBoundingClientRect()
+    if (submenuTriggerRef.current) {
+      const triggerRect = submenuTriggerRef.current.getBoundingClientRect()
+      setSubmenuPos({
+        top: triggerRect.top,
+        left: dropdownRect.right + 4,
+      })
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node
+      if (
+        triggerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) return
+      // Also check if click is inside the portal submenu
+      const submenuEl = document.getElementById('card-action-submenu')
+      if (submenuEl?.contains(target)) return
+      setIsOpen(false)
+      setShowSubmenu(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  // Update position when dropdown opens
+  useEffect(() => {
+    if (isOpen) updateDropdownPos()
+  }, [isOpen, updateDropdownPos])
+
+  // Update submenu position when it opens
+  useEffect(() => {
+    if (showSubmenu) updateSubmenuPos()
+  }, [showSubmenu, updateSubmenuPos])
+
+  const menuStyle = {
+    background: '#111113',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+  }
+
+  return (
+    <div className="relative">
+      {/* Ellipsis trigger */}
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => { setIsOpen(!isOpen); setShowSubmenu(false) }}
+        className="flex h-[30px] w-[30px] items-center justify-center rounded-md hover:bg-white/[0.04] transition-colors"
+        style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}
+      >
+        <MoreHorizontal className="h-3.5 w-3.5 text-slate-200" />
+      </button>
+
+      {/* Main dropdown — portaled to document.body */}
+      {isOpen && createPortal(
+        <div
+          ref={dropdownRef}
+          className="fixed z-[9999] w-[210px] rounded-lg py-1.5 shadow-xl"
+          style={{ ...menuStyle, top: dropdownPos.top, left: dropdownPos.left }}
+        >
+          {/* Edit Targets */}
+          <button
+            type="button"
+            onClick={() => { onEditTargets?.(); setIsOpen(false) }}
+            className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-[13px] transition-colors hover:bg-white/[0.04]"
+          >
+            <Pencil className="h-3.5 w-3.5 text-slate-500" />
+            <span className="text-slate-200">Edit Targets</span>
+          </button>
+
+          {/* View Policies */}
+          <button
+            type="button"
+            onClick={() => { onViewPolicies?.(); setIsOpen(false) }}
+            className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-[13px] transition-colors hover:bg-white/[0.04]"
+          >
+            <FileText className="h-3.5 w-3.5 text-slate-500" />
+            <span className="text-slate-200">View Policies</span>
+          </button>
+
+          {/* Divider */}
+          <div className="my-1 h-px w-full" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
+
+          {/* View Target As → submenu trigger */}
+          <button
+            ref={submenuTriggerRef}
+            type="button"
+            onMouseEnter={() => setShowSubmenu(true)}
+            onClick={() => setShowSubmenu(!showSubmenu)}
+            className={cn(
+              'flex w-full items-center justify-between rounded px-3 py-2 text-[13px] transition-colors',
+              showSubmenu ? 'bg-white/[0.04]' : 'hover:bg-white/[0.04]'
+            )}
+          >
+            <div className="flex items-center gap-2.5">
+              <Eye className="h-3.5 w-3.5 text-slate-500" />
+              <span className={showSubmenu ? 'text-slate-200 font-medium' : 'text-slate-200'}>
+                View Target As
+              </span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
+          </button>
+        </div>,
+        document.body
+      )}
+
+      {/* Submenu — also portaled to document.body */}
+      {isOpen && showSubmenu && createPortal(
+        <div
+          id="card-action-submenu"
+          className="fixed z-[10000] w-[200px] rounded-lg py-1.5 shadow-xl"
+          style={{ ...menuStyle, top: submenuPos.top, left: submenuPos.left }}
+          onMouseLeave={() => setShowSubmenu(false)}
+        >
+          {TARGET_DISPLAY_OPTIONS.map((option) => {
+            const isSelected = targetDisplayMode === option.value
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChangeTargetDisplay(option.value)
+                  setIsOpen(false)
+                  setShowSubmenu(false)
+                }}
+                className={cn(
+                  'flex w-full items-center gap-2.5 rounded px-3 py-2 text-[13px] transition-colors',
+                  isSelected ? 'bg-white/[0.04]' : 'hover:bg-white/[0.04]'
+                )}
+              >
+                <div
+                  className={cn(
+                    'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border',
+                    isSelected ? 'border-slate-200' : 'border-slate-600'
+                  )}
+                >
+                  {isSelected && <div className="h-2 w-2 rounded-full bg-slate-200" />}
+                </div>
+                <span className={isSelected ? 'text-slate-200 font-medium' : 'text-slate-500'}>
+                  {option.label}
+                </span>
+              </button>
+            )
+          })}
+        </div>,
+        document.body
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
 // SHARED SUB-COMPONENTS
 // ============================================================================
 
@@ -828,15 +1070,23 @@ function CardHeader({
   icon: Icon,
   title,
   subtitle,
+  onEditTargets,
+  onViewPolicies,
+  targetDisplayMode,
+  onChangeTargetDisplay,
 }: {
   icon: React.ElementType
   title: string
   subtitle: string
+  onEditTargets?: () => void
+  onViewPolicies?: () => void
+  targetDisplayMode: TargetDisplayMode
+  onChangeTargetDisplay: (mode: TargetDisplayMode) => void
 }) {
   return (
     <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06]">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-white/[0.05]">
+        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-white/[0.05]">
           <Icon className={cn(T.categoryIconSize, 'text-slate-400')} />
         </div>
         <div className="flex flex-col gap-px">
@@ -844,12 +1094,12 @@ function CardHeader({
           <span className={cn(T.metaText, 'text-slate-500')}>{subtitle}</span>
         </div>
       </div>
-      <button
-        type="button"
-        className="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.06] hover:bg-white/[0.04] transition-colors"
-      >
-        <MoreHorizontal className="h-4 w-4 text-slate-400" />
-      </button>
+      <CardActionMenu
+        onEditTargets={onEditTargets}
+        onViewPolicies={onViewPolicies}
+        targetDisplayMode={targetDisplayMode}
+        onChangeTargetDisplay={onChangeTargetDisplay}
+      />
     </div>
   )
 }
