@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Building2,
   Heart,
@@ -8,6 +9,8 @@ import {
   FileText,
   MoreHorizontal,
   Plus,
+  ChevronDown,
+  Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
@@ -15,6 +18,8 @@ import { useInsurancePoliciesQuery } from '@/hooks/queries/useInsurancePoliciesQ
 import type { InsurancePolicyRecord } from '@/api/financial/insurance'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
 import { useGuidelineTargets } from '@/stores/coverageGuidelinesStore'
+import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
+import type { Person } from '@/types/person'
 
 // ============================================================================
 // CATEGORY DEFINITIONS
@@ -110,6 +115,151 @@ function getCategoryAnnualPremium(policies: InsurancePolicyRecord[]): number {
 }
 
 // ============================================================================
+// PERSON HELPERS
+// ============================================================================
+
+function getPersonAge(dateOfBirth: string): number {
+  const today = new Date()
+  const birth = new Date(dateOfBirth)
+  let age = today.getFullYear() - birth.getFullYear()
+  const monthDiff = today.getMonth() - birth.getMonth()
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--
+  }
+  return age
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function getRelationshipLabel(relationship: string): string {
+  if (relationship === 'self') return 'You'
+  return relationship.charAt(0).toUpperCase() + relationship.slice(1)
+}
+
+// ============================================================================
+// PERSON VIEW DROPDOWN (Pencil design)
+// Multi-select with avatar circles, initials, and age/relationship metadata
+// ============================================================================
+
+function PersonViewDropdown({
+  persons,
+  selectedIds,
+  onToggle,
+}: {
+  persons: Person[]
+  selectedIds: Set<string>
+  onToggle: (personId: string) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  const selectedCount = selectedIds.size === 0 ? persons.length : selectedIds.size
+  const triggerLabel = `${selectedCount} person${selectedCount !== 1 ? 's' : ''}`
+
+  return (
+    <div ref={containerRef} className="relative">
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs transition-all duration-200"
+        style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}
+      >
+        <span className="text-slate-500">Viewing for</span>
+        <span className="font-medium text-slate-200">{triggerLabel}</span>
+        <ChevronDown
+          className="h-3.5 w-3.5 text-slate-500 transition-transform duration-200"
+          style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}
+        />
+      </button>
+
+      {/* Dropdown Panel */}
+      {isOpen && (
+        <div
+          className="absolute right-0 top-full z-30 mt-1 w-[240px] rounded-lg py-2 shadow-xl"
+          style={{
+            background: '#111113',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          {persons.map((person) => {
+            const isSelected = selectedIds.size === 0 || selectedIds.has(person.id)
+            const age = getPersonAge(person.dateOfBirth)
+            const initials = getInitials(person.name)
+            const relationshipLabel = getRelationshipLabel(person.relationship ?? 'self')
+            const avatarColor = person.displayColor || '#64748b'
+
+            return (
+              <button
+                key={person.id}
+                type="button"
+                onClick={() => onToggle(person.id)}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-white/[0.04]"
+                style={{ background: isSelected ? '#1A1A1D' : undefined }}
+              >
+                {/* Checkbox */}
+                <div
+                  className="flex h-4 w-4 shrink-0 items-center justify-center"
+                  style={{
+                    borderRadius: 3,
+                    background: isSelected ? '#F0F0F0' : 'transparent',
+                    border: isSelected ? 'none' : '1.5px solid #52525B',
+                  }}
+                >
+                  {isSelected && <Check className="h-2.5 w-2.5 text-[#111113]" />}
+                </div>
+
+                {/* Avatar circle */}
+                <div
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                  style={{ background: avatarColor }}
+                >
+                  <span className="text-[10px] font-semibold text-white">{initials}</span>
+                </div>
+
+                {/* Info */}
+                <div className="flex flex-col items-start gap-px min-w-0">
+                  <span className="text-xs font-medium text-slate-200 truncate w-full text-left">
+                    {person.name}
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Age {age} · {relationshipLabel}
+                  </span>
+                </div>
+              </button>
+            )
+          })}
+
+          {persons.length === 0 && (
+            <div className="px-3.5 py-3 text-xs text-center text-slate-500">
+              No persons added yet
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============================================================================
 // MAIN COMPONENT
 // ============================================================================
 
@@ -119,8 +269,29 @@ interface MyCoverageTabProps {
 
 export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
   const { data: policies = [] } = useInsurancePoliciesQuery()
-  const activePolicies = policies.filter((p) => p.isActive)
+  const { data: personsData } = usePersonsQuery()
+  const persons = useMemo(() => personsData ?? [], [personsData])
+  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
   const guidelineTargets = useGuidelineTargets()
+
+  const handleTogglePerson = (personId: string) => {
+    setSelectedPersonIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(personId)) {
+        next.delete(personId)
+      } else {
+        next.add(personId)
+      }
+      return next
+    })
+  }
+
+  // Filter active policies by selected persons (empty set = show all)
+  const activePolicies = useMemo(() => {
+    const active = policies.filter((p) => p.isActive)
+    if (selectedPersonIds.size === 0) return active
+    return active.filter((p) => p.personId && selectedPersonIds.has(p.personId))
+  }, [policies, selectedPersonIds])
 
   // Map category IDs to guideline store targets (falls back to hardcoded default)
   const targetForCategory = (categoryId: string, fallback: number): number => {
@@ -203,7 +374,16 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
 
       {/* Coverage Breakdown */}
       <div className="space-y-5">
-        <h2 className="text-sm font-semibold text-white">Coverage Breakdown</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-white">Coverage Breakdown</h2>
+          {persons.length > 1 && (
+            <PersonViewDropdown
+              persons={persons}
+              selectedIds={selectedPersonIds}
+              onToggle={handleTogglePerson}
+            />
+          )}
+        </div>
 
         {/* Cards Grid - 2x2 */}
         <div className="grid grid-cols-2 gap-5">
