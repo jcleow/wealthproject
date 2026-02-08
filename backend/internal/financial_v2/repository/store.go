@@ -265,6 +265,83 @@ type Person struct {
 	CPFCount    int `json:"cpfCount,omitempty"`
 }
 
+// InsurancePolicy represents a persisted insurance policy record.
+type InsurancePolicy struct {
+	ID                    string           `json:"id"`
+	UserID                string           `json:"userId"`
+	PersonID              *string          `json:"personId,omitempty"`
+	PersonName            string           `json:"personName,omitempty"`
+	Name                  string           `json:"name"`
+	Category              string           `json:"category"`
+	Subcategory           *string          `json:"subcategory,omitempty"`
+	GovernmentScheme      *string          `json:"governmentScheme,omitempty"`
+	CoverageAmount        decimal.Decimal  `json:"coverageAmount"`
+	DeathBenefit          *decimal.Decimal `json:"deathBenefit,omitempty"`
+	CriticalIllnessBenefit *decimal.Decimal `json:"criticalIllnessBenefit,omitempty"`
+	TpdBenefit            *decimal.Decimal `json:"tpdBenefit,omitempty"`
+	DailyHospitalCash     *decimal.Decimal `json:"dailyHospitalCash,omitempty"`
+	PayoutAmount          *decimal.Decimal `json:"payoutAmount,omitempty"`
+	PayoutFrequency       *string          `json:"payoutFrequency,omitempty"`
+	PremiumAmount         decimal.Decimal  `json:"premiumAmount"`
+	PremiumFrequency      string           `json:"premiumFrequency"`
+	StartDate             time.Time        `json:"startDate"`
+	EndDate               *time.Time       `json:"endDate,omitempty"`
+	RenewalDate           *time.Time       `json:"renewalDate,omitempty"`
+	InsurerName           *string          `json:"insurerName,omitempty"`
+	PolicyNumber          *string          `json:"policyNumber,omitempty"`
+	LinkedExpenseID       *string          `json:"linkedExpenseId,omitempty"`
+	IsActive              bool             `json:"isActive"`
+	Notes                 *string          `json:"notes,omitempty"`
+	CreatedAt             time.Time        `json:"createdAt"`
+	UpdatedAt             time.Time        `json:"updatedAt"`
+}
+
+// CoverageGuidelines represents per-person coverage recommendation settings.
+type CoverageGuidelines struct {
+	ID                      string          `json:"id"`
+	UserID                  string          `json:"userId"`
+	PersonID                string          `json:"personId"`
+	PersonName              string          `json:"personName,omitempty"`
+	AnnualIncome            decimal.Decimal `json:"annualIncome"`
+	MaxPremiumPercentage    decimal.Decimal `json:"maxPremiumPercentage"`
+	Preset                  string          `json:"preset"`
+	HospRequiresIspUpgrade  bool            `json:"hospRequiresIspUpgrade"`
+	HospPreferredWardClass  string          `json:"hospPreferredWardClass"`
+	HospRecommendsRider     bool            `json:"hospRecommendsRider"`
+	HospIsEnabled           bool            `json:"hospIsEnabled"`
+	HospNotes               *string         `json:"hospNotes,omitempty"`
+	LifeTpdIncomeMultiplier decimal.Decimal `json:"lifeTpdIncomeMultiplier"`
+	LifeTpdIsRequired       bool            `json:"lifeTpdIsRequired"`
+	LifeTpdIsEnabled        bool            `json:"lifeTpdIsEnabled"`
+	LifeTpdNotes            *string         `json:"lifeTpdNotes,omitempty"`
+	CiIncomeMultiplier      decimal.Decimal `json:"ciIncomeMultiplier"`
+	CiIsRequired            bool            `json:"ciIsRequired"`
+	CiIsEnabled             bool            `json:"ciIsEnabled"`
+	CiNotes                 *string         `json:"ciNotes,omitempty"`
+	PaIncomeMultiplier      decimal.Decimal `json:"paIncomeMultiplier"`
+	PaIsRequired            bool            `json:"paIsRequired"`
+	PaIsEnabled             bool            `json:"paIsEnabled"`
+	PaNotes                 *string         `json:"paNotes,omitempty"`
+	QuestionnaireAnswers    []byte          `json:"questionnaireAnswers"`
+	CreatedAt               time.Time       `json:"createdAt"`
+	UpdatedAt               time.Time       `json:"updatedAt"`
+}
+
+// CoverageControlPoint represents an age-based coverage override for a person.
+type CoverageControlPoint struct {
+	ID               string           `json:"id"`
+	UserID           string           `json:"userId"`
+	PersonID         string           `json:"personId"`
+	PersonName       string           `json:"personName,omitempty"`
+	Age              int              `json:"age"`
+	LifeTpd          *decimal.Decimal `json:"lifeTpd,omitempty"`
+	CriticalIllness  *decimal.Decimal `json:"criticalIllness,omitempty"`
+	PersonalAccident *decimal.Decimal `json:"personalAccident,omitempty"`
+	Reason           *string          `json:"reason,omitempty"`
+	CreatedAt        time.Time        `json:"createdAt"`
+	UpdatedAt        time.Time        `json:"updatedAt"`
+}
+
 type DateRangeOptions struct {
 	StartDate *time.Time // Filter items where start_date >= this
 	EndDate   *time.Time // Filter items where start_date <= this
@@ -1291,6 +1368,25 @@ func (s *Store) ResetAllUserData(ctx context.Context, userID string) (int64, err
 	tag, err = tx.Exec(ctx, `DELETE FROM scenario_events WHERE user_id = $1`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete scenario events: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 6b. Delete insurance-related tables (before persons, since policies ON DELETE SET NULL)
+	tag, err = tx.Exec(ctx, `DELETE FROM insurance_policies WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete insurance policies: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM coverage_control_points WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete coverage control points: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM coverage_guidelines WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete coverage guidelines: %w", err)
 	}
 	totalAffected += tag.RowsAffected()
 

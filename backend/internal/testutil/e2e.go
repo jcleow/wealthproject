@@ -112,6 +112,10 @@ func CleanupAllTables(ctx context.Context, pool *pgxpool.Pool) error {
 		"property_scenarios",
 		// Scenario events
 		"scenario_events",
+		// Insurance tables
+		"insurance_policies",
+		"coverage_control_points",
+		"coverage_guidelines",
 		// Financial tables
 		"income_allocations",
 		"finance_expenses",
