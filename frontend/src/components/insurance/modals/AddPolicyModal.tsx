@@ -418,8 +418,17 @@ export function AddPolicyModal({ isOpen, onClose, onSave, editingPolicy }: AddPo
         break
       case 'critical_illness':
         if (editingPolicy.criticalIllnessBenefit != null) setCiBenefitAmount(editingPolicy.criticalIllnessBenefit.toString())
-        if (typeof parsedNotes.earlyCiCoverage === 'boolean') setEarlyCiCoverage(parsedNotes.earlyCiCoverage)
-        if (typeof parsedNotes.multiPayCoverage === 'boolean') setMultiPayCoverage(parsedNotes.multiPayCoverage)
+        // Restore toggle state from notes first, then fall back to subcategory
+        if (typeof parsedNotes.earlyCiCoverage === 'boolean') {
+          setEarlyCiCoverage(parsedNotes.earlyCiCoverage)
+        } else {
+          setEarlyCiCoverage(editingPolicy.subcategory === 'early_ci')
+        }
+        if (typeof parsedNotes.multiPayCoverage === 'boolean') {
+          setMultiPayCoverage(parsedNotes.multiPayCoverage)
+        } else {
+          setMultiPayCoverage(editingPolicy.subcategory === 'multi_pay')
+        }
         break
       case 'long_term_care':
         if (editingPolicy.governmentScheme) setGovernmentScheme(editingPolicy.governmentScheme)
@@ -517,34 +526,45 @@ export function AddPolicyModal({ isOpen, onClose, onSave, editingPolicy }: AddPo
       notes,
     }
 
+    // When editing, preserve the original subcategory unless the form
+    // explicitly changes it (e.g., CI toggle state determines subcategory).
+    const originalSubcategory = editingPolicy?.subcategory ?? null
+
     switch (selectedCategory) {
       case 'life':
-        baseFormData.type = 'term_life'
+        baseFormData.type = originalSubcategory ?? 'term_life'
         baseFormData.deathBenefit = parseInt(deathBenefit) || 0
         baseFormData.criticalIllnessRider = criticalIllnessRider
         baseFormData.tpdBenefit = tpdRider ? (parseInt(deathBenefit) || 0) : undefined
         break
       case 'health':
-        baseFormData.type = 'isp'
+        baseFormData.type = originalSubcategory ?? 'isp'
         baseFormData.wardClass = wardClass
         baseFormData.annualLimit = parseInt(annualLimit) || 0
         baseFormData.ispRider = ispRider
         baseFormData.deductible = deductible
         break
       case 'critical_illness':
-        baseFormData.type = 'early_ci'
+        // Derive subcategory from toggle state
+        if (multiPayCoverage) {
+          baseFormData.type = 'multi_pay'
+        } else if (earlyCiCoverage) {
+          baseFormData.type = 'early_ci'
+        } else {
+          baseFormData.type = 'late_ci'
+        }
         baseFormData.criticalIllnessBenefit = parseInt(ciBenefitAmount) || 0
         baseFormData.earlyCiCoverage = earlyCiCoverage
         baseFormData.multiPayCoverage = multiPayCoverage
         break
       case 'long_term_care':
-        baseFormData.type = 'careshield'
+        baseFormData.type = originalSubcategory ?? 'careshield'
         baseFormData.governmentScheme = governmentScheme
         baseFormData.payoutAmount = parseInt(monthlyPayout) || 0
         baseFormData.payoutFrequency = payoutDuration
         break
       case 'personal_accident':
-        baseFormData.type = 'pa'
+        baseFormData.type = originalSubcategory ?? 'pa'
         baseFormData.deathBenefit = parseInt(paDeathBenefit) || 0
         baseFormData.tpdBenefit = parseInt(paTpdBenefit) || 0
         baseFormData.medicalExpenses = parseInt(paMedicalExpenses) || 0

@@ -201,6 +201,37 @@ func parseSortParams(r *http.Request) repoV2.SortParams {
 	return sort
 }
 
+// parseCategories extracts category values from a comma-separated query parameter.
+func parseCategories(r *http.Request) []string {
+	raw := r.URL.Query().Get("categories")
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+// parseDateParam parses an optional date query parameter in YYYY-MM-DD format.
+// Returns nil if the parameter is missing or empty.
+func parseDateParam(r *http.Request, key string) *time.Time {
+	raw := r.URL.Query().Get(key)
+	if raw == "" {
+		return nil
+	}
+	t, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
 // parsePersonIDs extracts person IDs from query parameters.
 // Supports comma-separated "personIds" param, and falls back to legacy single "personId".
 func parsePersonIDs(r *http.Request) []string {

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Landmark } from 'lucide-react'
+import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Landmark, Calendar, X, Filter } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
 import { PolicyDetailModal } from '../modals/PolicyDetailModal'
 import { useColorScheme } from '@/stores'
@@ -117,15 +117,6 @@ function formatRenewalDate(startDate: string, endDate: string | null, renewalDat
     return renewal.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
   }
   return new Date(dateToFormat).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
 }
 
 function getWardClass(policy: InsurancePolicyRecord): string | null {
@@ -372,7 +363,6 @@ function BeneficiaryFilter({
           >
             {persons.map((person) => {
               const isSelected = selectedIds.has(person.id)
-              const initials = getInitials(person.name)
               return (
                 <button
                   key={person.id}
@@ -392,11 +382,9 @@ function BeneficiaryFilter({
                     )}
                   </div>
                   <div
-                    className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full"
+                    className="h-[22px] w-[22px] shrink-0 rounded-full"
                     style={{ backgroundColor: person.displayColor || '#64748b' }}
-                  >
-                    <span className="text-[8px] font-semibold text-white">{initials}</span>
-                  </div>
+                  />
                   <div className="flex flex-col gap-px text-left">
                     <span
                       className="text-[11px] font-medium"
@@ -428,6 +416,287 @@ function BeneficiaryFilter({
           </div>,
           document.body
         )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Coverage Category Filter (multi-checkbox dropdown)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const COVERAGE_CATEGORIES = [
+  { value: 'life', label: 'Life / TPD' },
+  { value: 'hospitalization', label: 'Hospitalization' },
+  { value: 'critical_illness', label: 'Critical Illness' },
+  { value: 'disability', label: 'Disability' },
+  { value: 'accident', label: 'Personal Accident' },
+  { value: 'custom', label: 'Custom' },
+] as const
+
+function CoverageFilter({
+  selectedCategories,
+  onToggle,
+  theme,
+}: {
+  selectedCategories: Set<string>
+  onToggle: (category: string) => void
+  theme: ReturnType<typeof getInsuranceTheme>
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    setDropdownPos({ top: rect.bottom + 6, left: rect.left })
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) return
+    updatePosition()
+
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node
+      if (
+        triggerRef.current?.contains(target) ||
+        dropdownRef.current?.contains(target)
+      ) return
+      setIsOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    window.addEventListener('scroll', updatePosition, true)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('scroll', updatePosition, true)
+    }
+  }, [isOpen, updatePosition])
+
+  const activeCount = selectedCategories.size
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors"
+        style={{
+          color: activeCount > 0 ? theme.textPrimary : theme.textMuted,
+          background: activeCount > 0 ? 'rgba(255, 255, 255, 0.06)' : 'transparent',
+          border: `1px solid ${activeCount > 0 ? 'rgba(255, 255, 255, 0.12)' : theme.cardBorder}`,
+        }}
+      >
+        <Filter className="h-3 w-3" />
+        Coverage
+        {activeCount > 0 && (
+          <span
+            className="flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold"
+            style={{ background: 'rgba(255, 255, 255, 0.15)', color: theme.textPrimary }}
+          >
+            {activeCount}
+          </span>
+        )}
+        <ChevronDown
+          className="h-2.5 w-2.5 transition-transform duration-200"
+          style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}
+        />
+      </button>
+
+      {isOpen &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className="fixed z-50 min-w-[200px] rounded-lg py-2 shadow-xl"
+            style={{
+              top: dropdownPos.top,
+              left: dropdownPos.left,
+              background: '#111113',
+              border: `1px solid ${theme.cardBorder}`,
+            }}
+          >
+            {COVERAGE_CATEGORIES.map((cat) => {
+              const isSelected = selectedCategories.has(cat.value)
+              return (
+                <button
+                  key={cat.value}
+                  type="button"
+                  onClick={() => onToggle(cat.value)}
+                  className="flex w-full items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
+                >
+                  <div
+                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+                    style={{
+                      background: isSelected ? '#F0F0F0' : 'transparent',
+                      border: `1.5px solid ${isSelected ? '#F0F0F0' : '#52525B'}`,
+                    }}
+                  >
+                    {isSelected && (
+                      <Check className="h-2.5 w-2.5" style={{ color: '#111113' }} />
+                    )}
+                  </div>
+                  <span
+                    className="text-[11px] font-medium"
+                    style={{ color: theme.textPrimary }}
+                  >
+                    {cat.label}
+                  </span>
+                </button>
+              )
+            })}
+
+            {selectedCategories.size > 0 && (
+              <>
+                <div className="my-1 h-px w-full" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
+                <button
+                  type="button"
+                  onClick={() => {
+                    selectedCategories.forEach((cat) => onToggle(cat))
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[10px] transition-colors hover:bg-white/[0.04]"
+                  style={{ color: theme.textMuted }}
+                >
+                  Clear all
+                </button>
+              </>
+            )}
+          </div>,
+          document.body
+        )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Date Range Filter
+// ─────────────────────────────────────────────────────────────────────────────
+
+function DateRangeFilter({
+  startDateFrom,
+  startDateTo,
+  onStartDateFromChange,
+  onStartDateToChange,
+  theme,
+}: {
+  startDateFrom: string
+  startDateTo: string
+  onStartDateFromChange: (value: string) => void
+  onStartDateToChange: (value: string) => void
+  theme: ReturnType<typeof getInsuranceTheme>
+}) {
+  const inputClass =
+    'rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-colors focus:outline-none'
+
+  const inputStyle = {
+    color: theme.textPrimary,
+    background: 'rgba(255, 255, 255, 0.03)',
+    border: `1px solid ${theme.cardBorder}`,
+    colorScheme: 'dark',
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <Calendar className="h-3 w-3" style={{ color: theme.textMuted }} />
+      <div className="flex items-center gap-1.5">
+        <input
+          type="date"
+          value={startDateFrom}
+          onChange={(e) => onStartDateFromChange(e.target.value)}
+          className={inputClass}
+          style={inputStyle}
+          placeholder="From"
+        />
+        <span className="text-[10px]" style={{ color: theme.textMuted }}>to</span>
+        <input
+          type="date"
+          value={startDateTo}
+          onChange={(e) => onStartDateToChange(e.target.value)}
+          className={inputClass}
+          style={inputStyle}
+          placeholder="To"
+        />
+      </div>
+      {(startDateFrom || startDateTo) && (
+        <button
+          type="button"
+          onClick={() => {
+            onStartDateFromChange('')
+            onStartDateToChange('')
+          }}
+          className="flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-white/[0.06]"
+        >
+          <X className="h-3 w-3" style={{ color: theme.textMuted }} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Filter Bar (combines coverage + date range)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function FilterBar({
+  selectedCategories,
+  onToggleCategory,
+  startDateFrom,
+  startDateTo,
+  onStartDateFromChange,
+  onStartDateToChange,
+  theme,
+}: {
+  selectedCategories: Set<string>
+  onToggleCategory: (category: string) => void
+  startDateFrom: string
+  startDateTo: string
+  onStartDateFromChange: (value: string) => void
+  onStartDateToChange: (value: string) => void
+  theme: ReturnType<typeof getInsuranceTheme>
+}) {
+  const hasActiveFilters = selectedCategories.size > 0 || startDateFrom || startDateTo
+
+  return (
+    <div
+      className="flex items-center justify-between rounded-sm px-5 py-2.5"
+      style={{
+        background: theme.cardBg,
+        border: `1px solid ${theme.cardBorder}`,
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] font-medium uppercase tracking-wider" style={{ color: theme.textMuted }}>
+          Filters
+        </span>
+        <div className="h-4 w-px" style={{ background: theme.cardBorder }} />
+        <CoverageFilter
+          selectedCategories={selectedCategories}
+          onToggle={onToggleCategory}
+          theme={theme}
+        />
+        <div className="h-4 w-px" style={{ background: theme.cardBorder }} />
+        <DateRangeFilter
+          startDateFrom={startDateFrom}
+          startDateTo={startDateTo}
+          onStartDateFromChange={onStartDateFromChange}
+          onStartDateToChange={onStartDateToChange}
+          theme={theme}
+        />
+      </div>
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={() => {
+            selectedCategories.forEach((cat) => onToggleCategory(cat))
+            onStartDateFromChange('')
+            onStartDateToChange('')
+          }}
+          className="text-[10px] font-medium transition-colors hover:underline"
+          style={{ color: theme.textMuted }}
+        >
+          Clear all filters
+        </button>
+      )}
     </div>
   )
 }
@@ -505,7 +774,6 @@ function PolicyTable({
         const renewalDate = formatRenewalDate(policy.startDate, policy.endDate, policy.renewalDate)
         const personColor = policy.personId ? personColorMap[policy.personId] : '#64748b'
         const personName = policy.personName
-        const personInitials = personName ? getInitials(personName) : ''
         const personFirstName = personName?.split(' ')[0] ?? ''
         const isLastRow = index === policies.length - 1
         const isMenuOpen = openMenuId === policy.id
@@ -574,11 +842,9 @@ function PolicyTable({
               {personName ? (
                 <>
                   <div
-                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                    className="h-5 w-5 shrink-0 rounded-full"
                     style={{ backgroundColor: personColor }}
-                  >
-                    <span className="text-[7px] font-semibold text-white">{personInitials}</span>
-                  </div>
+                  />
                   <span
                     className="truncate text-[11px]"
                     style={{ color: theme.textSecondary }}
@@ -776,10 +1042,18 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
   }, [])
 
   const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set())
+  const [startDateFrom, setStartDateFrom] = useState('')
+  const [startDateTo, setStartDateTo] = useState('')
 
   const selectedPersonIdsArray = useMemo(
     () => (selectedPersonIds.size > 0 ? Array.from(selectedPersonIds) : undefined),
     [selectedPersonIds]
+  )
+
+  const selectedCategoriesArray = useMemo(
+    () => (selectedCategories.size > 0 ? Array.from(selectedCategories) : undefined),
+    [selectedCategories]
   )
 
   const paginationOffset = currentPage * PAGE_SIZE
@@ -789,6 +1063,9 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
     sortBy: sortState.field ? SORT_FIELD_MAP[sortState.field] : undefined,
     sortDir: sortState.field ? sortState.direction : undefined,
     personIds: selectedPersonIdsArray,
+    categories: selectedCategoriesArray,
+    startDateFrom: startDateFrom || undefined,
+    startDateTo: startDateTo || undefined,
   })
   const policies = paginatedResult?.data ?? []
   const totalPolicies = paginatedResult?.total ?? 0
@@ -816,6 +1093,26 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
       else next.add(personId)
       return next
     })
+    setCurrentPage(0)
+  }
+
+  const handleToggleCategory = (category: string) => {
+    setSelectedCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(category)) next.delete(category)
+      else next.add(category)
+      return next
+    })
+    setCurrentPage(0)
+  }
+
+  const handleStartDateFromChange = (value: string) => {
+    setStartDateFrom(value)
+    setCurrentPage(0)
+  }
+
+  const handleStartDateToChange = (value: string) => {
+    setStartDateTo(value)
     setCurrentPage(0)
   }
 
@@ -964,6 +1261,16 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
       {!isLoading && hasPolicies && (
         <>
           <SummaryCards policies={policies} theme={theme} />
+
+          <FilterBar
+            selectedCategories={selectedCategories}
+            onToggleCategory={handleToggleCategory}
+            startDateFrom={startDateFrom}
+            startDateTo={startDateTo}
+            onStartDateFromChange={handleStartDateFromChange}
+            onStartDateToChange={handleStartDateToChange}
+            theme={theme}
+          />
 
           <PolicyTable
             policies={policies}

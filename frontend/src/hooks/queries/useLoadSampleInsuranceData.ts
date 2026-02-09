@@ -116,7 +116,7 @@ function generateYoungFamilySamplePolicies(): SamplePolicyConfig[] {
       personIndex: 0,
       name: 'AIA CI Secure',
       category: 'critical_illness',
-      subcategory: 'early_ci',
+      subcategory: 'late_ci',
       coverageAmount: '200000',
       criticalIllnessBenefit: '200000',
       premiumAmount: '155',
@@ -126,8 +126,9 @@ function generateYoungFamilySamplePolicies(): SamplePolicyConfig[] {
       policyNumber: 'CI3387-4412',
       isActive: true,
       notes: JSON.stringify({
-        earlyCiCoverage: true,
-        userNotes: 'Early CI payout of 50% ($100k). Covers 2-3 years income replacement.',
+        earlyCiCoverage: false,
+        multiPayCoverage: false,
+        userNotes: 'Late-stage CI coverage. Covers 2-3 years income replacement.',
       }),
     },
     {

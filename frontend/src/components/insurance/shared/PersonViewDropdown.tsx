@@ -19,15 +19,6 @@ function getPersonAge(dateOfBirth: string): number {
   return age
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
-
 function getRelationshipLabel(relationship: string): string {
   if (relationship === 'self') return 'You'
   return relationship.charAt(0).toUpperCase() + relationship.slice(1)
@@ -252,7 +243,6 @@ export function PersonViewDropdown(props: PersonViewDropdownProps) {
             const isSelected = isPersonSelected(person.id)
             const isFocused = index === focusedIndex
             const age = getPersonAge(person.dateOfBirth)
-            const initials = getInitials(person.name)
             const relationshipLabel = getRelationshipLabel(person.relationship ?? 'self')
             const avatarColor = person.displayColor || '#64748b'
 
@@ -294,11 +284,9 @@ export function PersonViewDropdown(props: PersonViewDropdownProps) {
 
                 {/* Avatar circle */}
                 <div
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                  className="h-7 w-7 shrink-0 rounded-full"
                   style={{ background: avatarColor }}
-                >
-                  <span className="text-[10px] font-semibold text-white">{initials}</span>
-                </div>
+                />
 
                 {/* Info */}
                 <div className="flex flex-col items-start gap-px min-w-0">

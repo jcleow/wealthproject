@@ -104,13 +104,32 @@ function toInsurancePolicy(data: unknown): InsurancePolicyRecord {
 // API functions
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type InsurancePolicyListParams = PaginationParams & SortParams & {
+  personIds?: string[]
+  categories?: string[]
+  startDateFrom?: string
+  startDateTo?: string
+}
+
 export async function listInsurancePolicies(
-  params?: PaginationParams & SortParams & { personIds?: string[] }
+  params?: InsurancePolicyListParams
 ): Promise<PaginatedResponse<InsurancePolicyRecord>> {
   let path = buildPaginatedPath('/insurance/policies', params)
-  if (params?.personIds && params.personIds.length > 0) {
+  const appendParam = (key: string, value: string) => {
     const separator = path.includes('?') ? '&' : '?'
-    path += `${separator}personIds=${params.personIds.join(',')}`
+    path += `${separator}${key}=${value}`
+  }
+  if (params?.personIds && params.personIds.length > 0) {
+    appendParam('personIds', params.personIds.join(','))
+  }
+  if (params?.categories && params.categories.length > 0) {
+    appendParam('categories', params.categories.join(','))
+  }
+  if (params?.startDateFrom) {
+    appendParam('startDateFrom', params.startDateFrom)
+  }
+  if (params?.startDateTo) {
+    appendParam('startDateTo', params.startDateTo)
   }
   const data = await apiClient.get<unknown>(path, undefined, { baseUrl: '/api/v2' })
   return normalizePaginatedResponse<InsurancePolicyRecord>(data, toInsurancePolicy, params)

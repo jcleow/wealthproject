@@ -24,6 +24,9 @@ export function usePaginatedInsurancePoliciesQuery(params: {
   sortBy?: string
   sortDir?: 'asc' | 'desc'
   personIds?: string[]
+  categories?: string[]
+  startDateFrom?: string
+  startDateTo?: string
   enabled?: boolean
 }) {
   return useQuery({
@@ -35,6 +38,9 @@ export function usePaginatedInsurancePoliciesQuery(params: {
       params.sortBy ?? null,
       params.sortDir ?? null,
       params.personIds ?? null,
+      params.categories ?? null,
+      params.startDateFrom ?? null,
+      params.startDateTo ?? null,
     ],
     queryFn: () =>
       insuranceApi.listInsurancePolicies({
@@ -43,6 +49,9 @@ export function usePaginatedInsurancePoliciesQuery(params: {
         sortBy: params.sortBy,
         sortDir: params.sortDir,
         personIds: params.personIds,
+        categories: params.categories,
+        startDateFrom: params.startDateFrom,
+        startDateTo: params.startDateTo,
       }),
     enabled: params.enabled ?? true,
     staleTime: 30_000,

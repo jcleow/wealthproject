@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -66,11 +67,19 @@ func scanInsurancePolicy(row pgx.Row) (*InsurancePolicy, error) {
 	return &policy, err
 }
 
-// ListInsurancePolicies retrieves insurance policies for a user with optional person filter, sorting, and total count.
+// InsurancePolicyFilter holds optional filter criteria for listing insurance policies.
+type InsurancePolicyFilter struct {
+	PersonIDs     []string   // Filter by beneficiary person IDs
+	Categories    []string   // Filter by coverage categories (multi-select)
+	StartDateFrom *time.Time // Filter policies with start_date >= this
+	StartDateTo   *time.Time // Filter policies with start_date <= this
+}
+
+// ListInsurancePolicies retrieves insurance policies for a user with optional filters, sorting, and total count.
 func (s *Store) ListInsurancePolicies(
 	ctx context.Context,
 	userID string,
-	personIDs []string,
+	filter InsurancePolicyFilter,
 	pagination PaginationParams,
 	sort SortParams,
 ) (PaginatedResult[InsurancePolicy], error) {
@@ -79,9 +88,27 @@ func (s *Store) ListInsurancePolicies(
 	args := []any{userID}
 	argIdx := 2
 
-	if len(personIDs) > 0 {
+	if len(filter.PersonIDs) > 0 {
 		whereClause += fmt.Sprintf(` AND ip.person_id = ANY($%d)`, argIdx)
-		args = append(args, personIDs)
+		args = append(args, filter.PersonIDs)
+		argIdx++
+	}
+
+	if len(filter.Categories) > 0 {
+		whereClause += fmt.Sprintf(` AND ip.category = ANY($%d)`, argIdx)
+		args = append(args, filter.Categories)
+		argIdx++
+	}
+
+	if filter.StartDateFrom != nil {
+		whereClause += fmt.Sprintf(` AND ip.start_date >= $%d`, argIdx)
+		args = append(args, *filter.StartDateFrom)
+		argIdx++
+	}
+
+	if filter.StartDateTo != nil {
+		whereClause += fmt.Sprintf(` AND ip.start_date <= $%d`, argIdx)
+		args = append(args, *filter.StartDateTo)
 		argIdx++
 	}
 

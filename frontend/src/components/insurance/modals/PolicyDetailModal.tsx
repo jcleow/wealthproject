@@ -122,10 +122,6 @@ export function PolicyDetailModal({ isOpen, onClose, policy, personColor, onEdit
   const { icon: CategoryIcon, color: categoryColor } = getCategoryConfig(policy.category)
   const annualPremium = computeAnnualPremium(policy.premiumAmount, policy.premiumFrequency)
   const durationLabel = computeDurationLabel(policy.startDate, policy.endDate)
-  const personInitials = policy.personName
-    ? policy.personName.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
-    : '??'
-
   return (
     <Modal
       isOpen={isOpen}
@@ -321,11 +317,9 @@ export function PolicyDetailModal({ isOpen, onClose, policy, personColor, onEdit
                 <span className="text-xs" style={{ color: D.textMuted }}>Covered Person</span>
                 <div className="flex items-center gap-2">
                   <div
-                    className="flex h-6 w-6 items-center justify-center rounded-full"
+                    className="h-6 w-6 rounded-full"
                     style={{ background: personColor || '#64748b' }}
-                  >
-                    <span className="text-[9px] font-semibold text-white">{personInitials}</span>
-                  </div>
+                  />
                   <span className="text-[13px] font-medium" style={{ color: D.textPrimary }}>
                     {policy.personName || 'Unassigned'}
                   </span>

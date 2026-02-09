@@ -188,9 +188,15 @@ func (h *InsurancePolicyV2Handler) HandleList(w http.ResponseWriter, r *http.Req
 
 	pagination := parsePaginationV2(r)
 	sort := parseSortParams(r)
-	personIDs := parsePersonIDs(r)
 
-	result, err := h.store.ListInsurancePolicies(r.Context(), userID, personIDs, pagination, sort)
+	filter := repo.InsurancePolicyFilter{
+		PersonIDs:     parsePersonIDs(r),
+		Categories:    parseCategories(r),
+		StartDateFrom: parseDateParam(r, "startDateFrom"),
+		StartDateTo:   parseDateParam(r, "startDateTo"),
+	}
+
+	result, err := h.store.ListInsurancePolicies(r.Context(), userID, filter, pagination, sort)
 	if err != nil {
 		log.Printf("insurancePolicies.List error: %v", err)
 		internalError(w, err)
