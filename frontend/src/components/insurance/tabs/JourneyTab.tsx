@@ -141,103 +141,106 @@ const DARK_CATEGORY_CONFIG = {
 // =============================================================================
 
 function DarkSummaryCards({
-  targetTotal,
-  currentCoverage,
-  coverageGap,
-  categoryCount,
+  projection,
 }: {
-  targetTotal: number
-  currentCoverage: number
-  coverageGap: number
-  categoryCount: number
+  projection: CoverageProjectionYear
 }) {
-  const uncoveredCategoryCount = categoryCount
+  const categorySummaries: {
+    key: string
+    label: string
+    icon: typeof Shield
+    iconColor: string
+    recommended: number
+    current: number
+  }[] = [
+    {
+      key: 'lifeTpd',
+      label: 'Life/TPD',
+      icon: Shield,
+      iconColor: DARK_PALETTE.blueLifeTpd,
+      recommended: projection.recommendedLifeTpd,
+      current: projection.currentLifeTpd,
+    },
+    {
+      key: 'criticalIllness',
+      label: 'Critical Illness',
+      icon: HeartPulse,
+      iconColor: DARK_PALETTE.grayCriticalIllnessChip,
+      recommended: projection.recommendedCriticalIllness,
+      current: projection.currentCriticalIllness,
+    },
+    {
+      key: 'earlyCi',
+      label: 'Early CI',
+      icon: ShieldAlert,
+      iconColor: DARK_PALETTE.tealEarlyCi,
+      recommended: projection.recommendedEarlyCi,
+      current: projection.currentEarlyCi,
+    },
+    {
+      key: 'disability',
+      label: 'Disability',
+      icon: Accessibility,
+      iconColor: DARK_PALETTE.purpleDisability,
+      recommended: projection.recommendedDisability,
+      current: projection.currentDisability,
+    },
+    {
+      key: 'personalAccident',
+      label: 'Personal Accident',
+      icon: Zap,
+      iconColor: DARK_PALETTE.goldPersonalAccident,
+      recommended: projection.recommendedPersonalAccident,
+      current: projection.currentPersonalAccident,
+    },
+  ]
 
   return (
-    <div className="flex gap-4">
-      {/* Target Total */}
-      <div
-        className="flex-1 flex flex-col gap-1.5 rounded-sm p-5"
-        style={{
-          background: DARK_PALETTE.cardBg,
-          border: `1px solid ${DARK_PALETTE.cardBorder}`,
-        }}
-      >
-        <span
-          className={T.cardLabel}
-          style={{ color: DARK_PALETTE.textMuted }}
-        >
-          TARGET TOTAL
-        </span>
-        <span
-          className={T.cardValue}
-          style={{ color: DARK_PALETTE.textPrimary }}
-        >
-          {formatCoverageAmount(targetTotal)}
-        </span>
-        <span
-          className={T.cardDescription}
-          style={{ color: DARK_PALETTE.textMuted }}
-        >
-          Across all categories
-        </span>
-      </div>
+    <div className="grid grid-cols-5 gap-4">
+      {categorySummaries.map((category) => {
+        const Icon = category.icon
+        const gap = category.recommended - category.current
+        const hasGap = gap > 0
 
-      {/* Current Coverage */}
-      <div
-        className="flex-1 flex flex-col gap-1.5 rounded-sm p-5"
-        style={{
-          background: DARK_PALETTE.cardBg,
-          border: `1px solid ${DARK_PALETTE.cardBorder}`,
-        }}
-      >
-        <span
-          className={T.cardLabel}
-          style={{ color: DARK_PALETTE.textMuted }}
-        >
-          CURRENT COVERAGE
-        </span>
-        <span
-          className={T.cardValue}
-          style={{ color: DARK_PALETTE.textPrimary }}
-        >
-          {formatCoverageAmount(currentCoverage)}
-        </span>
-        <span
-          className={T.cardDescription}
-          style={{ color: DARK_PALETTE.textMuted }}
-        >
-          {currentCoverage === 0 ? 'No active policies' : 'From active policies'}
-        </span>
-      </div>
-
-      {/* Coverage Gap */}
-      <div
-        className="flex-1 flex flex-col gap-1.5 rounded-sm p-5"
-        style={{
-          background: DARK_PALETTE.gapCardBg,
-          border: `1px solid ${DARK_PALETTE.gapCardBorder}`,
-        }}
-      >
-        <span
-          className={T.cardLabel}
-          style={{ color: DARK_PALETTE.textMuted }}
-        >
-          COVERAGE GAP
-        </span>
-        <span
-          className={T.cardValue}
-          style={{ color: DARK_PALETTE.red }}
-        >
-          {formatCoverageAmount(coverageGap)}
-        </span>
-        <span
-          className={T.cardDescription}
-          style={{ color: DARK_PALETTE.textMuted }}
-        >
-          {uncoveredCategoryCount} {uncoveredCategoryCount === 1 ? 'category' : 'categories'} unprotected
-        </span>
-      </div>
+        return (
+          <div
+            key={category.key}
+            className="flex flex-col gap-2 rounded-sm p-5"
+            style={{
+              background: hasGap ? DARK_PALETTE.gapCardBg : DARK_PALETTE.cardBg,
+              border: `1px solid ${hasGap ? DARK_PALETTE.gapCardBorder : DARK_PALETTE.cardBorder}`,
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <Icon className="h-4 w-4" style={{ color: category.iconColor }} />
+              <span
+                className={T.cardLabel}
+                style={{ color: DARK_PALETTE.textMuted }}
+              >
+                {category.label}
+              </span>
+            </div>
+            <span
+              className={T.cardValue}
+              style={{ color: DARK_PALETTE.textPrimary }}
+            >
+              {formatCoverageAmount(category.recommended)}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <div
+                className="w-2 h-2 rounded"
+                style={{ background: hasGap ? DARK_PALETTE.red : DARK_PALETTE.green }}
+              />
+              <span
+                className={T.cardDescription}
+                style={{ color: hasGap ? DARK_PALETTE.red : DARK_PALETTE.green }}
+              >
+                {hasGap ? `Gap: ${formatCoverageAmount(gap)}` : 'On Target'}
+              </span>
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -2029,25 +2032,6 @@ export function JourneyTab({ className }: JourneyTabProps) {
   const isCurrentAge = selectedAge === currentAge
   const yearsFromNow = selectedAge - currentAge
 
-  // Compute summary totals for dark mode cards
-  const summaryTotals = useMemo(() => {
-    const proj = selectedProjection
-    if (!proj) return { targetTotal: 0, currentCoverage: 0, coverageGap: 0, uncoveredCount: 0 }
-
-    const targetTotal = proj.recommendedLifeTpd + proj.recommendedCriticalIllness + proj.recommendedEarlyCi + proj.recommendedDisability + proj.recommendedPersonalAccident
-    const currentCoverage = proj.currentLifeTpd + proj.currentCriticalIllness + proj.currentEarlyCi + proj.currentDisability + proj.currentPersonalAccident
-    const coverageGap = targetTotal - currentCoverage
-
-    let uncoveredCount = 0
-    if (proj.recommendedLifeTpd > proj.currentLifeTpd) uncoveredCount++
-    if (proj.recommendedCriticalIllness > proj.currentCriticalIllness) uncoveredCount++
-    if (proj.recommendedEarlyCi > proj.currentEarlyCi) uncoveredCount++
-    if (proj.recommendedDisability > proj.currentDisability) uncoveredCount++
-    if (proj.recommendedPersonalAccident > proj.currentPersonalAccident) uncoveredCount++
-
-    return { targetTotal, currentCoverage, coverageGap, uncoveredCount }
-  }, [selectedProjection])
-
   if (personsLoading || autoPopulated.isLoading) {
     return (
       <div className={cn('animate-pulse space-y-4 p-8', className)}>
@@ -2088,12 +2072,9 @@ export function JourneyTab({ className }: JourneyTabProps) {
     return (
       <div className={cn('space-y-6 p-8', className)}>
         {/* Summary Metric Cards */}
-        <DarkSummaryCards
-          targetTotal={summaryTotals.targetTotal}
-          currentCoverage={summaryTotals.currentCoverage}
-          coverageGap={summaryTotals.coverageGap}
-          categoryCount={summaryTotals.uncoveredCount}
-        />
+        {selectedProjection && (
+          <DarkSummaryCards projection={selectedProjection} />
+        )}
 
         {/* Coverage Projection Chart Card */}
         <div

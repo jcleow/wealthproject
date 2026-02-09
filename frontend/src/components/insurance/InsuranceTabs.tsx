@@ -10,7 +10,7 @@ interface InsuranceTabsProps {
 }
 
 const tabs: { id: InsuranceTabId; label: string }[] = [
-  { id: 'overview', label: 'My Coverage' },
+  { id: 'overview', label: 'Coverage' },
   { id: 'journey', label: 'Journey' },
   { id: 'policies', label: 'Policies' },
 ]
