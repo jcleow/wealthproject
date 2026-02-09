@@ -318,6 +318,7 @@ function DarkCoverageChart({
   selectedAge,
   onAgeSelect,
   activeFilter,
+  isMultiPerson,
 }: {
   projections: CoverageProjectionYear[]
   milestones: CoverageMilestone[]
@@ -325,7 +326,10 @@ function DarkCoverageChart({
   selectedAge: number
   onAgeSelect: (age: number) => void
   activeFilter: CategoryFilter
+  isMultiPerson: boolean
 }) {
+  const currentYear = new Date().getFullYear()
+  const ageToYear = (age: number) => currentYear + (age - currentAge)
   const chartRef = useRef<ChartJS<'line'> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [isDraggingAge, setIsDraggingAge] = useState(false)
@@ -363,7 +367,7 @@ function DarkCoverageChart({
   const showPersonalAccident = activeFilter === 'all' || activeFilter === 'personalAccident'
 
   const chartData: ChartData<'line'> = useMemo(() => {
-    const labels = projections.map(p => p.age.toString())
+    const labels = projections.map(p => isMultiPerson ? ageToYear(p.age).toString() : p.age.toString())
     const datasets = []
 
     if (showLifeTpd) {
@@ -418,7 +422,7 @@ function DarkCoverageChart({
     }
 
     return { labels, datasets }
-  }, [projections, showLifeTpd, showCriticalIllness, showPersonalAccident])
+  }, [projections, showLifeTpd, showCriticalIllness, showPersonalAccident, isMultiPerson, ageToYear])
 
   const handleMarkerMouseDown = useCallback((event: React.MouseEvent) => {
     event.preventDefault()
@@ -537,6 +541,9 @@ function DarkCoverageChart({
             if (items.length > 0) {
               const age = projections[items[0].dataIndex]?.age
               const isCurrent = age === currentAge
+              if (isMultiPerson) {
+                return `${ageToYear(age)}${isCurrent ? ' (Current)' : ''}`
+              }
               return `Age ${age}${isCurrent ? ' (Current)' : ''}`
             }
             return ''
@@ -553,7 +560,13 @@ function DarkCoverageChart({
           maxRotation: 0,
           callback: function (_value, index) {
             const age = projections[index]?.age
-            if (age !== undefined && age % 5 === 0) return age
+            if (age === undefined) return ''
+            if (isMultiPerson) {
+              const year = ageToYear(age)
+              if (year % 5 === 0) return year
+              return ''
+            }
+            if (age % 5 === 0) return age
             return ''
           },
         },
@@ -571,7 +584,7 @@ function DarkCoverageChart({
         beginAtZero: true,
       },
     },
-  }), [projections, currentAge, externalTooltipHandler])
+  }), [projections, currentAge, externalTooltipHandler, isMultiPerson, ageToYear])
 
   return (
     <div
@@ -586,32 +599,46 @@ function DarkCoverageChart({
       <Line ref={chartRef} data={chartData} options={chartOptions} />
 
       {/* Selected age marker (draggable) */}
-      {selectedAgeIndex >= 0 && (
-        <div
-          className="absolute top-0 bottom-0 transition-all"
-          style={{
-            left: `calc(${(selectedAgeIndex / (projections.length - 1)) * 100}% + 12px)`,
-            width: 2,
-            background: DARK_PALETTE.textPrimary,
-            cursor: 'ew-resize',
-            zIndex: 10,
-          }}
-          onMouseDown={handleMarkerMouseDown}
-        >
-          {/* Age badge at top */}
-          <div
-            className="absolute -top-1 left-1/2 -translate-x-1/2 flex items-center justify-center px-2.5 py-1 rounded-xl text-[11px] font-semibold whitespace-nowrap"
-            style={{
-              background: DARK_PALETTE.textPrimary,
-              color: DARK_PALETTE.pageBg,
-              cursor: 'ew-resize',
-            }}
-          >
-            Age {selectedAge}
-          </div>
+      {selectedAgeIndex >= 0 && (() => {
+        const chart = chartRef.current
+        const chartArea = chart?.chartArea
+        // Use Chart.js scale for accurate pixel position; fall back to percentage if scales not ready
+        const markerLeft = chart?.scales?.x
+          ? chart.scales.x.getPixelForValue(selectedAgeIndex)
+          : null
+        const markerTop = chartArea?.top ?? 0
+        const markerBottom = chartArea ? (containerRef.current?.clientHeight ?? 0) - chartArea.bottom : 0
 
-        </div>
-      )}
+        if (markerLeft == null) return null
+
+        return (
+          <div
+            className="absolute transition-all"
+            style={{
+              left: markerLeft,
+              top: markerTop,
+              bottom: markerBottom,
+              width: 2,
+              background: DARK_PALETTE.textPrimary,
+              cursor: 'ew-resize',
+              zIndex: 10,
+            }}
+            onMouseDown={handleMarkerMouseDown}
+          >
+            {/* Age/Year badge at top */}
+            <div
+              className="absolute -top-1 left-1/2 -translate-x-1/2 flex items-center justify-center px-2.5 py-1 rounded-xl text-[11px] font-semibold whitespace-nowrap"
+              style={{
+                background: DARK_PALETTE.textPrimary,
+                color: DARK_PALETTE.pageBg,
+                cursor: 'ew-resize',
+              }}
+            >
+              {isMultiPerson ? ageToYear(selectedAge) : `Age ${selectedAge}`}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Milestone markers on chart — positioned relative to the data curve */}
       {milestones.map((milestone, idx) => {
@@ -1945,6 +1972,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
             selectedAge={selectedAge}
             onAgeSelect={setSelectedAge}
             activeFilter={categoryFilter}
+            isMultiPerson={includedPersons.length > 1 && selectedPersonIds.size !== 1}
           />
         </div>
 
