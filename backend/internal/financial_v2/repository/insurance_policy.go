@@ -3,9 +3,43 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
+
+// insurancePolicySortColumns maps camelCase API field names to safe SQL expressions.
+// This acts as an allowlist to prevent SQL injection — only fields present here are accepted.
+var insurancePolicySortColumns = map[string]string{
+	"category":       "ip.category",
+	"coverageAmount": "ip.coverage_amount",
+	"subcategory":    "ip.subcategory",
+	"annualPremium":  "CASE ip.premium_frequency WHEN 'monthly' THEN ip.premium_amount * 12 WHEN 'quarterly' THEN ip.premium_amount * 4 ELSE ip.premium_amount END",
+	"renewalDate":    "COALESCE(ip.renewal_date, ip.end_date, ip.start_date)",
+	"isActive":       "ip.is_active",
+	"createdAt":      "ip.created_at",
+}
+
+// buildInsurancePolicyOrderBy validates sort params against the allowlist
+// and returns a safe ORDER BY clause. Defaults to ip.created_at ASC.
+func buildInsurancePolicyOrderBy(sort SortParams) string {
+	defaultOrder := "ip.created_at ASC"
+	if sort.Field == nil {
+		return defaultOrder
+	}
+
+	column, ok := insurancePolicySortColumns[*sort.Field]
+	if !ok {
+		return defaultOrder
+	}
+
+	direction := "ASC"
+	if sort.Direction != nil && strings.ToUpper(*sort.Direction) == "DESC" {
+		direction = "DESC"
+	}
+
+	return column + " " + direction
+}
 
 // insurancePolicyColumns is the SELECT column list for insurance policy queries.
 const insurancePolicyColumns = `
@@ -32,28 +66,41 @@ func scanInsurancePolicy(row pgx.Row) (*InsurancePolicy, error) {
 	return &policy, err
 }
 
-// ListInsurancePolicies retrieves all insurance policies for a user with optional person filter.
+// ListInsurancePolicies retrieves insurance policies for a user with optional person filter, sorting, and total count.
 func (s *Store) ListInsurancePolicies(
 	ctx context.Context,
 	userID string,
-	personID *string,
+	personIDs []string,
 	pagination PaginationParams,
+	sort SortParams,
 ) (PaginatedResult[InsurancePolicy], error) {
-	query := `SELECT ` + insurancePolicyColumns + `
-	FROM insurance_policies ip
-	LEFT JOIN persons p ON ip.person_id = p.id
-	WHERE ip.user_id = $1`
-
+	// ── Build shared WHERE clause ──
+	whereClause := `ip.user_id = $1`
 	args := []any{userID}
 	argIdx := 2
 
-	if personID != nil {
-		query += fmt.Sprintf(` AND ip.person_id = $%d`, argIdx)
-		args = append(args, *personID)
+	if len(personIDs) > 0 {
+		whereClause += fmt.Sprintf(` AND ip.person_id = ANY($%d)`, argIdx)
+		args = append(args, personIDs)
 		argIdx++
 	}
 
-	query += ` ORDER BY ip.created_at ASC`
+	// ── Total count query (same WHERE, no LIMIT/OFFSET) ──
+	countQuery := `SELECT COUNT(*) FROM insurance_policies ip WHERE ` + whereClause
+	logQuery(countQuery, args)
+
+	var totalCount int
+	if err := s.pool.QueryRow(ctx, countQuery, args...).Scan(&totalCount); err != nil {
+		return PaginatedResult[InsurancePolicy]{}, fmt.Errorf("failed to count insurance policies: %w", err)
+	}
+
+	// ── Data query ──
+	query := `SELECT ` + insurancePolicyColumns + `
+	FROM insurance_policies ip
+	LEFT JOIN persons p ON ip.person_id = p.id
+	WHERE ` + whereClause
+
+	query += ` ORDER BY ` + buildInsurancePolicyOrderBy(sort)
 
 	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
 	if paginationSubQuery != "" {
@@ -97,6 +144,7 @@ func (s *Store) ListInsurancePolicies(
 	return PaginatedResult[InsurancePolicy]{
 		Data:   policies,
 		Count:  len(policies),
+		Total:  &totalCount,
 		Limit:  pagination.Limit,
 		Offset: pagination.Offset,
 	}, nil

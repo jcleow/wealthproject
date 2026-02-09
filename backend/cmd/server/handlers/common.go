@@ -188,3 +188,36 @@ func parsePaginationV2(r *http.Request) repoV2.PaginationParams {
 
 	return repoV2.PaginationParams{Limit: limit, Offset: offset}
 }
+
+// parseSortParams extracts sortBy and sortDir from query parameters.
+func parseSortParams(r *http.Request) repoV2.SortParams {
+	var sort repoV2.SortParams
+	if field := r.URL.Query().Get("sortBy"); field != "" {
+		sort.Field = &field
+	}
+	if dir := r.URL.Query().Get("sortDir"); dir != "" {
+		sort.Direction = &dir
+	}
+	return sort
+}
+
+// parsePersonIDs extracts person IDs from query parameters.
+// Supports comma-separated "personIds" param, and falls back to legacy single "personId".
+func parsePersonIDs(r *http.Request) []string {
+	if ids := r.URL.Query().Get("personIds"); ids != "" {
+		parts := strings.Split(ids, ",")
+		result := make([]string, 0, len(parts))
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+		return result
+	}
+	// Backwards compat: single personId
+	if pid := r.URL.Query().Get("personId"); pid != "" {
+		return []string{pid}
+	}
+	return nil
+}

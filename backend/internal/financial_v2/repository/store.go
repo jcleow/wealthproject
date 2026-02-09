@@ -70,6 +70,13 @@ type PaginationParams struct {
 	Offset *int
 }
 
+// SortParams holds sorting parameters for list queries.
+// Field is the API-level field name (e.g. "annualPremium"); Direction is "asc" or "desc".
+type SortParams struct {
+	Field     *string
+	Direction *string
+}
+
 // WithDefaultLimit returns a copy of the pagination params with a default limit applied
 // if no limit was specified. This ensures queries are always bounded.
 func (p PaginationParams) WithDefaultLimit() PaginationParams {
@@ -87,6 +94,7 @@ func (p PaginationParams) WithDefaultLimit() PaginationParams {
 type PaginatedResult[T any] struct {
 	Data   []T  `json:"data"`
 	Count  int  `json:"count"`
+	Total  *int `json:"total,omitempty"` // Total matching records across all pages (only set when a count query is run)
 	Limit  *int `json:"limit"`
 	Offset *int `json:"offset"`
 }

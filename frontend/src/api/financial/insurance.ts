@@ -2,7 +2,7 @@ import { ApiError, apiClient } from '../client'
 import { buildPaginatedPath } from './helpers'
 import { normalizePaginatedResponse } from './transformers'
 import { get, getOr, asRecord } from '@/lib/utils'
-import type { PaginatedResponse, PaginationParams } from '@/types/financial'
+import type { PaginatedResponse, PaginationParams, SortParams } from '@/types/financial'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -105,12 +105,12 @@ function toInsurancePolicy(data: unknown): InsurancePolicyRecord {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function listInsurancePolicies(
-  params?: PaginationParams & { personId?: string }
+  params?: PaginationParams & SortParams & { personIds?: string[] }
 ): Promise<PaginatedResponse<InsurancePolicyRecord>> {
   let path = buildPaginatedPath('/insurance/policies', params)
-  if (params?.personId) {
+  if (params?.personIds && params.personIds.length > 0) {
     const separator = path.includes('?') ? '&' : '?'
-    path += `${separator}personId=${params.personId}`
+    path += `${separator}personIds=${params.personIds.join(',')}`
   }
   const data = await apiClient.get<unknown>(path, undefined, { baseUrl: '/api/v2' })
   return normalizePaginatedResponse<InsurancePolicyRecord>(data, toInsurancePolicy, params)

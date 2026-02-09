@@ -187,13 +187,10 @@ func (h *InsurancePolicyV2Handler) HandleList(w http.ResponseWriter, r *http.Req
 	}
 
 	pagination := parsePaginationV2(r)
+	sort := parseSortParams(r)
+	personIDs := parsePersonIDs(r)
 
-	var personID *string
-	if pid := r.URL.Query().Get("personId"); pid != "" {
-		personID = &pid
-	}
-
-	result, err := h.store.ListInsurancePolicies(r.Context(), userID, personID, pagination)
+	result, err := h.store.ListInsurancePolicies(r.Context(), userID, personIDs, pagination, sort)
 	if err != nil {
 		log.Printf("insurancePolicies.List error: %v", err)
 		internalError(w, err)

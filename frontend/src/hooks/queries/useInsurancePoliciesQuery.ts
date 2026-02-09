@@ -21,11 +21,29 @@ export function useInsurancePoliciesQuery(options?: { enabled?: boolean }) {
 export function usePaginatedInsurancePoliciesQuery(params: {
   limit: number
   offset: number
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+  personIds?: string[]
   enabled?: boolean
 }) {
   return useQuery({
-    queryKey: [...INSURANCE_POLICIES_QUERY_KEY, 'paginated', params.limit, params.offset],
-    queryFn: () => insuranceApi.listInsurancePolicies({ limit: params.limit, offset: params.offset }),
+    queryKey: [
+      ...INSURANCE_POLICIES_QUERY_KEY,
+      'paginated',
+      params.limit,
+      params.offset,
+      params.sortBy ?? null,
+      params.sortDir ?? null,
+      params.personIds ?? null,
+    ],
+    queryFn: () =>
+      insuranceApi.listInsurancePolicies({
+        limit: params.limit,
+        offset: params.offset,
+        sortBy: params.sortBy,
+        sortDir: params.sortDir,
+        personIds: params.personIds,
+      }),
     enabled: params.enabled ?? true,
     staleTime: 30_000,
     cacheTime: 5 * 60 * 1000,

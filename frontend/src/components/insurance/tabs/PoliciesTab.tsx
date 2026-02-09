@@ -144,14 +144,6 @@ function formatWardClass(wardClass: string): string {
   return `Class ${wardClass}`
 }
 
-// Sort priority for ward classes (lower = better)
-const WARD_CLASS_ORDER: Record<string, number> = {
-  a: 1, A: 1,
-  b1: 2, B1: 2,
-  b2: 3, B2: 3,
-  c: 4, C: 4,
-}
-
 function formatSubtitle(policy: InsurancePolicyRecord): string {
   const parts: string[] = []
   if (policy.subcategory) {
@@ -449,6 +441,8 @@ function PolicyTable({
   selectedPersonIds,
   onTogglePerson,
   personColorMap,
+  sortState,
+  onSort,
   theme,
   onEdit,
   onDelete,
@@ -459,67 +453,14 @@ function PolicyTable({
   selectedPersonIds: Set<string>
   onTogglePerson: (id: string) => void
   personColorMap: Record<string, string>
+  sortState: SortState
+  onSort: (field: SortField) => void
   theme: ReturnType<typeof getInsuranceTheme>
   onEdit: (policy: InsurancePolicyRecord) => void
   onDelete: (id: string) => void
   onViewPolicy: (policy: InsurancePolicyRecord) => void
 }) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const [sortState, setSortState] = useState<SortState>({ field: null, direction: 'asc' })
-
-  const handleSort = useCallback((field: SortField) => {
-    setSortState((prev) => {
-      if (prev.field === field) {
-        return { field, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
-      }
-      return { field, direction: 'asc' }
-    })
-  }, [])
-
-  const sortedPolicies = useMemo(() => {
-    if (!sortState.field) return policies
-
-    const sorted = [...policies]
-    const dir = sortState.direction === 'asc' ? 1 : -1
-
-    sorted.sort((a, b) => {
-      switch (sortState.field) {
-        case 'coverage': {
-          const labelA = formatCategoryLabel(a.category, a.subcategory)
-          const labelB = formatCategoryLabel(b.category, b.subcategory)
-          return dir * labelA.localeCompare(labelB)
-        }
-        case 'sumAssured':
-          return dir * (a.coverageAmount - b.coverageAmount)
-        case 'wardClass': {
-          const wardA = getWardClass(a)
-          const wardB = getWardClass(b)
-          const orderA = wardA ? (WARD_CLASS_ORDER[wardA] ?? 99) : 99
-          const orderB = wardB ? (WARD_CLASS_ORDER[wardB] ?? 99) : 99
-          return dir * (orderA - orderB)
-        }
-        case 'premium': {
-          const premA = annualizePremium(a.premiumAmount, a.premiumFrequency)
-          const premB = annualizePremium(b.premiumAmount, b.premiumFrequency)
-          return dir * (premA - premB)
-        }
-        case 'renewal': {
-          const dateA = a.renewalDate ?? a.endDate ?? a.startDate
-          const dateB = b.renewalDate ?? b.endDate ?? b.startDate
-          return dir * dateA.localeCompare(dateB)
-        }
-        case 'status': {
-          const statusA = a.isActive ? 1 : 0
-          const statusB = b.isActive ? 1 : 0
-          return dir * (statusA - statusB)
-        }
-        default:
-          return 0
-      }
-    })
-
-    return sorted
-  }, [policies, sortState])
 
   return (
     <div
@@ -545,17 +486,17 @@ function PolicyTable({
           theme={theme}
         />
 
-        <SortableColumnHeader label="Coverage" field="coverage" sortState={sortState} onSort={handleSort} width="w-[110px]" theme={theme} />
-        <SortableColumnHeader label="Sum Assured" field="sumAssured" sortState={sortState} onSort={handleSort} width="w-[100px]" theme={theme} />
-        <SortableColumnHeader label="Ward Class" field="wardClass" sortState={sortState} onSort={handleSort} width="w-[70px]" theme={theme} />
-        <SortableColumnHeader label="Premium" field="premium" sortState={sortState} onSort={handleSort} width="w-[85px]" theme={theme} />
-        <SortableColumnHeader label="Renewal" field="renewal" sortState={sortState} onSort={handleSort} width="w-[80px]" theme={theme} />
-        <SortableColumnHeader label="Status" field="status" sortState={sortState} onSort={handleSort} width="w-[60px]" theme={theme} />
+        <SortableColumnHeader label="Coverage" field="coverage" sortState={sortState} onSort={onSort} width="w-[110px]" theme={theme} />
+        <SortableColumnHeader label="Sum Assured" field="sumAssured" sortState={sortState} onSort={onSort} width="w-[100px]" theme={theme} />
+        <SortableColumnHeader label="Ward Class" field="wardClass" sortState={sortState} onSort={onSort} width="w-[70px]" theme={theme} />
+        <SortableColumnHeader label="Premium" field="premium" sortState={sortState} onSort={onSort} width="w-[85px]" theme={theme} />
+        <SortableColumnHeader label="Renewal" field="renewal" sortState={sortState} onSort={onSort} width="w-[80px]" theme={theme} />
+        <SortableColumnHeader label="Status" field="status" sortState={sortState} onSort={onSort} width="w-[60px]" theme={theme} />
         <div className="flex-1" />
       </div>
 
       {/* ── Policy Rows ── */}
-      {sortedPolicies.map((policy, index) => {
+      {policies.map((policy, index) => {
         const insurerName = policy.insurerName ?? 'Unknown'
         const insurerAbbr = getInsurerAbbreviation(policy.insurerName)
         const insurerColor = getInsurerColor(insurerName)
@@ -565,7 +506,7 @@ function PolicyTable({
         const personName = policy.personName
         const personInitials = personName ? getInitials(personName) : ''
         const personFirstName = personName?.split(' ')[0] ?? ''
-        const isLastRow = index === sortedPolicies.length - 1
+        const isLastRow = index === policies.length - 1
         const isMenuOpen = openMenuId === policy.id
         const subtitle = formatSubtitle(policy)
         const wardClass = getWardClass(policy)
@@ -777,6 +718,16 @@ function PolicyTable({
 
 const PAGE_SIZE = 10
 
+// Maps frontend SortField names to backend API sortBy values
+const SORT_FIELD_MAP: Record<SortField, string> = {
+  coverage: 'category',
+  sumAssured: 'coverageAmount',
+  wardClass: 'subcategory',
+  premium: 'annualPremium',
+  renewal: 'renewalDate',
+  status: 'isActive',
+}
+
 export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: number }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -787,14 +738,35 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicyRecord | null>(null)
   const [viewingPolicy, setViewingPolicy] = useState<InsurancePolicyRecord | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
+  const [sortState, setSortState] = useState<SortState>({ field: null, direction: 'asc' })
   const colorScheme = useColorScheme()
   const theme = getInsuranceTheme(colorScheme)
   const isMonet = colorScheme === 'monet'
+
+  const handleSort = useCallback((field: SortField) => {
+    setSortState((prev) => {
+      if (prev.field === field) {
+        return { field, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+      }
+      return { field, direction: 'asc' }
+    })
+    setCurrentPage(0)
+  }, [])
+
+  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
+
+  const selectedPersonIdsArray = useMemo(
+    () => (selectedPersonIds.size > 0 ? Array.from(selectedPersonIds) : undefined),
+    [selectedPersonIds]
+  )
 
   const paginationOffset = currentPage * PAGE_SIZE
   const { data: paginatedResult, isLoading } = usePaginatedInsurancePoliciesQuery({
     limit: PAGE_SIZE,
     offset: paginationOffset,
+    sortBy: sortState.field ? SORT_FIELD_MAP[sortState.field] : undefined,
+    sortDir: sortState.field ? sortState.direction : undefined,
+    personIds: selectedPersonIdsArray,
   })
   const policies = paginatedResult?.data ?? []
   const totalPolicies = paginatedResult?.total ?? 0
@@ -806,7 +778,6 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
 
   const { data: personsData } = usePersonsQuery()
   const persons = useMemo(() => personsData ?? [], [personsData])
-  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
 
   const personColorMap = useMemo(() => {
     const map: Record<string, string> = {}
@@ -823,6 +794,7 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
       else next.add(personId)
       return next
     })
+    setCurrentPage(0)
   }
 
   const handleEdit = (policy: InsurancePolicyRecord) => {
@@ -903,11 +875,6 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
     }
   }
 
-  const filteredPolicies = useMemo(() => {
-    if (selectedPersonIds.size === 0) return policies
-    return policies.filter((p) => p.personId && selectedPersonIds.has(p.personId))
-  }, [policies, selectedPersonIds])
-
   const hasPolicies = totalPolicies > 0
 
   // Pagination display values
@@ -973,14 +940,16 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
       {/* Summary Cards + Policy Table */}
       {!isLoading && hasPolicies && (
         <>
-          <SummaryCards policies={filteredPolicies} theme={theme} />
+          <SummaryCards policies={policies} theme={theme} />
 
           <PolicyTable
-            policies={filteredPolicies}
+            policies={policies}
             persons={persons}
             selectedPersonIds={selectedPersonIds}
             onTogglePerson={handleTogglePerson}
             personColorMap={personColorMap}
+            sortState={sortState}
+            onSort={handleSort}
             theme={theme}
             onEdit={handleEdit}
             onDelete={(id) => deleteMutation.mutate(id)}
