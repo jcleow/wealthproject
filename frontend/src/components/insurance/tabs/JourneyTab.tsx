@@ -191,18 +191,18 @@ function DarkSummaryCards({
 
       {/* Coverage Gap */}
       <div
-        className="flex-1 rounded-sm p-5"
+        className="flex-1 flex flex-col gap-1.5 rounded-sm p-5"
         style={{
           background: DARK_PALETTE.gapCardBg,
           border: `1px solid ${DARK_PALETTE.gapCardBorder}`,
         }}
       >
-        <div
-          className={cn(T.cardLabel, 'mb-1.5')}
+        <span
+          className={T.cardLabel}
           style={{ color: DARK_PALETTE.textMuted }}
         >
           COVERAGE GAP
-        </div>
+        </span>
         <span
           className={T.cardValue}
           style={{ color: DARK_PALETTE.red }}

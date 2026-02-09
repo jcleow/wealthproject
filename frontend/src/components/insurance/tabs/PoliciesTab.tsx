@@ -318,7 +318,6 @@ function BeneficiaryFilter({
               left: dropdownPos.left,
               background: '#111113',
               border: `1px solid ${theme.cardBorder}`,
-              backdropFilter: 'blur(16px)',
             }}
           >
             {persons.map((person) => {

@@ -1,17 +1,63 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { insuranceApi } from '@/api/financial'
+import { insuranceApi, personsApi } from '@/api/financial'
 import type { InsurancePolicyCreateInput, InsurancePolicyRecord } from '@/api/financial/insurance'
 import { INSURANCE_POLICIES_QUERY_KEY } from './useInsurancePoliciesQuery'
-import type { Person } from '@/types/person'
+import type { Person, PersonCreatePayload } from '@/types/person'
 import { PERSONS_QUERY_KEY } from './usePersonsQuery'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Young Family Scenario: Couple (early 30s) with 1 child
+// Young Family Scenario: Couple (early 30s) with 2 young children
 // Realistic Singapore insurance portfolio with common providers & products
 // ─────────────────────────────────────────────────────────────────────────────
 
+interface SamplePersonConfig extends PersonCreatePayload {
+  /** Index used to link policies to this person */
+  index: number
+}
+
+function generateSamplePersons(): SamplePersonConfig[] {
+  return [
+    {
+      index: 0,
+      name: 'James Tan',
+      dateOfBirth: '1993-05-14',
+      gender: 'male',
+      residencyStatus: 'citizen',
+      relationship: 'self',
+      displayColor: '#3b82f6',
+    },
+    {
+      index: 1,
+      name: 'Sarah Tan',
+      dateOfBirth: '1995-08-22',
+      gender: 'female',
+      residencyStatus: 'citizen',
+      relationship: 'spouse',
+      displayColor: '#ec4899',
+    },
+    {
+      index: 2,
+      name: 'Ethan Tan',
+      dateOfBirth: '2021-03-10',
+      gender: 'male',
+      residencyStatus: 'citizen',
+      relationship: 'child',
+      displayColor: '#f59e0b',
+    },
+    {
+      index: 3,
+      name: 'Chloe Tan',
+      dateOfBirth: '2023-11-28',
+      gender: 'female',
+      residencyStatus: 'citizen',
+      relationship: 'child',
+      displayColor: '#8b5cf6',
+    },
+  ]
+}
+
 interface SamplePolicyConfig extends Omit<InsurancePolicyCreateInput, 'personId'> {
-  /** 0 = primary person, 1 = spouse, 2 = child, etc. */
+  /** 0 = James, 1 = Sarah, 2 = Ethan, 3 = Chloe */
   personIndex: number
 }
 
@@ -27,7 +73,7 @@ function generateYoungFamilySamplePolicies(): SamplePolicyConfig[] {
   const formatDate = (date: Date) => date.toISOString().split('T')[0]
 
   return [
-    // ── Primary Person (Husband) ────────────────────────────────────────
+    // ── James Tan (Husband, primary earner) ──────────────────────────────
     {
       personIndex: 0,
       name: 'AIA Pro Lifetime Protector',
@@ -103,7 +149,7 @@ function generateYoungFamilySamplePolicies(): SamplePolicyConfig[] {
       }),
     },
 
-    // ── Spouse (Wife) ───────────────────────────────────────────────────
+    // ── Sarah Tan (Wife) ─────────────────────────────────────────────────
     {
       personIndex: 1,
       name: 'Great Eastern GREAT Life Advantage',
@@ -120,7 +166,7 @@ function generateYoungFamilySamplePolicies(): SamplePolicyConfig[] {
       policyNumber: 'TL9012-6678',
       isActive: true,
       notes: JSON.stringify({
-        userNotes: 'Term life until child finishes university. Cost-efficient coverage.',
+        userNotes: 'Term life until children finish university. Cost-efficient coverage.',
       }),
     },
     {
@@ -161,7 +207,7 @@ function generateYoungFamilySamplePolicies(): SamplePolicyConfig[] {
       }),
     },
 
-    // ── Child ───────────────────────────────────────────────────────────
+    // ── Ethan Tan (Son, 3 yrs old) ──────────────────────────────────────
     {
       personIndex: 2,
       name: 'Prudential PRUShield Junior',
@@ -180,43 +226,81 @@ function generateYoungFamilySamplePolicies(): SamplePolicyConfig[] {
         userNotes: 'Child hospitalization plan. Ward B1 with rider.',
       }),
     },
+
+    // ── Chloe Tan (Daughter, 1 yr old) ───────────────────────────────────
+    {
+      personIndex: 3,
+      name: 'Great Eastern Supreme Health Junior',
+      category: 'hospitalization',
+      subcategory: 'isp',
+      coverageAmount: '500000',
+      premiumAmount: '18',
+      premiumFrequency: 'monthly',
+      startDate: formatDate(oneYearAgo),
+      insurerName: 'Great Eastern',
+      policyNumber: 'HJ2200-7891',
+      isActive: true,
+      notes: JSON.stringify({
+        wardClass: 'B1',
+        ispRider: true,
+        userNotes: 'Basic hospitalization for youngest. Ward B1 coverage.',
+      }),
+    },
   ]
 }
 
 /**
  * Mutation hook that loads a realistic "Young Family" insurance portfolio.
  *
- * It first clears any existing policies, then creates ~8 sample policies
- * linked to existing persons in the system (by index: 0=primary, 1=spouse, 2=child).
- *
- * If fewer persons exist than referenced, those policies are created without
- * a personId (they'll show as unlinked).
+ * Creates 4 sample persons (James, Sarah, Ethan, Chloe) and ~9 policies
+ * linked to them. Clears existing persons and policies first.
  */
 export function useLoadSampleInsuranceData() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async () => {
-      // 1. Get existing persons to link policies
-      const personsData = queryClient.getQueryData<Person[]>(PERSONS_QUERY_KEY) ?? []
-      console.debug('[loadSampleInsurance] Found persons:', personsData.map(p => ({ id: p.id, name: p.name })))
-
-      // 2. Clear existing insurance policies
+      // 1. Clear existing insurance policies
       try {
         await insuranceApi.deleteAllInsurancePolicies()
-        console.debug('[loadSampleInsurance] Cleared existing policies')
       } catch (deleteError) {
-        console.warn('[loadSampleInsurance] Failed to clear policies (may not exist yet):', deleteError)
+        console.warn('[loadSample] Failed to clear policies:', deleteError)
       }
 
-      // 3. Generate sample policies
-      const samplePolicies = generateYoungFamilySamplePolicies()
+      // 2. Clear existing persons
+      const existingPersons = queryClient.getQueryData<Person[]>(PERSONS_QUERY_KEY) ?? []
+      for (const person of existingPersons) {
+        try {
+          await personsApi.deletePerson(person.id)
+        } catch (deleteError) {
+          console.warn('[loadSample] Failed to delete person:', person.name, deleteError)
+        }
+      }
 
-      // 4. Create each policy, linking to persons by index
+      // 3. Create sample persons
+      const samplePersonConfigs = generateSamplePersons()
+      const createdPersons: Person[] = []
+
+      for (const personConfig of samplePersonConfigs) {
+        const { index: _index, ...personPayload } = personConfig
+        try {
+          const createdPerson = await personsApi.createPerson(personPayload)
+          createdPersons.push(createdPerson)
+        } catch (createError) {
+          console.error('[loadSample] Failed to create person:', personConfig.name, createError)
+        }
+      }
+
+      // Update persons cache immediately
+      queryClient.setQueryData<Person[]>(PERSONS_QUERY_KEY, createdPersons)
+
+      // 4. Create sample policies linked to new persons
+      const samplePolicies = generateYoungFamilySamplePolicies()
       const createdPolicies: InsurancePolicyRecord[] = []
+
       for (const policyConfig of samplePolicies) {
         const { personIndex, ...policyPayload } = policyConfig
-        const linkedPerson = personsData[personIndex]
+        const linkedPerson = createdPersons[personIndex]
 
         try {
           const createdPolicy = await insuranceApi.createInsurancePolicy({
@@ -224,26 +308,20 @@ export function useLoadSampleInsuranceData() {
             personId: linkedPerson?.id,
           })
           createdPolicies.push(createdPolicy)
-          console.debug(
-            '[loadSampleInsurance] Created:',
-            createdPolicy.name,
-            linkedPerson ? `(linked to ${linkedPerson.name})` : '(unlinked)'
-          )
         } catch (createError) {
-          console.error('[loadSampleInsurance] Failed to create policy:', policyConfig.name, createError)
+          console.error('[loadSample] Failed to create policy:', policyConfig.name, createError)
         }
       }
 
       return createdPolicies
     },
     onSuccess: (createdPolicies) => {
-      // Update React Query cache directly for instant UI refresh
       queryClient.setQueryData<InsurancePolicyRecord[]>(
         INSURANCE_POLICIES_QUERY_KEY,
         createdPolicies
       )
-      // Also invalidate to ensure fresh data from server
       queryClient.invalidateQueries({ queryKey: INSURANCE_POLICIES_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: PERSONS_QUERY_KEY })
     },
   })
 }

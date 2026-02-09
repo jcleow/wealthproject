@@ -23,6 +23,7 @@ import { PersonViewDropdown } from '@/components/insurance/shared/PersonViewDrop
 import { useGuidelineTargets, useQuestionnaireAnswers, useCoverageGuidelinesStore } from '@/stores/coverageGuidelinesStore'
 import type { CoverageQuestionnaireAnswers } from '@/stores/coverageGuidelinesStore'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
+import { PolicyDetailModal } from '@/components/insurance/modals/PolicyDetailModal'
 
 // ============================================================================
 // CATEGORY DEFINITIONS
@@ -165,6 +166,7 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
   const persons = useMemo(() => personsData ?? [], [personsData])
   const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
   const [targetDisplayMode, setTargetDisplayMode] = useState<TargetDisplayMode>('cash')
+  const [selectedPolicy, setSelectedPolicy] = useState<InsurancePolicyRecord | null>(null)
   const guidelineTargets = useGuidelineTargets()
   const annualIncome = useCoverageGuidelinesStore((s) => s.guidelines.annualIncome)
   const questionnaireAnswers = useQuestionnaireAnswers()
@@ -299,6 +301,7 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
                   onAddPolicy={onNavigateToPolicy}
                   onViewPolicies={onNavigateToPolicy}
                   onEditTargets={onEditTargets}
+                  onPolicyClick={setSelectedPolicy}
                   targetDisplayMode={targetDisplayMode}
                   onChangeTargetDisplay={setTargetDisplayMode}
                 />
@@ -311,6 +314,7 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
                 onAddPolicy={onNavigateToPolicy}
                 onViewPolicies={onNavigateToPolicy}
                 onEditTargets={onEditTargets}
+                onPolicyClick={setSelectedPolicy}
                 targetDisplayMode={targetDisplayMode}
                 onChangeTargetDisplay={setTargetDisplayMode}
                 monthlyIncome={monthlyIncome}
@@ -321,6 +325,21 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
           })}
         </div>
       </div>
+
+      {/* Policy Detail Modal */}
+      <PolicyDetailModal
+        isOpen={selectedPolicy !== null}
+        onClose={() => setSelectedPolicy(null)}
+        policy={selectedPolicy}
+        onEdit={() => {
+          setSelectedPolicy(null)
+          // TODO: open edit modal for this policy
+        }}
+        onDelete={() => {
+          setSelectedPolicy(null)
+          // TODO: delete this policy via API
+        }}
+      />
     </div>
   )
 }
@@ -465,6 +484,7 @@ function HospitalizationCard({
   onAddPolicy,
   onViewPolicies,
   onEditTargets,
+  onPolicyClick,
   targetDisplayMode,
   onChangeTargetDisplay,
 }: {
@@ -472,10 +492,11 @@ function HospitalizationCard({
   onAddPolicy?: () => void
   onViewPolicies?: () => void
   onEditTargets?: () => void
+  onPolicyClick?: (policy: InsurancePolicyRecord) => void
   targetDisplayMode: TargetDisplayMode
   onChangeTargetDisplay: (mode: TargetDisplayMode) => void
 }) {
-  const { primaryPolicy, categoryPolicies, annualPremium, hasCoverage } = category
+  const { categoryPolicies, annualPremium, hasCoverage } = category
   const Icon = category.icon
 
   return (
@@ -523,7 +544,7 @@ function HospitalizationCard({
             <div className="h-px bg-white/[0.04]" />
 
             {/* Policy list */}
-            <PolicyList policies={categoryPolicies} annualPremium={annualPremium} />
+            <PolicyList policies={categoryPolicies} annualPremium={annualPremium} onPolicyClick={onPolicyClick} />
           </>
         ) : (
           <EmptyPolicyState onAddPolicy={onAddPolicy} />
@@ -543,6 +564,7 @@ function ProgressCoverageCard({
   category,
   onViewPolicies,
   onEditTargets,
+  onPolicyClick,
   targetDisplayMode,
   onChangeTargetDisplay,
   monthlyIncome,
@@ -553,6 +575,7 @@ function ProgressCoverageCard({
   onAddPolicy?: () => void
   onViewPolicies?: () => void
   onEditTargets?: () => void
+  onPolicyClick?: (policy: InsurancePolicyRecord) => void
   targetDisplayMode: TargetDisplayMode
   onChangeTargetDisplay: (mode: TargetDisplayMode) => void
   monthlyIncome: number
@@ -656,7 +679,7 @@ function ProgressCoverageCard({
         <div className="h-px bg-white/[0.04]" />
 
         {/* Policy list */}
-        <PolicyList policies={categoryPolicies} annualPremium={annualPremium} />
+        <PolicyList policies={categoryPolicies} annualPremium={annualPremium} onPolicyClick={onPolicyClick} />
       </div>
     </div>
   )
@@ -671,10 +694,12 @@ function PolicyList({
   policies,
   annualPremium,
   onAddPolicy,
+  onPolicyClick,
 }: {
   policies: InsurancePolicyRecord[]
   annualPremium: number
   onAddPolicy?: () => void
+  onPolicyClick?: (policy: InsurancePolicyRecord) => void
 }) {
   if (policies.length === 0) {
     return (
@@ -700,7 +725,12 @@ function PolicyList({
   return (
     <div className="flex flex-col gap-2">
       {policies.map((policy) => (
-        <div key={policy.id} className="flex items-center justify-between">
+        <button
+          key={policy.id}
+          type="button"
+          onClick={() => onPolicyClick?.(policy)}
+          className="flex items-center justify-between w-full text-left rounded px-1 -mx-1 py-0.5 transition-colors hover:bg-white/[0.04]"
+        >
           <div className="flex items-center gap-2 min-w-0">
             <FileText className="h-3.5 w-3.5 shrink-0 text-slate-500" />
             <span className={cn(T.metaText, 'text-slate-300 truncate')}>
@@ -715,7 +745,7 @@ function PolicyList({
           <span className="text-[11px] font-medium font-mono tabular-nums text-slate-400 shrink-0 ml-2">
             {formatCurrency(toNum(policy.coverageAmount))}
           </span>
-        </div>
+        </button>
       ))}
       {policies.length > 1 && (
         <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
