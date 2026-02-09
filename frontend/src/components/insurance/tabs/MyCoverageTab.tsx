@@ -756,16 +756,14 @@ function PolicyList({
           </span>
         </button>
       ))}
-      {policies.length > 1 && (
-        <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
-          <span className={cn(T.metaText, 'text-slate-500')}>
-            {policies.length} policies · Total premium
-          </span>
-          <span className="text-[11px] font-medium font-mono tabular-nums text-slate-300">
-            {formatCurrency(annualPremium)}/yr
-          </span>
-        </div>
-      )}
+      <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
+        <span className={cn(T.metaText, 'text-slate-500')}>
+          {policies.length === 1 ? 'Annual premium' : `${policies.length} policies · Total premium`}
+        </span>
+        <span className="text-[11px] font-medium font-mono tabular-nums text-slate-300">
+          {formatCurrency(annualPremium)}/yr
+        </span>
+      </div>
     </div>
   )
 }
