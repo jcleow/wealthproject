@@ -123,6 +123,7 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
   const handleResetTargets = () => {
     resetToDefaults()
     setActiveTab('overview')
+    setIsGuidelinesModalOpen(true)
   }
 
   return (
@@ -311,6 +312,7 @@ export default function InsurancePlannerPage() {
   const handleResetTargets = () => {
     resetToDefaults()
     setActiveTab('overview')
+    setIsGuidelinesModalOpen(true)
   }
 
   return (
