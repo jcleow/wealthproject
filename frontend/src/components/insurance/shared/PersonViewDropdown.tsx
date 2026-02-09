@@ -124,11 +124,11 @@ export function PersonViewDropdown(props: PersonViewDropdownProps) {
         break
       case 'ArrowDown':
         event.preventDefault()
-        setFocusedIndex((prev) => (prev + 1) % persons.length)
+        setFocusedIndex((prev) => prev < 0 ? 0 : (prev + 1) % persons.length)
         break
       case 'ArrowUp':
         event.preventDefault()
-        setFocusedIndex((prev) => (prev - 1 + persons.length) % persons.length)
+        setFocusedIndex((prev) => prev < 0 ? persons.length - 1 : (prev - 1 + persons.length) % persons.length)
         break
       case 'Enter':
       case ' ':
