@@ -80,24 +80,24 @@ function annualizePremium(amount: number, frequency: string): number {
 
 function formatCategoryLabel(category: string, subcategory: string | null): string {
   const labels: Record<string, string> = {
-    life: 'Life, TPD',
+    life: 'Life/TPD',
     health: 'Hospitalization',
     critical_illness: 'Critical Illness',
-    long_term_care: 'Long-Term Care',
+    long_term_care: 'Disability',
     personal_accident: 'Personal Accident',
   }
   if (subcategory) {
     const subLabels: Record<string, string> = {
-      term_life: 'Life, TPD',
-      whole_life: 'Life, TPD',
-      ilp: 'Life, ILP',
+      term_life: 'Life/TPD',
+      whole_life: 'Life/TPD',
+      ilp: 'Life/ILP',
       isp: 'Hospitalization',
       medishield: 'Hospitalization',
-      early_ci: 'Critical Illness, Early CI',
+      early_ci: 'Critical Illness',
       late_ci: 'Critical Illness',
       multi_pay: 'Critical Illness',
-      careshield: 'Long-Term Care',
-      ltc_supplement: 'Long-Term Care',
+      careshield: 'Disability',
+      ltc_supplement: 'Disability',
       pa: 'Personal Accident',
     }
     if (subLabels[subcategory]) return subLabels[subcategory]
@@ -424,10 +424,10 @@ function BeneficiaryFilter({
 // Values match what AddPolicyModal stores in the DB:
 // life, health, critical_illness, long_term_care, personal_accident
 const COVERAGE_CATEGORIES = [
-  { value: 'life', label: 'Life / TPD' },
+  { value: 'life', label: 'Life/TPD' },
   { value: 'health', label: 'Hospitalization' },
   { value: 'critical_illness', label: 'Critical Illness' },
-  { value: 'long_term_care', label: 'Disability / LTC' },
+  { value: 'long_term_care', label: 'Disability' },
   { value: 'personal_accident', label: 'Personal Accident' },
 ] as const
 
