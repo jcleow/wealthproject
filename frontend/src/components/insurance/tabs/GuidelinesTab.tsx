@@ -3290,9 +3290,10 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
 
 interface GuidelinesTabProps {
   onNavigateToPolicy?: () => void
+  onClose?: () => void
 }
 
-export function GuidelinesTab({ onNavigateToPolicy }: GuidelinesTabProps) {
+export function GuidelinesTab({ onNavigateToPolicy, onClose }: GuidelinesTabProps) {
   const hasConfigured = useHasConfiguredGuidelines()
   const { markAsConfigured } = useGuidelinesActions()
   const [wizardStep, setWizardStep] = useState(1)
@@ -3307,6 +3308,7 @@ export function GuidelinesTab({ onNavigateToPolicy }: GuidelinesTabProps) {
 
   const handleComplete = () => {
     markAsConfigured()
+    onClose?.()
   }
 
   return (

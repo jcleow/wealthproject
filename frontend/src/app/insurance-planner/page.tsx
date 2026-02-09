@@ -275,7 +275,7 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
           className="rounded-lg"
           style={{ background: isMonet ? monetColors.bgCream : '#111113', border: `1px solid ${isMonet ? 'rgba(155, 139, 180, 0.15)' : '#2D2D33'}` }}
         >
-          <GuidelinesTab />
+          <GuidelinesTab onClose={() => setIsGuidelinesModalOpen(false)} />
         </div>
       </Modal>
     </div>
@@ -485,7 +485,7 @@ export default function InsurancePlannerPage() {
           className="rounded-lg"
           style={{ background: isMonet ? monetColors.bgCream : '#111113', border: `1px solid ${isMonet ? 'rgba(155, 139, 180, 0.15)' : '#2D2D33'}` }}
         >
-          <GuidelinesTab />
+          <GuidelinesTab onClose={() => setIsGuidelinesModalOpen(false)} />
         </div>
       </Modal>
     </div>
