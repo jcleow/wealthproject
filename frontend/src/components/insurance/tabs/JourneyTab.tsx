@@ -1773,7 +1773,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
   // Person selection state
   // Dark mode: multi-select (matching Pencil "Viewing for N persons" design)
   // Monet mode: single-select via PersonSelector
-  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
+  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string> | null>(null)
   const [monetSelectedPersonId, setMonetSelectedPersonId] = useState<string | null>(null)
 
   // Category filter state (dark mode only)
@@ -1781,9 +1781,9 @@ export function JourneyTab({ className }: JourneyTabProps) {
 
   const handleTogglePerson = (personId: string) => {
     setSelectedPersonIds((prev) => {
-      // Empty set = "all selected" convention.
-      // Clicking a person in this state should deselect them (show all except clicked).
-      if (prev.size === 0) {
+      // null = "all selected" (no filter applied).
+      // Clicking a person in this state deselects them (show all except clicked).
+      if (prev === null) {
         return new Set(includedPersons.filter((p) => p.id !== personId).map((p) => p.id))
       }
       const next = new Set(prev)
@@ -1792,9 +1792,9 @@ export function JourneyTab({ className }: JourneyTabProps) {
       } else {
         next.add(personId)
       }
-      // If all persons are now selected, collapse back to empty set
+      // If all persons are now selected, collapse back to null
       if (next.size === includedPersons.length) {
-        return new Set()
+        return null
       }
       return next
     })
@@ -1807,7 +1807,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
     ? (monetSelectedPersonId && includedPersons.some(p => p.id === monetSelectedPersonId)
         ? monetSelectedPersonId
         : includedPersons[0]?.id ?? null)
-    : (selectedPersonIds.size > 0
+    : (selectedPersonIds !== null && selectedPersonIds.size > 0
         ? (includedPersons.find(p => selectedPersonIds.has(p.id))?.id ?? includedPersons[0]?.id ?? null)
         : includedPersons[0]?.id ?? null)
 
@@ -1948,6 +1948,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
                 persons={includedPersons}
                 selectedIds={selectedPersonIds}
                 onToggle={handleTogglePerson}
+                onSelectAll={() => setSelectedPersonIds((prev) => prev === null ? new Set() : null)}
               />
             )}
           </div>
@@ -1972,7 +1973,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
             selectedAge={selectedAge}
             onAgeSelect={setSelectedAge}
             activeFilter={categoryFilter}
-            isMultiPerson={includedPersons.length > 1 && selectedPersonIds.size !== 1}
+            isMultiPerson={includedPersons.length > 1 && (selectedPersonIds === null || selectedPersonIds.size !== 1)}
           />
         </div>
 

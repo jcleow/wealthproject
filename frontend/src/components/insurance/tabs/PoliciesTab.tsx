@@ -2,13 +2,13 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown } from 'lucide-react'
+import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2 } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
 import { PolicyDetailModal } from '../modals/PolicyDetailModal'
 import { useColorScheme } from '@/stores'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
 import {
-  useInsurancePoliciesQuery,
+  usePaginatedInsurancePoliciesQuery,
   useCreateInsurancePolicyMutation,
   useUpdateInsurancePolicyMutation,
   useDeleteInsurancePolicyMutation,
@@ -596,10 +596,10 @@ function PolicyTable({
                     onClick={() => setOpenMenuId(null)}
                   />
                   <div
-                    className="absolute right-0 top-full z-20 mt-1 min-w-[120px] rounded-lg py-1 shadow-xl"
+                    className="absolute right-0 top-full z-20 mt-1 w-[180px] rounded-lg py-1.5 shadow-xl"
                     style={{
-                      background: theme.panelBg,
-                      border: `1px solid ${theme.cardBorder}`,
+                      background: '#111113',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
                     }}
                   >
                     <button
@@ -608,9 +608,10 @@ function PolicyTable({
                         onViewPolicy(policy)
                         setOpenMenuId(null)
                       }}
-                      className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-white/5"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-white/[0.04]"
                       style={{ color: theme.textPrimary }}
                     >
+                      <Eye className="h-3.5 w-3.5 text-slate-500" />
                       View Policy
                     </button>
                     <button
@@ -619,20 +620,26 @@ function PolicyTable({
                         onEdit(policy)
                         setOpenMenuId(null)
                       }}
-                      className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-white/5"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-white/[0.04]"
                       style={{ color: theme.textPrimary }}
                     >
+                      <Pencil className="h-3.5 w-3.5 text-slate-500" />
                       Edit Policy
                     </button>
+                    <div
+                      className="my-1 h-px w-full"
+                      style={{ background: 'rgba(255, 255, 255, 0.06)' }}
+                    />
                     <button
                       type="button"
                       onClick={() => {
                         onDelete(policy.id)
                         setOpenMenuId(null)
                       }}
-                      className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-red-500/10"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-red-500/10"
                       style={{ color: '#F04858' }}
                     >
+                      <Trash2 className="h-3.5 w-3.5" style={{ color: '#F04858' }} />
                       Delete Policy
                     </button>
                   </div>
@@ -657,6 +664,8 @@ function PolicyTable({
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
+const PAGE_SIZE = 10
+
 export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: number }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -666,11 +675,20 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
   }, [addPolicyTrigger])
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicyRecord | null>(null)
   const [viewingPolicy, setViewingPolicy] = useState<InsurancePolicyRecord | null>(null)
+  const [currentPage, setCurrentPage] = useState(0)
   const colorScheme = useColorScheme()
   const theme = getInsuranceTheme(colorScheme)
   const isMonet = colorScheme === 'monet'
 
-  const { data: policies, isLoading } = useInsurancePoliciesQuery()
+  const paginationOffset = currentPage * PAGE_SIZE
+  const { data: paginatedResult, isLoading } = usePaginatedInsurancePoliciesQuery({
+    limit: PAGE_SIZE,
+    offset: paginationOffset,
+  })
+  const policies = paginatedResult?.data ?? []
+  const totalPolicies = paginatedResult?.total ?? 0
+  const totalPages = Math.ceil(totalPolicies / PAGE_SIZE)
+
   const createMutation = useCreateInsurancePolicyMutation()
   const updateMutation = useUpdateInsurancePolicyMutation()
   const deleteMutation = useDeleteInsurancePolicyMutation()
@@ -774,17 +792,18 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
     }
   }
 
-  const activePolicies = useMemo(
-    () => (policies ?? []).filter((p) => p.isActive),
-    [policies]
-  )
-
   const filteredPolicies = useMemo(() => {
-    if (selectedPersonIds.size === 0) return activePolicies
-    return activePolicies.filter((p) => p.personId && selectedPersonIds.has(p.personId))
-  }, [activePolicies, selectedPersonIds])
+    if (selectedPersonIds.size === 0) return policies
+    return policies.filter((p) => p.personId && selectedPersonIds.has(p.personId))
+  }, [policies, selectedPersonIds])
 
-  const hasPolicies = activePolicies.length > 0
+  const hasPolicies = totalPolicies > 0
+
+  // Pagination display values
+  const rangeStart = totalPolicies > 0 ? paginationOffset + 1 : 0
+  const rangeEnd = Math.min(paginationOffset + PAGE_SIZE, totalPolicies)
+  const isFirstPage = currentPage === 0
+  const isLastPage = currentPage >= totalPages - 1
 
   return (
     <div className="space-y-6 p-8">
@@ -856,6 +875,57 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
             onDelete={(id) => deleteMutation.mutate(id)}
             onViewPolicy={(policy) => setViewingPolicy(policy)}
           />
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div
+              className="flex items-center justify-between rounded-sm px-5 py-3"
+              style={{
+                background: theme.cardBg,
+                border: `1px solid ${theme.cardBorder}`,
+              }}
+            >
+              <span className="text-xs" style={{ color: theme.textMuted }}>
+                Showing {rangeStart}–{rangeEnd} of {totalPolicies} policies
+              </span>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={isFirstPage}
+                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                  className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{
+                    color: theme.textSecondary,
+                    border: `1px solid ${theme.cardBorder}`,
+                    background: theme.surfaceBg,
+                  }}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Prev
+                </button>
+
+                <span className="text-xs font-medium" style={{ color: theme.textSecondary }}>
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+
+                <button
+                  type="button"
+                  disabled={isLastPage}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                  className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{
+                    color: theme.textSecondary,
+                    border: `1px solid ${theme.cardBorder}`,
+                    background: theme.surfaceBg,
+                  }}
+                >
+                  Next
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
 

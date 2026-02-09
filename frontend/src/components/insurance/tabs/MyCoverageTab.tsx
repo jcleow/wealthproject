@@ -36,6 +36,8 @@ interface CategoryDefinition {
   subtitle: string
   icon: React.ElementType
   matchCategories: string[]
+  matchSubcategories?: string[]
+  excludeSubcategories?: string[]
   defaultTarget: number
   lucideIcon: string
   detailLabels: string[]
@@ -64,11 +66,23 @@ const COVERAGE_CATEGORIES: CategoryDefinition[] = [
   },
   {
     id: 'critical_illness',
-    title: 'Critical Illness / Early CI',
-    subtitle: 'Lump-sum payout on diagnosis',
+    title: 'Critical Illness',
+    subtitle: 'Late-stage lump-sum payout',
     icon: Shield,
     matchCategories: ['critical_illness'],
+    excludeSubcategories: ['early_ci'],
     defaultTarget: 90_000,
+    lucideIcon: 'shield',
+    detailLabels: ['Expenses Covered', 'Monthly Expenses', 'Emergency Fund'],
+  },
+  {
+    id: 'early_ci',
+    title: 'Early Critical Illness',
+    subtitle: 'Early-stage diagnosis payout',
+    icon: Shield,
+    matchCategories: ['critical_illness'],
+    matchSubcategories: ['early_ci'],
+    defaultTarget: 100_000,
     lucideIcon: 'shield',
     detailLabels: ['Expenses Covered', 'Monthly Expenses', 'Emergency Fund'],
   },
@@ -116,11 +130,21 @@ function getAnnualPremium(policy: InsurancePolicyRecord): number {
 
 function getCategoryPolicies(
   policies: InsurancePolicyRecord[],
-  matchCategories: string[]
+  matchCategories: string[],
+  matchSubcategories?: string[],
+  excludeSubcategories?: string[],
 ): InsurancePolicyRecord[] {
-  return policies.filter(
-    (p) => p.isActive && matchCategories.includes(p.category)
-  )
+  return policies.filter((p) => {
+    if (!p.isActive) return false
+    if (!matchCategories.includes(p.category)) return false
+    if (matchSubcategories && matchSubcategories.length > 0) {
+      return p.subcategory != null && matchSubcategories.includes(p.subcategory)
+    }
+    if (excludeSubcategories && excludeSubcategories.length > 0) {
+      return p.subcategory == null || !excludeSubcategories.includes(p.subcategory)
+    }
+    return true
+  })
 }
 
 function getCategoryCoverageAmount(policies: InsurancePolicyRecord[]): number {
@@ -164,7 +188,7 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
   const { data: policies = [] } = useInsurancePoliciesQuery()
   const { data: personsData } = usePersonsQuery()
   const persons = useMemo(() => personsData ?? [], [personsData])
-  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
+  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string> | null>(null)
   const [targetDisplayMode, setTargetDisplayMode] = useState<TargetDisplayMode>('cash')
   const [selectedPolicy, setSelectedPolicy] = useState<InsurancePolicyRecord | null>(null)
   const guidelineTargets = useGuidelineTargets()
@@ -175,9 +199,9 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
 
   const handleTogglePerson = (personId: string) => {
     setSelectedPersonIds((prev) => {
-      // Empty set = "all selected" convention.
-      // Clicking a person in this state should deselect them (show all except clicked).
-      if (prev.size === 0) {
+      // null = "all selected" (no filter applied).
+      // Clicking a person in this state deselects them (show all except clicked).
+      if (prev === null) {
         return new Set(persons.filter((p) => p.id !== personId).map((p) => p.id))
       }
       const next = new Set(prev)
@@ -186,18 +210,18 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
       } else {
         next.add(personId)
       }
-      // If all persons are now selected, collapse back to empty set
+      // If all persons are now selected, collapse back to null (all selected)
       if (next.size === persons.length) {
-        return new Set()
+        return null
       }
       return next
     })
   }
 
-  // Filter active policies by selected persons (empty set = show all)
+  // Filter active policies by selected persons (null = show all)
   const activePolicies = useMemo(() => {
     const active = policies.filter((p) => p.isActive)
-    if (selectedPersonIds.size === 0) return active
+    if (selectedPersonIds === null) return active
     return active.filter((p) => p.personId && selectedPersonIds.has(p.personId))
   }, [policies, selectedPersonIds])
 
@@ -211,7 +235,9 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
   const categoryData = COVERAGE_CATEGORIES.map((category) => {
     const categoryPolicies = getCategoryPolicies(
       activePolicies,
-      category.matchCategories
+      category.matchCategories,
+      category.matchSubcategories,
+      category.excludeSubcategories,
     )
     const coverageAmount = getCategoryCoverageAmount(categoryPolicies)
     const annualPremium = getCategoryAnnualPremium(categoryPolicies)
@@ -295,11 +321,12 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
               persons={persons}
               selectedIds={selectedPersonIds}
               onToggle={handleTogglePerson}
+              onSelectAll={() => setSelectedPersonIds((prev) => prev === null ? new Set() : null)}
             />
           )}
         </div>
 
-        {/* Cards Grid - 2x2 */}
+        {/* Cards Grid */}
         <div className="grid grid-cols-2 gap-5">
           {categoryData.map((category) => {
             if (category.id === 'hospitalization') {
@@ -813,6 +840,14 @@ function CoverageDetailStats({
       { label: 'Dependents', value: String(lifeTpdAnswers.dependentCount) },
     ],
     critical_illness: [
+      {
+        label: 'Expenses Covered',
+        value: coverageAmount > 0 ? `${expensesMonths} months` : '0 months',
+      },
+      { label: 'Monthly Expenses', value: formatCurrency(ciAnswers.monthlyExpenses || monthlyExpenses) },
+      { label: 'Emergency Fund', value: formatCurrency(emergencyFundAmount) },
+    ],
+    early_ci: [
       {
         label: 'Expenses Covered',
         value: coverageAmount > 0 ? `${expensesMonths} months` : '0 months',

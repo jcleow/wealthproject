@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { insuranceApi } from '@/api/financial'
-import type { InsurancePolicyRecord, InsurancePolicyCreateInput } from '@/api/financial/insurance'
+import type { InsurancePolicyCreateInput } from '@/api/financial/insurance'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const INSURANCE_POLICIES_QUERY_KEY = QUERY_KEYS.financial.insurancePolicies
@@ -18,17 +18,29 @@ export function useInsurancePoliciesQuery(options?: { enabled?: boolean }) {
   })
 }
 
+export function usePaginatedInsurancePoliciesQuery(params: {
+  limit: number
+  offset: number
+  enabled?: boolean
+}) {
+  return useQuery({
+    queryKey: [...INSURANCE_POLICIES_QUERY_KEY, 'paginated', params.limit, params.offset],
+    queryFn: () => insuranceApi.listInsurancePolicies({ limit: params.limit, offset: params.offset }),
+    enabled: params.enabled ?? true,
+    staleTime: 30_000,
+    cacheTime: 5 * 60 * 1000,
+    keepPreviousData: true,
+  })
+}
+
 export function useCreateInsurancePolicyMutation() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (payload: InsurancePolicyCreateInput) =>
       insuranceApi.createInsurancePolicy(payload),
-    onSuccess: (newPolicy) => {
-      queryClient.setQueryData<InsurancePolicyRecord[]>(
-        INSURANCE_POLICIES_QUERY_KEY,
-        (old) => (old ? [...old, newPolicy] : [newPolicy])
-      )
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INSURANCE_POLICIES_QUERY_KEY })
     },
   })
 }
@@ -39,11 +51,8 @@ export function useUpdateInsurancePolicyMutation() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: InsurancePolicyCreateInput }) =>
       insuranceApi.updateInsurancePolicy(id, payload),
-    onSuccess: (updatedPolicy) => {
-      queryClient.setQueryData<InsurancePolicyRecord[]>(
-        INSURANCE_POLICIES_QUERY_KEY,
-        (old) => old?.map((p) => (p.id === updatedPolicy.id ? updatedPolicy : p)) ?? []
-      )
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INSURANCE_POLICIES_QUERY_KEY })
     },
   })
 }
@@ -53,11 +62,8 @@ export function useDeleteInsurancePolicyMutation() {
 
   return useMutation({
     mutationFn: (id: string) => insuranceApi.deleteInsurancePolicy(id),
-    onSuccess: (_, deletedId) => {
-      queryClient.setQueryData<InsurancePolicyRecord[]>(
-        INSURANCE_POLICIES_QUERY_KEY,
-        (old) => old?.filter((policy) => policy.id !== deletedId) ?? []
-      )
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: INSURANCE_POLICIES_QUERY_KEY })
     },
   })
 }
@@ -68,10 +74,7 @@ export function useDeleteAllInsurancePoliciesMutation() {
   return useMutation({
     mutationFn: () => insuranceApi.deleteAllInsurancePolicies(),
     onSuccess: () => {
-      queryClient.setQueryData<InsurancePolicyRecord[]>(
-        INSURANCE_POLICIES_QUERY_KEY,
-        []
-      )
+      queryClient.invalidateQueries({ queryKey: INSURANCE_POLICIES_QUERY_KEY })
     },
   })
 }

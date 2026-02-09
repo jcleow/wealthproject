@@ -110,11 +110,12 @@ interface PolicyDetailModalProps {
   isOpen: boolean
   onClose: () => void
   policy: InsurancePolicyRecord | null
+  personColor?: string
   onEdit?: (policy: InsurancePolicyRecord) => void
   onDelete?: (policy: InsurancePolicyRecord) => void
 }
 
-export function PolicyDetailModal({ isOpen, onClose, policy, onEdit, onDelete }: PolicyDetailModalProps) {
+export function PolicyDetailModal({ isOpen, onClose, policy, personColor, onEdit, onDelete }: PolicyDetailModalProps) {
   if (!policy) return null
 
   const { icon: CategoryIcon, color: categoryColor } = getCategoryConfig(policy.category)
@@ -270,7 +271,7 @@ export function PolicyDetailModal({ isOpen, onClose, policy, onEdit, onDelete }:
                 <div className="flex items-center gap-2">
                   <div
                     className="flex h-6 w-6 items-center justify-center rounded-full"
-                    style={{ background: categoryColor }}
+                    style={{ background: personColor || '#64748b' }}
                   >
                     <span className="text-[9px] font-semibold text-white">{personInitials}</span>
                   </div>

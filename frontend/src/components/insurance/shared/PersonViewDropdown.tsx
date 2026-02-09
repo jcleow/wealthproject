@@ -42,8 +42,9 @@ function getRelationshipLabel(relationship: string): string {
 interface PersonViewDropdownMultiProps {
   mode?: 'multi'
   persons: Person[]
-  selectedIds: Set<string>
+  selectedIds: Set<string> | null
   onToggle: (personId: string) => void
+  onSelectAll?: () => void
   value?: never
   onChange?: never
 }
@@ -69,9 +70,10 @@ export function PersonViewDropdown(props: PersonViewDropdownProps) {
 
   // Extract mode-specific values upfront to avoid TS narrowing issues
   const singleValue = isSingle ? props.value : null
-  const multiSelectedIds = isSingle ? null : (props.selectedIds as Set<string>)
+  const multiSelectedIds = isSingle ? null : (props.selectedIds as Set<string> | null)
   const singleOnChange = isSingle ? props.onChange : null
   const multiOnToggle = isSingle ? null : (props.onToggle as (id: string) => void)
+  const multiOnSelectAll = isSingle ? null : (props.onSelectAll as (() => void) | undefined)
 
   useEffect(() => {
     if (!isOpen) return
@@ -152,14 +154,15 @@ export function PersonViewDropdown(props: PersonViewDropdownProps) {
     const selectedPerson = persons.find((p) => p.id === singleValue)
     triggerLabel = selectedPerson?.name ?? 'Select person'
   } else {
-    const selectedCount = multiSelectedIds!.size === 0 ? persons.length : multiSelectedIds!.size
+    const selectedCount = multiSelectedIds === null ? persons.length : multiSelectedIds.size
     triggerLabel = `${selectedCount} person${selectedCount !== 1 ? 's' : ''}`
   }
 
   // Determine if a person row is selected
   const isPersonSelected = (personId: string): boolean => {
     if (isSingle) return singleValue === personId
-    return multiSelectedIds!.size === 0 || multiSelectedIds!.has(personId)
+    // null = all selected (no filter); empty Set = none selected
+    return multiSelectedIds === null || multiSelectedIds.has(personId)
   }
 
   // Single-select: show avatar dot + name. Multi-select: show "Viewing for N persons"
@@ -216,6 +219,35 @@ export function PersonViewDropdown(props: PersonViewDropdownProps) {
             border: '1px solid rgba(255, 255, 255, 0.08)',
           }}
         >
+          {/* Select All row (multi-select only) */}
+          {!isSingle && multiOnSelectAll && persons.length > 1 && (() => {
+            const allSelected = multiSelectedIds === null
+            return (
+              <>
+                <button
+                  type="button"
+                  onClick={multiOnSelectAll}
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2 transition-colors hover:bg-white/[0.04]"
+                >
+                  <div
+                    className="flex h-4 w-4 shrink-0 items-center justify-center"
+                    style={{
+                      borderRadius: 3,
+                      background: allSelected ? '#F0F0F0' : 'transparent',
+                      border: allSelected ? 'none' : '1.5px solid #52525B',
+                    }}
+                  >
+                    {allSelected && <Check className="h-2.5 w-2.5 text-[#111113]" />}
+                  </div>
+                  <span className="text-xs font-medium text-slate-400">
+                    Select All
+                  </span>
+                </button>
+                <div className="mx-3 my-1 h-px" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
+              </>
+            )
+          })()}
+
           {persons.map((person, index) => {
             const isSelected = isPersonSelected(person.id)
             const isFocused = index === focusedIndex
