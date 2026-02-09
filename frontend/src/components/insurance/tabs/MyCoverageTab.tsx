@@ -189,7 +189,14 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
   const { data: personsData } = usePersonsQuery()
   const persons = useMemo(() => personsData ?? [], [personsData])
   const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string> | null>(null)
-  const [targetDisplayMode, setTargetDisplayMode] = useState<TargetDisplayMode>('cash')
+  const [targetDisplayModes, setTargetDisplayModes] = useState<Record<string, TargetDisplayMode>>({})
+
+  const getTargetDisplayMode = (categoryId: string): TargetDisplayMode =>
+    targetDisplayModes[categoryId] ?? 'cash'
+
+  const handleChangeTargetDisplay = (categoryId: string, mode: TargetDisplayMode) => {
+    setTargetDisplayModes((prev) => ({ ...prev, [categoryId]: mode }))
+  }
   const [selectedPolicy, setSelectedPolicy] = useState<InsurancePolicyRecord | null>(null)
   const guidelineTargets = useGuidelineTargets()
   const annualIncome = useCoverageGuidelinesStore((s) => s.guidelines.annualIncome)
@@ -338,8 +345,8 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
                   onViewPolicies={onNavigateToPolicy}
                   onEditTargets={onEditTargets}
                   onPolicyClick={setSelectedPolicy}
-                  targetDisplayMode={targetDisplayMode}
-                  onChangeTargetDisplay={setTargetDisplayMode}
+                  targetDisplayMode={getTargetDisplayMode(category.id)}
+                  onChangeTargetDisplay={(mode) => handleChangeTargetDisplay(category.id, mode)}
                 />
               )
             }
@@ -351,8 +358,8 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
                 onViewPolicies={onNavigateToPolicy}
                 onEditTargets={onEditTargets}
                 onPolicyClick={setSelectedPolicy}
-                targetDisplayMode={targetDisplayMode}
-                onChangeTargetDisplay={setTargetDisplayMode}
+                targetDisplayMode={getTargetDisplayMode(category.id)}
+                onChangeTargetDisplay={(mode) => handleChangeTargetDisplay(category.id, mode)}
                 monthlyIncome={monthlyIncome}
                 monthlyExpenses={monthlyExpenses}
                 questionnaireAnswers={questionnaireAnswers}
