@@ -1,6 +1,6 @@
 'use client'
 
-import { Heart, Shield, Activity, Building2, X, Trash2, Pencil, Calendar, Landmark } from 'lucide-react'
+import { Heart, Shield, Activity, Building2, X, Trash2, Pencil, Calendar, Landmark, Info } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/format'
 import type { InsurancePolicyRecord } from '@/api/financial/insurance'
@@ -263,7 +263,30 @@ export function PolicyDetailModal({ isOpen, onClose, policy, personColor, onEdit
                 className="flex flex-col gap-4 p-5 rounded-sm"
                 style={{ background: D.cardBg, border: `1px solid ${D.border}` }}
               >
-                <SectionHeader label="PAYMENT SOURCE" />
+                {/* Section header with optional tooltip for ISP disclaimer */}
+                {!isFull ? (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="text-[11px] font-medium font-mono tracking-wider uppercase"
+                        style={{ color: D.textMuted }}
+                      >
+                        PAYMENT SOURCE
+                      </span>
+                      <div className="relative group/tip">
+                        <Info className="h-3 w-3 cursor-help" style={{ color: '#F59E0B' }} />
+                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-[260px] rounded-lg px-3 py-2 shadow-xl opacity-0 invisible group-hover/tip:opacity-100 group-hover/tip:visible transition-all duration-150 pointer-events-none z-50" style={{ background: '#1A1A1D', border: '1px solid rgba(245, 158, 11, 0.20)' }}>
+                          <span className="text-[11px] leading-relaxed block" style={{ color: '#F59E0B' }}>
+                            ISP premiums are subject to the MediSave Additional Withdrawal Limit (AWL). The actual MediSave/Cash split depends on remaining AWL after other ISPs.
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="h-px w-full" style={{ background: D.border }} />
+                  </>
+                ) : (
+                  <SectionHeader label="PAYMENT SOURCE" />
+                )}
                 <div className="flex gap-4">
                   <div className="flex flex-col gap-1 flex-1 min-w-0">
                     <span className="text-xs" style={{ color: D.textMuted }}>Source</span>
@@ -286,13 +309,6 @@ export function PolicyDetailModal({ isOpen, onClose, policy, personColor, onEdit
                     valueColor={cashPortion > 0 ? D.textPrimary : D.textDim}
                   />
                 </div>
-                {!isFull && (
-                  <div className="flex items-center gap-2 rounded-md px-3 py-2" style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.12)' }}>
-                    <span className="text-[11px] leading-relaxed" style={{ color: '#F59E0B' }}>
-                      ISP premiums are subject to the MediSave Additional Withdrawal Limit (AWL). The actual MediSave/Cash split depends on remaining AWL after other ISPs.
-                    </span>
-                  </div>
-                )}
               </div>
             )
           })()}
