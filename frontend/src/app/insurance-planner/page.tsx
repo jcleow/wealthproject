@@ -99,6 +99,7 @@ const canvasTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmln
 // Embedded view component for use within Dashboard
 export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
+  const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
   const colors = isMonet ? monetColors : darkColors
@@ -109,6 +110,11 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
 
   const handleNavigateToPolicy = () => {
     setActiveTab('policies')
+  }
+
+  const handleAddPolicy = () => {
+    setActiveTab('policies')
+    setAddPolicyTrigger((prev) => prev + 1)
   }
 
   const handleResetTargets = () => {
@@ -195,27 +201,31 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
                 <Trash2 className="h-4 w-4" />
               )}
             </button>
-            <button
-              type="button"
-              onClick={handleResetTargets}
-              className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110"
-              style={{
-                color: isMonet ? '#6B7280' : '#A1A1AA',
-                border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
-              }}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset Targets
-            </button>
-            <button
-              type="button"
-              onClick={handleNavigateToPolicy}
-              className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110"
-              style={{ background: '#C53D43' }}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Policy
-            </button>
+            {activeTab === 'overview' && (
+              <button
+                type="button"
+                onClick={handleResetTargets}
+                className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110"
+                style={{
+                  color: isMonet ? '#6B7280' : '#A1A1AA',
+                  border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
+                }}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset Targets
+              </button>
+            )}
+            {activeTab === 'policies' && (
+              <button
+                type="button"
+                onClick={handleAddPolicy}
+                className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110"
+                style={{ background: '#C53D43' }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Policy
+              </button>
+            )}
             {onClose && (
               <button
                 type="button"
@@ -240,7 +250,7 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
       <main className="flex-1 overflow-y-auto relative z-10">
         {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} />}
         {activeTab === 'journey' && <JourneyTab />}
-        {activeTab === 'policies' && <PoliciesTab />}
+        {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
       </main>
     </div>
   )
@@ -250,6 +260,7 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
 export default function InsurancePlannerPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
+  const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
   const colors = isMonet ? monetColors : darkColors
@@ -264,6 +275,11 @@ export default function InsurancePlannerPage() {
 
   const handleNavigateToPolicy = () => {
     setActiveTab('policies')
+  }
+
+  const handleAddPolicy = () => {
+    setActiveTab('policies')
+    setAddPolicyTrigger((prev) => prev + 1)
   }
 
   const handleResetTargets = () => {
@@ -370,27 +386,31 @@ export default function InsurancePlannerPage() {
                 <Trash2 className="h-4 w-4" />
               )}
             </button>
-            <button
-              type="button"
-              onClick={handleResetTargets}
-              className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110"
-              style={{
-                color: isMonet ? '#6B7280' : '#A1A1AA',
-                border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
-              }}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              Reset Targets
-            </button>
-            <button
-              type="button"
-              onClick={handleNavigateToPolicy}
-              className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110"
-              style={{ background: '#C53D43' }}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Policy
-            </button>
+            {activeTab === 'overview' && (
+              <button
+                type="button"
+                onClick={handleResetTargets}
+                className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110"
+                style={{
+                  color: isMonet ? '#6B7280' : '#A1A1AA',
+                  border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
+                }}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset Targets
+              </button>
+            )}
+            {activeTab === 'policies' && (
+              <button
+                type="button"
+                onClick={handleAddPolicy}
+                className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110"
+                style={{ background: '#C53D43' }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Policy
+              </button>
+            )}
             <button
               type="button"
               onClick={handleClose}
@@ -415,7 +435,7 @@ export default function InsurancePlannerPage() {
         <div className="mx-auto max-w-7xl">
           {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} />}
           {activeTab === 'journey' && <JourneyTab />}
-          {activeTab === 'policies' && <PoliciesTab />}
+          {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
         </div>
       </main>
     </div>

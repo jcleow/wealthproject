@@ -642,8 +642,13 @@ function PolicyTable({
 // Main Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function PoliciesTab() {
+export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: number }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  // Open modal when parent triggers "Add Policy" from the header
+  useEffect(() => {
+    if (addPolicyTrigger > 0) setIsModalOpen(true)
+  }, [addPolicyTrigger])
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicyRecord | null>(null)
   const colorScheme = useColorScheme()
   const theme = getInsuranceTheme(colorScheme)
@@ -767,28 +772,6 @@ export function PoliciesTab() {
 
   return (
     <div className="space-y-6 p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2
-          className="text-lg font-semibold"
-          style={{
-            color: theme.textPrimary,
-            fontFamily: isMonet ? "'Cormorant Garamond', Georgia, serif" : 'inherit',
-          }}
-        >
-          Insurance Planner
-        </h2>
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 rounded px-3.5 py-2 text-sm font-medium text-white transition-all duration-200 hover:brightness-110"
-          style={{ background: '#C53D43' }}
-        >
-          <Plus className="h-4 w-4" />
-          Add Policy
-        </button>
-      </div>
-
       {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-16">
