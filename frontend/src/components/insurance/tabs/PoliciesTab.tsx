@@ -2,13 +2,12 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Landmark, Filter } from 'lucide-react'
+import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
 import { PolicyDetailModal } from '../modals/PolicyDetailModal'
 import { useColorScheme } from '@/stores'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
 import {
-  useInsurancePoliciesQuery,
   usePaginatedInsurancePoliciesQuery,
   useCreateInsurancePolicyMutation,
   useUpdateInsurancePolicyMutation,
@@ -17,10 +16,8 @@ import {
 import type { InsurancePolicyCreateInput, InsurancePolicyRecord } from '@/api/financial/insurance'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
-import { calculateMediSaveSplit, getMediSavePayability, getCpfAccountLabel } from '@/lib/medisave-utils'
+import { getMediSavePayability } from '@/lib/medisave-utils'
 import type { Person } from '@/types/person'
-import { cn } from '@/lib/utils'
-import { formatCurrency } from '@/lib/format'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & Helpers
@@ -202,187 +199,6 @@ function SortableColumnHeader({
       <span>{label}</span>
       <SortIcon className="h-2.5 w-2.5" style={{ opacity: isActive ? 1 : 0.4 }} />
     </button>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Annual Premium Breakdown Panel
-// ─────────────────────────────────────────────────────────────────────────────
-
-function AnnualPremiumBreakdownPanel({
-  policies,
-  persons,
-  theme,
-}: {
-  policies: InsurancePolicyRecord[]
-  persons: Person[]
-  theme: ReturnType<typeof getInsuranceTheme>
-}) {
-  const activePolicies = policies.filter((p) => p.isActive)
-
-  // Group policies by person
-  const personGroups = useMemo(() => {
-    const groups: { person: Person | null; policies: InsurancePolicyRecord[]; age: number }[] = []
-    const byPerson = new Map<string | null, InsurancePolicyRecord[]>()
-    for (const policy of activePolicies) {
-      const key = policy.personId
-      if (!byPerson.has(key)) byPerson.set(key, [])
-      byPerson.get(key)!.push(policy)
-    }
-    for (const [personId, personPolicies] of byPerson) {
-      const person = personId ? persons.find((p) => p.id === personId) ?? null : null
-      const age = person?.dateOfBirth
-        ? Math.floor((Date.now() - new Date(person.dateOfBirth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-        : 30
-      groups.push({ person, policies: personPolicies, age })
-    }
-    return groups
-  }, [activePolicies, persons])
-
-  if (activePolicies.length === 0) {
-    return (
-      <div
-        className="rounded-sm p-6"
-        style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}` }}
-      >
-        <p className={cn(T.bodyText, 'text-center py-6')} style={{ color: theme.textMuted }}>
-          No active policies found
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      className="rounded-sm"
-      style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}` }}
-    >
-
-      {personGroups.map(({ person, policies: personPolicies, age }) => {
-        const split = calculateMediSaveSplit(personPolicies, age)
-        const awlPercent = split.awlLimit > 0
-          ? Math.min(100, Math.round((split.awlUsed / split.awlLimit) * 100))
-          : 0
-
-        return (
-          <div key={person?.id ?? 'unassigned'}>
-            {/* Person label (only show if multiple groups) */}
-            {personGroups.length > 1 && (
-              <div className="px-6 pt-4 pb-1">
-                <span className="text-xs font-medium" style={{ color: theme.textSecondary }}>
-                  {person?.name ?? 'Unassigned'}
-                </span>
-              </div>
-            )}
-
-            <div className="mx-6 mt-3 mb-0 h-px" style={{ background: theme.cardBorder }} />
-
-            {/* Header row */}
-            <div className="flex items-center gap-3 px-6 py-2.5">
-              <span className={cn(T.legendText, 'flex-1')} style={{ color: theme.textMuted }}>Policy</span>
-              <span className={cn(T.legendText, 'w-16 text-right')} style={{ color: theme.textMuted }}>Annual</span>
-              <span className={cn(T.legendText, 'w-16 text-center')} style={{ color: theme.textMuted }}>Source</span>
-              <span className={cn(T.legendText, 'w-16 text-right')} style={{ color: theme.textMuted }}>MediSave</span>
-              <span className={cn(T.legendText, 'w-16 text-right')} style={{ color: theme.textMuted }}>Cash</span>
-            </div>
-
-            {/* Policy rows */}
-            <div className="px-6 pb-2">
-              {split.breakdown.map((row) => {
-                const badgeBg = row.payability === 'full'
-                  ? 'rgba(34, 197, 94, 0.10)'
-                  : row.payability === 'partial'
-                    ? 'rgba(245, 158, 11, 0.10)'
-                    : 'rgba(113, 113, 122, 0.10)'
-                const badgeColor = row.payability === 'full'
-                  ? '#22C55E'
-                  : row.payability === 'partial'
-                    ? '#F59E0B'
-                    : theme.textMuted
-                const badgeLabel = row.payability === 'full'
-                  ? (() => {
-                      const policy = personPolicies.find(p => p.id === row.policyId)
-                      return getCpfAccountLabel(policy?.governmentScheme ?? null)
-                    })()
-                  : row.payability === 'partial'
-                    ? 'Mixed'
-                    : 'Cash'
-
-                return (
-                  <div
-                    key={row.policyId}
-                    className="flex items-center gap-3 py-2.5"
-                    style={{ borderTop: `1px solid ${theme.cardBorder}` }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <span className={cn(T.bodyText, 'truncate block')} style={{ color: theme.textPrimary }}>
-                        {row.policyName}
-                      </span>
-                    </div>
-                    <span className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums')} style={{ color: theme.textPrimary }}>
-                      {formatCurrency(row.annualPremium)}
-                    </span>
-                    <div className="w-16 flex justify-center">
-                      <span
-                        className="inline-flex items-center gap-0.5 rounded px-1.5 py-px text-[9px] font-semibold"
-                        style={{ background: badgeBg, color: badgeColor }}
-                      >
-                        <Landmark className="h-2 w-2" />
-                        {badgeLabel}
-                      </span>
-                    </div>
-                    <span
-                      className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums')}
-                      style={{ color: row.medisavePortion > 0 ? '#22C55E' : theme.textMuted }}
-                    >
-                      {row.medisavePortion > 0 ? formatCurrency(row.medisavePortion) : '\u2014'}
-                    </span>
-                    <span
-                      className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums')}
-                      style={{ color: row.cashPortion > 0 ? theme.textPrimary : theme.textMuted }}
-                    >
-                      {row.cashPortion > 0 ? formatCurrency(row.cashPortion) : '\u2014'}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-
-            {/* Totals divider */}
-            <div className="mx-6 h-px" style={{ background: theme.cardBorder }} />
-
-            {/* Totals row */}
-            <div className="flex items-center gap-3 px-6 py-3">
-              <span className={cn(T.bodyText, 'flex-1 font-semibold')} style={{ color: theme.textPrimary }}>
-                Total
-              </span>
-              <span className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums font-semibold')} style={{ color: theme.textPrimary }}>
-                {formatCurrency(split.totalAnnualPremium)}
-              </span>
-              <div className="w-16" />
-              <span className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums font-semibold')} style={{ color: '#22C55E' }}>
-                {split.medisavePayable > 0 ? formatCurrency(split.medisavePayable) : '\u2014'}
-              </span>
-              <span className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums font-semibold')} style={{ color: theme.textPrimary }}>
-                {formatCurrency(split.cashPayable)}
-              </span>
-            </div>
-
-            {/* AWL Usage */}
-            {split.awlLimit > 0 && (
-              <div className="flex items-center justify-between px-6 pb-4 pt-1">
-                <span className={T.legendText} style={{ color: theme.textMuted }}>
-                  MediSave AWL Usage
-                </span>
-                <span className={cn(T.legendText, 'font-mono tabular-nums')} style={{ color: awlPercent >= 100 ? '#F59E0B' : theme.textMuted }}>
-                  {formatCurrency(split.awlUsed)} / {formatCurrency(split.awlLimit)} ({awlPercent}%)
-                </span>
-              </div>
-            )}
-          </div>
-        )
-      })}
-    </div>
   )
 }
 
@@ -666,6 +482,7 @@ function CoverageColumnFilter({
     ? sortState.direction === 'asc' ? ArrowUp : ArrowDown
     : ArrowUpDown
   const hasFilter = selectedCategories.size > 0
+  const allSelected = selectedCategories.size === COVERAGE_CATEGORIES.length
 
   return (
     <div className="w-[110px] shrink-0">
@@ -696,7 +513,9 @@ function CoverageColumnFilter({
         createPortal(
           <div
             ref={dropdownRef}
-            className="fixed z-50 min-w-[200px] rounded-lg py-2 shadow-xl"
+            role="listbox"
+            aria-multiselectable
+            className="fixed z-50 w-[220px] rounded-lg py-2 shadow-xl"
             style={{
               top: dropdownPos.top,
               left: dropdownPos.left,
@@ -704,66 +523,62 @@ function CoverageColumnFilter({
               border: `1px solid ${theme.cardBorder}`,
             }}
           >
+            {/* Select All */}
+            <button
+              type="button"
+              onClick={() => {
+                const allValues = COVERAGE_CATEGORIES.map((c) => c.value)
+                if (allSelected) {
+                  allValues.forEach((cat) => onToggle(cat))
+                } else {
+                  const unselected = allValues.filter((v) => !selectedCategories.has(v))
+                  unselected.forEach((cat) => onToggle(cat))
+                }
+              }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2 transition-colors hover:bg-white/[0.04]"
+            >
+              <div
+                className="flex h-4 w-4 shrink-0 items-center justify-center"
+                style={{
+                  borderRadius: 3,
+                  background: allSelected ? '#F0F0F0' : 'transparent',
+                  border: allSelected ? 'none' : '1.5px solid #52525B',
+                }}
+              >
+                {allSelected && <Check className="h-2.5 w-2.5 text-[#111113]" />}
+              </div>
+              <span className="text-xs font-medium text-slate-400">Select All</span>
+            </button>
+            <div className="mx-3 my-1 h-px" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
+
+            {/* Category rows */}
             {COVERAGE_CATEGORIES.map((cat) => {
               const isSelected = selectedCategories.has(cat.value)
               return (
                 <button
                   key={cat.value}
                   type="button"
+                  role="option"
+                  aria-selected={isSelected}
                   onClick={() => onToggle(cat.value)}
-                  className="flex w-full items-center gap-2.5 px-3 py-2 transition-colors hover:bg-white/[0.04]"
+                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-white/[0.04]"
                 >
                   <div
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+                    className="flex h-4 w-4 shrink-0 items-center justify-center"
                     style={{
+                      borderRadius: 3,
                       background: isSelected ? '#F0F0F0' : 'transparent',
-                      border: `1.5px solid ${isSelected ? '#F0F0F0' : '#52525B'}`,
+                      border: isSelected ? 'none' : '1.5px solid #52525B',
                     }}
                   >
-                    {isSelected && (
-                      <Check className="h-2.5 w-2.5" style={{ color: '#111113' }} />
-                    )}
+                    {isSelected && <Check className="h-2.5 w-2.5 text-[#111113]" />}
                   </div>
-                  <span
-                    className="text-[11px] font-medium"
-                    style={{ color: theme.textPrimary }}
-                  >
+                  <span className="text-xs font-medium text-slate-200">
                     {cat.label}
                   </span>
                 </button>
               )
             })}
-
-            <div className="my-1 h-px w-full" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
-            <div className="flex items-center gap-1 px-3 py-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  const allValues = COVERAGE_CATEGORIES.map((c) => c.value)
-                  const unselected = allValues.filter((v) => !selectedCategories.has(v))
-                  unselected.forEach((cat) => onToggle(cat))
-                }}
-                className="text-[10px] transition-colors hover:bg-white/[0.04] rounded px-1.5 py-0.5"
-                style={{ color: selectedCategories.size === COVERAGE_CATEGORIES.length ? theme.textMuted : theme.textSecondary }}
-              >
-                Select all
-              </button>
-              {selectedCategories.size > 0 && (
-                <>
-                  <span className="text-[10px]" style={{ color: theme.textMuted }}>·</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      selectedCategories.forEach((cat) => onToggle(cat))
-                    }}
-                    className="text-[10px] transition-colors hover:bg-white/[0.04] rounded px-1.5 py-0.5"
-                    style={{ color: theme.textMuted }}
-                  >
-                    Clear all
-                  </button>
-                </>
-              )}
-            </div>
           </div>,
           document.body
         )}
@@ -1133,7 +948,6 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
   }, [addPolicyTrigger])
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicyRecord | null>(null)
   const [viewingPolicy, setViewingPolicy] = useState<InsurancePolicyRecord | null>(null)
-  const [showBreakdown, setShowBreakdown] = useState(false)
   const [currentPage, setCurrentPage] = useState(0)
   const [sortState, setSortState] = useState<SortState>({ field: null, direction: 'asc' })
   const colorScheme = useColorScheme()
@@ -1179,9 +993,6 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
   const createMutation = useCreateInsurancePolicyMutation()
   const updateMutation = useUpdateInsurancePolicyMutation()
   const deleteMutation = useDeleteInsurancePolicyMutation()
-
-  // All policies (non-paginated) for premium breakdown — only fetched when panel is open
-  const { data: allPolicies } = useInsurancePoliciesQuery({ enabled: showBreakdown })
 
   const { data: personsData } = usePersonsQuery()
   const persons = useMemo(() => personsData ?? [], [personsData])
@@ -1359,119 +1170,74 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
       {/* Summary Cards + Policy Table */}
       {!isLoading && hasPolicies && (
         <>
-          {/* Segmented toggle: Overview / Premium Breakdown */}
-          <div className="flex items-center justify-between">
-            <div
-              className="inline-flex rounded-lg p-0.5"
-              style={{ background: theme.surfaceBg, border: `1px solid ${theme.cardBorder}` }}
-            >
+          <SummaryCards policies={policies} theme={theme} />
+
+          <PolicyTable
+            policies={policies}
+            persons={persons}
+            selectedPersonIds={selectedPersonIds}
+            onTogglePerson={handleTogglePerson}
+            selectedCategories={selectedCategories}
+            onToggleCategory={handleToggleCategory}
+            personColorMap={personColorMap}
+            sortState={sortState}
+            onSort={handleSort}
+            theme={theme}
+            onEdit={handleEdit}
+            onDelete={(id) => deleteMutation.mutate(id)}
+            onViewPolicy={(policy) => setViewingPolicy(policy)}
+          />
+
+          {/* Pagination Controls */}
+          <div
+            className="flex items-center justify-between rounded-sm px-5 py-3"
+            style={{
+              background: theme.cardBg,
+              border: `1px solid ${theme.cardBorder}`,
+            }}
+          >
+            <span className="text-xs" style={{ color: theme.textMuted }}>
+              {totalPolicies === 0
+                ? 'No policies'
+                : `Showing ${rangeStart}–${rangeEnd} of ${totalPolicies} ${totalPolicies === 1 ? 'policy' : 'policies'}`}
+            </span>
+
+            <div className="flex items-center gap-3">
               <button
                 type="button"
-                onClick={() => setShowBreakdown(false)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
-                  !showBreakdown
-                    ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-300'
-                )}
+                disabled={isFirstPage}
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{
+                  color: theme.textSecondary,
+                  border: `1px solid ${theme.cardBorder}`,
+                  background: theme.surfaceBg,
+                }}
               >
-                Overview
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Prev
               </button>
+
+              <span className="text-xs font-medium" style={{ color: theme.textSecondary }}>
+                Page {currentPage + 1} of {Math.max(1, totalPages)}
+              </span>
+
               <button
                 type="button"
-                onClick={() => setShowBreakdown(true)}
-                className={cn(
-                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
-                  showBreakdown
-                    ? 'bg-white/[0.1] text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-300'
-                )}
+                disabled={isLastPage || totalPages <= 1}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{
+                  color: theme.textSecondary,
+                  border: `1px solid ${theme.cardBorder}`,
+                  background: theme.surfaceBg,
+                }}
               >
-                Premium Breakdown
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
-
-          <SummaryCards policies={policies} theme={theme} />
-
-          {showBreakdown && allPolicies && (
-            <AnnualPremiumBreakdownPanel
-              policies={allPolicies}
-              persons={persons}
-              theme={theme}
-            />
-          )}
-
-          {!showBreakdown && (
-            <>
-              <PolicyTable
-                policies={policies}
-                persons={persons}
-                selectedPersonIds={selectedPersonIds}
-                onTogglePerson={handleTogglePerson}
-                selectedCategories={selectedCategories}
-                onToggleCategory={handleToggleCategory}
-                personColorMap={personColorMap}
-                sortState={sortState}
-                onSort={handleSort}
-                theme={theme}
-                onEdit={handleEdit}
-                onDelete={(id) => deleteMutation.mutate(id)}
-                onViewPolicy={(policy) => setViewingPolicy(policy)}
-              />
-
-              {/* Pagination Controls */}
-              <div
-                className="flex items-center justify-between rounded-sm px-5 py-3"
-                style={{
-                  background: theme.cardBg,
-                  border: `1px solid ${theme.cardBorder}`,
-                }}
-              >
-                <span className="text-xs" style={{ color: theme.textMuted }}>
-                  {totalPolicies === 0
-                    ? 'No policies'
-                    : `Showing ${rangeStart}–${rangeEnd} of ${totalPolicies} ${totalPolicies === 1 ? 'policy' : 'policies'}`}
-                </span>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    disabled={isFirstPage}
-                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                    className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
-                    style={{
-                      color: theme.textSecondary,
-                      border: `1px solid ${theme.cardBorder}`,
-                      background: theme.surfaceBg,
-                    }}
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                    Prev
-                  </button>
-
-                  <span className="text-xs font-medium" style={{ color: theme.textSecondary }}>
-                    Page {currentPage + 1} of {Math.max(1, totalPages)}
-                  </span>
-
-                  <button
-                    type="button"
-                    disabled={isLastPage || totalPages <= 1}
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                    className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
-                    style={{
-                      color: theme.textSecondary,
-                      border: `1px solid ${theme.cardBorder}`,
-                      background: theme.surfaceBg,
-                    }}
-                  >
-                    Next
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
         </>
       )}
 
