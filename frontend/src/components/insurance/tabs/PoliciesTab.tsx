@@ -85,9 +85,6 @@ function formatCategoryLabel(category: string, subcategory: string | null): stri
     critical_illness: 'Critical Illness',
     long_term_care: 'Long-Term Care',
     personal_accident: 'Personal Accident',
-    hospitalization: 'Hospitalization',
-    disability: 'Disability',
-    accident: 'Personal Accident',
   }
   if (subcategory) {
     const subLabels: Record<string, string> = {
@@ -424,13 +421,14 @@ function BeneficiaryFilter({
 // Coverage Column Filter (multi-checkbox dropdown on column header)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Values match what AddPolicyModal stores in the DB:
+// life, health, critical_illness, long_term_care, personal_accident
 const COVERAGE_CATEGORIES = [
   { value: 'life', label: 'Life / TPD' },
-  { value: 'hospitalization', label: 'Hospitalization' },
+  { value: 'health', label: 'Hospitalization' },
   { value: 'critical_illness', label: 'Critical Illness' },
-  { value: 'disability', label: 'Disability' },
-  { value: 'accident', label: 'Personal Accident' },
-  { value: 'custom', label: 'Custom' },
+  { value: 'long_term_care', label: 'Disability / LTC' },
+  { value: 'personal_accident', label: 'Personal Accident' },
 ] as const
 
 function CoverageColumnFilter({
