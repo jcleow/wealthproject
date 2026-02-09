@@ -7,6 +7,7 @@ import {
   Heart,
   Shield,
   Activity,
+  Accessibility,
   FileText,
   MoreHorizontal,
   Plus,
@@ -85,6 +86,16 @@ const COVERAGE_CATEGORIES: CategoryDefinition[] = [
     defaultTarget: 100_000,
     lucideIcon: 'shield',
     detailLabels: ['Expenses Covered', 'Monthly Expenses', 'Emergency Fund'],
+  },
+  {
+    id: 'disability',
+    title: 'Disability',
+    subtitle: 'Income protection & long-term care',
+    icon: Accessibility,
+    matchCategories: ['disability'],
+    defaultTarget: 200_000,
+    lucideIcon: 'accessibility',
+    detailLabels: ['Expenses Covered', 'Monthly Expenses', 'Govt. Support'],
   },
   {
     id: 'personal_accident',
@@ -857,6 +868,14 @@ function CoverageDetailStats({
       },
       { label: 'Monthly Expenses', value: formatCurrency(ciAnswers.monthlyExpenses || monthlyExpenses) },
       { label: 'Emergency Fund', value: formatCurrency(emergencyFundAmount) },
+    ],
+    disability: [
+      {
+        label: 'Expenses Covered',
+        value: coverageAmount > 0 ? `${expensesMonths} months` : '0 months',
+      },
+      { label: 'Monthly Expenses', value: formatCurrency(ciAnswers.monthlyExpenses || monthlyExpenses) },
+      { label: 'Govt. Support', value: '$662/mo' },
     ],
     personal_accident: [
       {
