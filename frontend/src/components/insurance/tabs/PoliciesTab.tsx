@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Landmark, X, Filter } from 'lucide-react'
+import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Landmark, Filter } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
 import { PolicyDetailModal } from '../modals/PolicyDetailModal'
 import { useColorScheme } from '@/stores'
@@ -213,12 +213,10 @@ function AnnualPremiumBreakdownPanel({
   policies,
   persons,
   theme,
-  onClose,
 }: {
   policies: InsurancePolicyRecord[]
   persons: Person[]
   theme: ReturnType<typeof getInsuranceTheme>
-  onClose: () => void
 }) {
   const activePolicies = policies.filter((p) => p.isActive)
 
@@ -247,19 +245,6 @@ function AnnualPremiumBreakdownPanel({
         className="rounded-sm p-6"
         style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}` }}
       >
-        <div className="flex items-center justify-between mb-3">
-          <span className={T.cardLabel} style={{ color: theme.textMuted }}>
-            ANNUAL PREMIUM BREAKDOWN
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors duration-150 hover:bg-white/[0.05]"
-            style={{ color: theme.textMuted }}
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
         <p className={cn(T.bodyText, 'text-center py-6')} style={{ color: theme.textMuted }}>
           No active policies found
         </p>
@@ -272,19 +257,6 @@ function AnnualPremiumBreakdownPanel({
       className="rounded-sm"
       style={{ background: theme.cardBg, border: `1px solid ${theme.cardBorder}` }}
     >
-      <div className="flex items-center justify-between p-6 pb-0">
-        <span className={T.cardLabel} style={{ color: theme.textMuted }}>
-          ANNUAL PREMIUM BREAKDOWN
-        </span>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-1 rounded px-2 py-1 text-xs transition-colors duration-150 hover:bg-white/[0.05]"
-          style={{ color: theme.textMuted }}
-        >
-          <X className="h-3 w-3" />
-        </button>
-      </div>
 
       {personGroups.map(({ person, policies: personPolicies, age }) => {
         const split = calculateMediSaveSplit(personPolicies, age)
@@ -396,34 +368,15 @@ function AnnualPremiumBreakdownPanel({
               </span>
             </div>
 
-            {/* AWL Usage Bar */}
+            {/* AWL Usage */}
             {split.awlLimit > 0 && (
-              <div className="px-6 pb-5 pt-1">
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className={T.legendText} style={{ color: theme.textMuted }}>
-                    MediSave AWL Usage
-                  </span>
-                  <span className={T.legendText} style={{ color: theme.textMuted }}>
-                    {formatCurrency(split.awlUsed)} / {formatCurrency(split.awlLimit)}
-                  </span>
-                </div>
-                <div
-                  className="h-1.5 w-full rounded-full overflow-hidden"
-                  style={{ background: 'rgba(255, 255, 255, 0.06)' }}
-                >
-                  <div
-                    className="h-full rounded-full transition-all duration-300"
-                    style={{
-                      width: `${awlPercent}%`,
-                      background: awlPercent >= 100 ? '#F59E0B' : '#22C55E',
-                    }}
-                  />
-                </div>
-                {split.awlRemaining > 0 && (
-                  <span className={cn(T.legendText, 'mt-1 block')} style={{ color: theme.textMuted }}>
-                    {formatCurrency(split.awlRemaining)} remaining
-                  </span>
-                )}
+              <div className="flex items-center justify-between px-6 pb-4 pt-1">
+                <span className={T.legendText} style={{ color: theme.textMuted }}>
+                  MediSave AWL Usage
+                </span>
+                <span className={cn(T.legendText, 'font-mono tabular-nums')} style={{ color: awlPercent >= 100 ? '#F59E0B' : theme.textMuted }}>
+                  {formatCurrency(split.awlUsed)} / {formatCurrency(split.awlLimit)} ({awlPercent}%)
+                </span>
               </div>
             )}
           </div>
@@ -440,13 +393,9 @@ function AnnualPremiumBreakdownPanel({
 function SummaryCards({
   policies,
   theme,
-  onViewBreakdown,
-  isBreakdownOpen,
 }: {
   policies: InsurancePolicyRecord[]
   theme: ReturnType<typeof getInsuranceTheme>
-  onViewBreakdown: () => void
-  isBreakdownOpen: boolean
 }) {
   const activePolicies = policies.filter((p) => p.isActive)
   const uniqueInsurers = new Set(activePolicies.map((p) => p.insurerName).filter(Boolean))
@@ -483,7 +432,6 @@ function SummaryCards({
         totalAnnualPremium > 0
           ? `${Math.round((totalAnnualPremium / 12) * 100) / 100 >= 1 ? formatAmount(Math.round(totalAnnualPremium / 12)) + '/mo avg' : 'No premiums'}`
           : 'No premiums',
-      hasAction: true,
     },
     {
       label: 'NEXT RENEWAL',
@@ -514,22 +462,9 @@ function SummaryCards({
           <span className="text-2xl font-semibold" style={{ color: theme.textPrimary }}>
             {item.value}
           </span>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px]" style={{ color: theme.textMuted }}>
-              {item.description}
-            </span>
-            {item.hasAction && (
-              <button
-                type="button"
-                onClick={onViewBreakdown}
-                className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-all duration-150 hover:bg-white/[0.05]"
-                style={{ color: theme.textSecondary, border: `1px solid ${theme.cardBorder}` }}
-              >
-                {isBreakdownOpen ? <ChevronUp className="h-2.5 w-2.5" /> : <Eye className="h-2.5 w-2.5" />}
-                {isBreakdownOpen ? 'Hide' : 'View'}
-              </button>
-            )}
-          </div>
+          <span className="text-[11px]" style={{ color: theme.textMuted }}>
+            {item.description}
+          </span>
         </div>
       ))}
     </div>
@@ -799,21 +734,36 @@ function CoverageColumnFilter({
               )
             })}
 
-            {selectedCategories.size > 0 && (
-              <>
-                <div className="my-1 h-px w-full" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
-                <button
-                  type="button"
-                  onClick={() => {
-                    selectedCategories.forEach((cat) => onToggle(cat))
-                  }}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[10px] transition-colors hover:bg-white/[0.04]"
-                  style={{ color: theme.textMuted }}
-                >
-                  Clear all
-                </button>
-              </>
-            )}
+            <div className="my-1 h-px w-full" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
+            <div className="flex items-center gap-1 px-3 py-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const allValues = COVERAGE_CATEGORIES.map((c) => c.value)
+                  const unselected = allValues.filter((v) => !selectedCategories.has(v))
+                  unselected.forEach((cat) => onToggle(cat))
+                }}
+                className="text-[10px] transition-colors hover:bg-white/[0.04] rounded px-1.5 py-0.5"
+                style={{ color: selectedCategories.size === COVERAGE_CATEGORIES.length ? theme.textMuted : theme.textSecondary }}
+              >
+                Select all
+              </button>
+              {selectedCategories.size > 0 && (
+                <>
+                  <span className="text-[10px]" style={{ color: theme.textMuted }}>·</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      selectedCategories.forEach((cat) => onToggle(cat))
+                    }}
+                    className="text-[10px] transition-colors hover:bg-white/[0.04] rounded px-1.5 py-0.5"
+                    style={{ color: theme.textMuted }}
+                  >
+                    Clear all
+                  </button>
+                </>
+              )}
+            </div>
           </div>,
           document.body
         )}
@@ -954,30 +904,9 @@ function PolicyTable({
                 >
                   {policy.name}
                 </button>
-                <div className="flex items-center gap-1.5">
-                  <span className="truncate text-[10px]" style={{ color: theme.textMuted }}>
-                    {subtitle}
-                  </span>
-                  {(() => {
-                    const payability = getMediSavePayability(policy)
-                    if (payability === 'none') return null
-                    const isFull = payability === 'full'
-                    const label = isFull
-                      ? getCpfAccountLabel(policy.governmentScheme ?? null)
-                      : 'MediSave/Cash'
-                    const badgeBg = isFull ? 'rgba(34, 197, 94, 0.10)' : 'rgba(245, 158, 11, 0.10)'
-                    const badgeColor = isFull ? '#22C55E' : '#F59E0B'
-                    return (
-                      <span
-                        className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-[8px] font-semibold"
-                        style={{ background: badgeBg, color: badgeColor }}
-                      >
-                        <Landmark className="h-2 w-2" />
-                        {label}
-                      </span>
-                    )
-                  })()}
-                </div>
+                <span className="truncate text-[10px]" style={{ color: theme.textMuted }}>
+                  {subtitle}
+                </span>
               </div>
             </div>
 
@@ -1430,88 +1359,119 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
       {/* Summary Cards + Policy Table */}
       {!isLoading && hasPolicies && (
         <>
-          <SummaryCards
-            policies={policies}
-            theme={theme}
-            onViewBreakdown={() => setShowBreakdown((prev) => !prev)}
-            isBreakdownOpen={showBreakdown}
-          />
+          {/* Segmented toggle: Overview / Premium Breakdown */}
+          <div className="flex items-center justify-between">
+            <div
+              className="inline-flex rounded-lg p-0.5"
+              style={{ background: theme.surfaceBg, border: `1px solid ${theme.cardBorder}` }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowBreakdown(false)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
+                  !showBreakdown
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-300'
+                )}
+              >
+                Overview
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowBreakdown(true)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-150',
+                  showBreakdown
+                    ? 'bg-white/[0.1] text-white shadow-sm'
+                    : 'text-slate-500 hover:text-slate-300'
+                )}
+              >
+                Premium Breakdown
+              </button>
+            </div>
+          </div>
+
+          <SummaryCards policies={policies} theme={theme} />
 
           {showBreakdown && allPolicies && (
             <AnnualPremiumBreakdownPanel
               policies={allPolicies}
               persons={persons}
               theme={theme}
-              onClose={() => setShowBreakdown(false)}
             />
           )}
 
-          <PolicyTable
-            policies={policies}
-            persons={persons}
-            selectedPersonIds={selectedPersonIds}
-            onTogglePerson={handleTogglePerson}
-            selectedCategories={selectedCategories}
-            onToggleCategory={handleToggleCategory}
-            personColorMap={personColorMap}
-            sortState={sortState}
-            onSort={handleSort}
-            theme={theme}
-            onEdit={handleEdit}
-            onDelete={(id) => deleteMutation.mutate(id)}
-            onViewPolicy={(policy) => setViewingPolicy(policy)}
-          />
+          {!showBreakdown && (
+            <>
+              <PolicyTable
+                policies={policies}
+                persons={persons}
+                selectedPersonIds={selectedPersonIds}
+                onTogglePerson={handleTogglePerson}
+                selectedCategories={selectedCategories}
+                onToggleCategory={handleToggleCategory}
+                personColorMap={personColorMap}
+                sortState={sortState}
+                onSort={handleSort}
+                theme={theme}
+                onEdit={handleEdit}
+                onDelete={(id) => deleteMutation.mutate(id)}
+                onViewPolicy={(policy) => setViewingPolicy(policy)}
+              />
 
-          {/* Pagination Controls — always visible */}
-          <div
-            className="flex items-center justify-between rounded-sm px-5 py-3"
-            style={{
-              background: theme.cardBg,
-              border: `1px solid ${theme.cardBorder}`,
-            }}
-          >
-            <span className="text-xs" style={{ color: theme.textMuted }}>
-              {totalPolicies === 0
-                ? 'No policies'
-                : `Showing ${rangeStart}–${rangeEnd} of ${totalPolicies} ${totalPolicies === 1 ? 'policy' : 'policies'}`}
-            </span>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                disabled={isFirstPage}
-                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+              {/* Pagination Controls */}
+              <div
+                className="flex items-center justify-between rounded-sm px-5 py-3"
                 style={{
-                  color: theme.textSecondary,
+                  background: theme.cardBg,
                   border: `1px solid ${theme.cardBorder}`,
-                  background: theme.surfaceBg,
                 }}
               >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                Prev
-              </button>
+                <span className="text-xs" style={{ color: theme.textMuted }}>
+                  {totalPolicies === 0
+                    ? 'No policies'
+                    : `Showing ${rangeStart}–${rangeEnd} of ${totalPolicies} ${totalPolicies === 1 ? 'policy' : 'policies'}`}
+                </span>
 
-              <span className="text-xs font-medium" style={{ color: theme.textSecondary }}>
-                Page {currentPage + 1} of {Math.max(1, totalPages)}
-              </span>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={isFirstPage}
+                    onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                    className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{
+                      color: theme.textSecondary,
+                      border: `1px solid ${theme.cardBorder}`,
+                      background: theme.surfaceBg,
+                    }}
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                    Prev
+                  </button>
 
-              <button
-                type="button"
-                disabled={isLastPage || totalPages <= 1}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{
-                  color: theme.textSecondary,
-                  border: `1px solid ${theme.cardBorder}`,
-                  background: theme.surfaceBg,
-                }}
-              >
-                Next
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
+                  <span className="text-xs font-medium" style={{ color: theme.textSecondary }}>
+                    Page {currentPage + 1} of {Math.max(1, totalPages)}
+                  </span>
+
+                  <button
+                    type="button"
+                    disabled={isLastPage || totalPages <= 1}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                    className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                    style={{
+                      color: theme.textSecondary,
+                      border: `1px solid ${theme.cardBorder}`,
+                      background: theme.surfaceBg,
+                    }}
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
 
