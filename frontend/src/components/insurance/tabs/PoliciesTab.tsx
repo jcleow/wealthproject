@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
+import { PolicyDetailModal } from '../modals/PolicyDetailModal'
 import { useColorScheme } from '@/stores'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
 import {
@@ -395,6 +396,7 @@ function PolicyTable({
   theme,
   onEdit,
   onDelete,
+  onViewPolicy,
 }: {
   policies: InsurancePolicyRecord[]
   persons: Person[]
@@ -404,6 +406,7 @@ function PolicyTable({
   theme: ReturnType<typeof getInsuranceTheme>
   onEdit: (policy: InsurancePolicyRecord) => void
   onDelete: (id: string) => void
+  onViewPolicy: (policy: InsurancePolicyRecord) => void
 }) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
@@ -486,12 +489,14 @@ function PolicyTable({
                 </span>
               </div>
               <div className="flex min-w-0 flex-col gap-px">
-                <span
-                  className="truncate text-[13px] font-medium"
+                <button
+                  type="button"
+                  onClick={() => onViewPolicy(policy)}
+                  className="truncate text-left text-[13px] font-medium hover:underline cursor-pointer transition-all duration-150"
                   style={{ color: theme.textPrimary }}
                 >
                   {policy.name}
-                </span>
+                </button>
                 <span className="truncate text-[10px]" style={{ color: theme.textMuted }}>
                   {subtitle}
                 </span>
@@ -649,6 +654,7 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
     if (addPolicyTrigger > 0) setIsModalOpen(true)
   }, [addPolicyTrigger])
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicyRecord | null>(null)
+  const [viewingPolicy, setViewingPolicy] = useState<InsurancePolicyRecord | null>(null)
   const colorScheme = useColorScheme()
   const theme = getInsuranceTheme(colorScheme)
   const isMonet = colorScheme === 'monet'
@@ -837,6 +843,7 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
             theme={theme}
             onEdit={handleEdit}
             onDelete={(id) => deleteMutation.mutate(id)}
+            onViewPolicy={(policy) => setViewingPolicy(policy)}
           />
         </>
       )}
@@ -849,6 +856,20 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
         }}
         onSave={handleSave}
         editingPolicy={editingPolicy}
+      />
+
+      <PolicyDetailModal
+        isOpen={viewingPolicy !== null}
+        onClose={() => setViewingPolicy(null)}
+        policy={viewingPolicy}
+        onEdit={(policy) => {
+          setViewingPolicy(null)
+          handleEdit(policy)
+        }}
+        onDelete={(policy) => {
+          setViewingPolicy(null)
+          deleteMutation.mutate(policy.id)
+        }}
       />
     </div>
   )

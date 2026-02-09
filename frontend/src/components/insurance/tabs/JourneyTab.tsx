@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useRef, useCallback } from 'react'
+import { useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -332,6 +332,9 @@ function DarkCoverageChart({
   // Flips to true once the chart has rendered its scales, triggering a
   // re-render so milestone icons can read pixel positions from Chart.js
   const [chartScalesReady, setChartScalesReady] = useState(false)
+  const tooltipRef = useRef<HTMLDivElement | null>(null)
+  const isDraggingAgeRef = useRef(isDraggingAge)
+  isDraggingAgeRef.current = isDraggingAge
 
   const getChartArea = useCallback(() => {
     const chart = chartRef.current
@@ -454,6 +457,65 @@ function DarkCoverageChart({
   const chartScalesReadyRef = useRef(chartScalesReady)
   chartScalesReadyRef.current = chartScalesReady
 
+  // Clean up external tooltip element on unmount
+  useEffect(() => {
+    return () => { tooltipRef.current?.remove() }
+  }, [])
+
+  // External HTML tooltip — renders as a DOM element above milestone icons
+  const externalTooltipHandler = useCallback(
+    (context: { chart: ChartJS<'line'>; tooltip: any }) => {
+      const { chart, tooltip } = context
+      const container = containerRef.current
+      if (!container) return
+
+      if (!tooltipRef.current) {
+        const el = document.createElement('div')
+        Object.assign(el.style, {
+          position: 'absolute',
+          pointerEvents: 'none',
+          zIndex: '20',
+          transition: 'opacity 0.15s ease',
+          borderRadius: '4px',
+          padding: '12px',
+          fontSize: '12px',
+          lineHeight: '1.5',
+          background: '#1C1C1E',
+          border: '1px solid rgba(255, 255, 255, 0.12)',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+        })
+        container.appendChild(el)
+        tooltipRef.current = el
+      }
+
+      const tooltipEl = tooltipRef.current
+
+      if (isDraggingAgeRef.current || tooltip.opacity === 0) {
+        tooltipEl.style.opacity = '0'
+        return
+      }
+
+      let html = ''
+      if (tooltip.title?.length) {
+        html += `<div style="color:${DARK_PALETTE.textPrimary};font-weight:600;margin-bottom:6px">${tooltip.title[0]}</div>`
+      }
+      for (const point of tooltip.dataPoints ?? []) {
+        const color = point.dataset.borderColor || '#fff'
+        const label = point.dataset.label || ''
+        const value = formatCoverageAmount(point.raw as number)
+        html += `<div style="display:flex;align-items:center;gap:6px;color:${DARK_PALETTE.textMuted};font-size:11px;margin-top:2px"><span style="width:8px;height:8px;border-radius:2px;background:${color};flex-shrink:0"></span>${label}: ${value}</div>`
+      }
+
+      tooltipEl.innerHTML = html
+      tooltipEl.style.opacity = '1'
+      const { offsetLeft: canvasLeft, offsetTop: canvasTop } = chart.canvas
+      tooltipEl.style.left = (canvasLeft + tooltip.caretX) + 'px'
+      tooltipEl.style.top = (canvasTop + tooltip.caretY) + 'px'
+      tooltipEl.style.transform = 'translate(-50%, -110%)'
+    },
+    []
+  )
+
   const chartOptions: ChartOptions<'line'> = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
@@ -468,15 +530,8 @@ function DarkCoverageChart({
     plugins: {
       legend: { display: false },
       tooltip: {
-        enabled: !isDraggingAge,
-        backgroundColor: DARK_PALETTE.cardBg,
-        titleColor: DARK_PALETTE.textPrimary,
-        bodyColor: DARK_PALETTE.textMuted,
-        borderColor: DARK_PALETTE.cardBorder,
-        borderWidth: 1,
-        padding: 12,
-        cornerRadius: 4,
-        displayColors: true,
+        enabled: false,
+        external: externalTooltipHandler,
         callbacks: {
           title: (items) => {
             if (items.length > 0) {
@@ -485,10 +540,6 @@ function DarkCoverageChart({
               return `Age ${age}${isCurrent ? ' (Current)' : ''}`
             }
             return ''
-          },
-          label: (context) => {
-            const value = context.raw as number
-            return ` ${context.dataset.label}: ${formatCoverageAmount(value)}`
           },
         },
       },
@@ -520,7 +571,7 @@ function DarkCoverageChart({
         beginAtZero: true,
       },
     },
-  }), [projections, currentAge, isDraggingAge])
+  }), [projections, currentAge, externalTooltipHandler])
 
   return (
     <div
@@ -559,12 +610,6 @@ function DarkCoverageChart({
             Age {selectedAge}
           </div>
 
-          {/* Drag affordance dots */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col gap-1">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: DARK_PALETTE.pageBg }} />
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: DARK_PALETTE.pageBg }} />
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: DARK_PALETTE.pageBg }} />
-          </div>
         </div>
       )}
 
@@ -1709,11 +1754,20 @@ export function JourneyTab({ className }: JourneyTabProps) {
 
   const handleTogglePerson = (personId: string) => {
     setSelectedPersonIds((prev) => {
+      // Empty set = "all selected" convention.
+      // Clicking a person in this state should deselect them (show all except clicked).
+      if (prev.size === 0) {
+        return new Set(includedPersons.filter((p) => p.id !== personId).map((p) => p.id))
+      }
       const next = new Set(prev)
       if (next.has(personId)) {
         next.delete(personId)
       } else {
         next.add(personId)
+      }
+      // If all persons are now selected, collapse back to empty set
+      if (next.size === includedPersons.length) {
+        return new Set()
       }
       return next
     })

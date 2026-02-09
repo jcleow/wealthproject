@@ -235,7 +235,7 @@ export function PersonViewDropdown(props: PersonViewDropdownProps) {
                 onClick={() => handlePersonClick(person.id)}
                 className="flex w-full items-center gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-white/[0.04]"
                 style={{
-                  background: isFocused ? 'rgba(255, 255, 255, 0.06)' : isSelected ? '#1A1A1D' : undefined,
+                  background: isFocused ? 'rgba(255, 255, 255, 0.06)' : undefined,
                   outline: isFocused ? '1px solid rgba(255, 255, 255, 0.15)' : undefined,
                   outlineOffset: '-1px',
                 }}

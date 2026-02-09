@@ -175,11 +175,20 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
 
   const handleTogglePerson = (personId: string) => {
     setSelectedPersonIds((prev) => {
+      // Empty set = "all selected" convention.
+      // Clicking a person in this state should deselect them (show all except clicked).
+      if (prev.size === 0) {
+        return new Set(persons.filter((p) => p.id !== personId).map((p) => p.id))
+      }
       const next = new Set(prev)
       if (next.has(personId)) {
         next.delete(personId)
       } else {
         next.add(personId)
+      }
+      // If all persons are now selected, collapse back to empty set
+      if (next.size === persons.length) {
+        return new Set()
       }
       return next
     })
