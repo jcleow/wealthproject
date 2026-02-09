@@ -605,6 +605,17 @@ function PolicyTable({
                     <button
                       type="button"
                       onClick={() => {
+                        onViewPolicy(policy)
+                        setOpenMenuId(null)
+                      }}
+                      className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-white/5"
+                      style={{ color: theme.textPrimary }}
+                    >
+                      View Policy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         onEdit(policy)
                         setOpenMenuId(null)
                       }}
@@ -862,6 +873,7 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
         isOpen={viewingPolicy !== null}
         onClose={() => setViewingPolicy(null)}
         policy={viewingPolicy}
+        personColor={viewingPolicy?.personId ? personColorMap[viewingPolicy.personId] : undefined}
         onEdit={(policy) => {
           setViewingPolicy(null)
           handleEdit(policy)

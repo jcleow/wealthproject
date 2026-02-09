@@ -964,16 +964,6 @@ function CardActionMenu({
             <span className="text-slate-200">Edit Targets</span>
           </button>
 
-          {/* View Policies */}
-          <button
-            type="button"
-            onClick={() => { onViewPolicies?.(); setIsOpen(false) }}
-            className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-[13px] transition-colors hover:bg-white/[0.04]"
-          >
-            <FileText className="h-3.5 w-3.5 text-slate-500" />
-            <span className="text-slate-200">View Policies</span>
-          </button>
-
           {/* Divider */}
           <div className="my-1 h-px w-full" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
 
