@@ -39,9 +39,11 @@ export function InsuranceTabs({ activeTab, onTabChange }: InsuranceTabsProps) {
                 color: isActive
                   ? isMonet ? '#3D3D3D' : '#F0F0F0'
                   : isMonet ? '#9B9B9B' : '#71717A',
-                borderBottom: isActive
-                  ? `2px solid ${isMonet ? '#9B8BB4' : '#F0F0F0'}`
-                  : `1px solid ${isMonet ? 'rgba(155, 139, 180, 0.15)' : 'rgba(255, 255, 255, 0.08)'}`,
+                borderBottom: `2px solid ${
+                  isActive
+                    ? isMonet ? '#9B8BB4' : '#F0F0F0'
+                    : 'transparent'
+                }`,
               }}
               aria-selected={isActive}
               role="tab"
@@ -54,7 +56,7 @@ export function InsuranceTabs({ activeTab, onTabChange }: InsuranceTabsProps) {
         <div
           className="flex-1"
           style={{
-            borderBottom: `1px solid ${isMonet ? 'rgba(155, 139, 180, 0.15)' : 'rgba(255, 255, 255, 0.08)'}`,
+            borderBottom: `2px solid ${isMonet ? 'rgba(155, 139, 180, 0.15)' : 'rgba(255, 255, 255, 0.08)'}`,
           }}
         />
       </nav>

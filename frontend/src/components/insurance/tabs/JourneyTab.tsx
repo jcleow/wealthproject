@@ -135,62 +135,58 @@ function DarkSummaryCards({
     <div className="flex gap-4">
       {/* Target Total */}
       <div
-        className="flex-1 rounded-sm p-5"
+        className="flex-1 flex flex-col gap-1.5 rounded-sm p-5"
         style={{
           background: DARK_PALETTE.cardBg,
           border: `1px solid ${DARK_PALETTE.cardBorder}`,
         }}
       >
-        <div
-          className={cn(T.cardLabel, 'mb-1.5')}
+        <span
+          className={T.cardLabel}
           style={{ color: DARK_PALETTE.textMuted }}
         >
           TARGET TOTAL
-        </div>
-        <div className="flex items-end gap-3">
-          <span
-            className={T.cardValue}
-            style={{ color: DARK_PALETTE.textPrimary }}
-          >
-            {formatCoverageAmount(targetTotal)}
-          </span>
-          <span
-            className={cn(T.cardDescription, 'mb-0.5')}
-            style={{ color: DARK_PALETTE.textMuted }}
-          >
-            Across all categories
-          </span>
-        </div>
+        </span>
+        <span
+          className={T.cardValue}
+          style={{ color: DARK_PALETTE.textPrimary }}
+        >
+          {formatCoverageAmount(targetTotal)}
+        </span>
+        <span
+          className={T.cardDescription}
+          style={{ color: DARK_PALETTE.textMuted }}
+        >
+          Across all categories
+        </span>
       </div>
 
       {/* Current Coverage */}
       <div
-        className="flex-1 rounded-sm p-5"
+        className="flex-1 flex flex-col gap-1.5 rounded-sm p-5"
         style={{
           background: DARK_PALETTE.cardBg,
           border: `1px solid ${DARK_PALETTE.cardBorder}`,
         }}
       >
-        <div
-          className={cn(T.cardLabel, 'mb-1.5')}
+        <span
+          className={T.cardLabel}
           style={{ color: DARK_PALETTE.textMuted }}
         >
           CURRENT COVERAGE
-        </div>
-        <div className="flex items-end gap-2">
-          <span
-            className={T.cardValue}
-            style={{ color: DARK_PALETTE.textPrimary }}
-          >
-            {formatCoverageAmount(currentCoverage)}
-          </span>
-          <span
-            className={cn(T.cardDescription, 'mb-0.5')}
-            style={{ color: DARK_PALETTE.textMuted }}
-          >
-            {currentCoverage === 0 ? 'No active policies' : 'From active policies'}
-          </span>
-        </div>
+        </span>
+        <span
+          className={T.cardValue}
+          style={{ color: DARK_PALETTE.textPrimary }}
+        >
+          {formatCoverageAmount(currentCoverage)}
+        </span>
+        <span
+          className={T.cardDescription}
+          style={{ color: DARK_PALETTE.textMuted }}
+        >
+          {currentCoverage === 0 ? 'No active policies' : 'From active policies'}
+        </span>
       </div>
 
       {/* Coverage Gap */}
@@ -207,20 +203,18 @@ function DarkSummaryCards({
         >
           COVERAGE GAP
         </div>
-        <div className="flex items-end gap-2">
-          <span
-            className={T.cardValue}
-            style={{ color: DARK_PALETTE.red }}
-          >
-            {formatCoverageAmount(coverageGap)}
-          </span>
-          <span
-            className={cn(T.cardDescription, 'mb-0.5')}
-            style={{ color: DARK_PALETTE.textMuted }}
-          >
-            {uncoveredCategoryCount} {uncoveredCategoryCount === 1 ? 'category' : 'categories'} unprotected
-          </span>
-        </div>
+        <span
+          className={T.cardValue}
+          style={{ color: DARK_PALETTE.red }}
+        >
+          {formatCoverageAmount(coverageGap)}
+        </span>
+        <span
+          className={T.cardDescription}
+          style={{ color: DARK_PALETTE.textMuted }}
+        >
+          {uncoveredCategoryCount} {uncoveredCategoryCount === 1 ? 'category' : 'categories'} unprotected
+        </span>
       </div>
     </div>
   )
@@ -1836,7 +1830,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
   // =========================================================================
   if (!isMonet) {
     return (
-      <div className={cn('space-y-6 px-8 py-6', className)}>
+      <div className={cn('space-y-6 p-8', className)}>
         {/* Summary Metric Cards */}
         <DarkSummaryCards
           targetTotal={summaryTotals.targetTotal}

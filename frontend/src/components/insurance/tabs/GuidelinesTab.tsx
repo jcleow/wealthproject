@@ -3310,7 +3310,7 @@ export function GuidelinesTab({ onNavigateToPolicy }: GuidelinesTabProps) {
   }
 
   return (
-    <div className="py-8 px-6">
+    <div className="p-8">
       {/* Wizard step indicator */}
       <WizardStepIndicator
         currentStep={wizardStep}
