@@ -1,9 +1,8 @@
 'use client'
 
-import { cn } from '@/lib/utils'
 import { useColorScheme } from '@/stores'
 
-export type InsuranceTabId = 'overview' | 'journey' | 'policies' | 'guidelines'
+export type InsuranceTabId = 'overview' | 'journey' | 'policies'
 
 interface InsuranceTabsProps {
   activeTab: InsuranceTabId
@@ -14,7 +13,6 @@ const tabs: { id: InsuranceTabId; label: string }[] = [
   { id: 'overview', label: 'My Coverage' },
   { id: 'journey', label: 'Journey' },
   { id: 'policies', label: 'Policies' },
-  { id: 'guidelines', label: 'Guidelines' },
 ]
 
 export function InsuranceTabs({ activeTab, onTabChange }: InsuranceTabsProps) {
@@ -31,10 +29,7 @@ export function InsuranceTabs({ activeTab, onTabChange }: InsuranceTabsProps) {
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={cn(
-                'relative px-5 py-2.5 text-[13px] transition-colors duration-200',
-                isActive ? 'font-medium' : 'font-normal',
-              )}
+              className="relative px-5 py-2.5 text-[13px] font-medium transition-colors duration-200"
               style={{
                 color: isActive
                   ? isMonet ? '#3D3D3D' : '#F0F0F0'

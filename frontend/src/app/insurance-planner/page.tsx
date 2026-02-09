@@ -12,6 +12,7 @@ import { PoliciesTab } from '@/components/insurance/tabs/PoliciesTab'
 import { JourneyTab } from '@/components/insurance/tabs/JourneyTab'
 import { MyCoverageTab } from '@/components/insurance/tabs/MyCoverageTab'
 import { GuidelinesTab } from '@/components/insurance/tabs/GuidelinesTab'
+import { Modal } from '@/components/ui/Modal'
 import { useColorScheme } from '@/stores'
 import { useCoverageGuidelinesStore } from '@/stores/coverageGuidelinesStore'
 import { useLoadSampleInsuranceData } from '@/hooks/queries/useLoadSampleInsuranceData'
@@ -101,6 +102,7 @@ const canvasTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmln
 export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
   const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
+  const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
   const colors = isMonet ? monetColors : darkColors
@@ -202,31 +204,38 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
                 <Trash2 className="h-4 w-4" />
               )}
             </button>
-            {activeTab === 'overview' && (
+            {/* Action button slot — grid overlay keeps width stable across tabs */}
+            <div className="grid">
               <button
                 type="button"
                 onClick={handleResetTargets}
-                className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110"
+                className={clsx(
+                  'col-start-1 row-start-1 flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110',
+                  activeTab !== 'overview' && 'invisible'
+                )}
                 style={{
                   color: isMonet ? '#6B7280' : '#A1A1AA',
                   border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
                 }}
+                tabIndex={activeTab === 'overview' ? 0 : -1}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 Reset Targets
               </button>
-            )}
-            {activeTab === 'policies' && (
               <button
                 type="button"
                 onClick={handleAddPolicy}
-                className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110"
+                className={clsx(
+                  'col-start-1 row-start-1 flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110',
+                  activeTab !== 'policies' && 'invisible'
+                )}
                 style={{ background: '#C53D43' }}
+                tabIndex={activeTab === 'policies' ? 0 : -1}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Policy
               </button>
-            )}
+            </div>
             {onClose && (
               <button
                 type="button"
@@ -249,11 +258,25 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
 
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
-        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setActiveTab('guidelines')} />}
+        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} />}
         {activeTab === 'journey' && <JourneyTab />}
         {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
-        {activeTab === 'guidelines' && <GuidelinesTab />}
       </main>
+
+      {/* Guidelines Modal */}
+      <Modal
+        isOpen={isGuidelinesModalOpen}
+        onClose={() => setIsGuidelinesModalOpen(false)}
+        overlayClassName="bg-black/60 backdrop-blur-sm"
+        className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-lg"
+      >
+        <div
+          className="rounded-lg"
+          style={{ background: isMonet ? monetColors.bgCream : '#111113', border: `1px solid ${isMonet ? 'rgba(155, 139, 180, 0.15)' : '#2D2D33'}` }}
+        >
+          <GuidelinesTab />
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -263,6 +286,7 @@ export default function InsurancePlannerPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
   const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
+  const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
   const colors = isMonet ? monetColors : darkColors
@@ -388,31 +412,38 @@ export default function InsurancePlannerPage() {
                 <Trash2 className="h-4 w-4" />
               )}
             </button>
-            {activeTab === 'overview' && (
+            {/* Action button slot — grid overlay keeps width stable across tabs */}
+            <div className="grid">
               <button
                 type="button"
                 onClick={handleResetTargets}
-                className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110"
+                className={clsx(
+                  'col-start-1 row-start-1 flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110',
+                  activeTab !== 'overview' && 'invisible'
+                )}
                 style={{
                   color: isMonet ? '#6B7280' : '#A1A1AA',
                   border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
                 }}
+                tabIndex={activeTab === 'overview' ? 0 : -1}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
                 Reset Targets
               </button>
-            )}
-            {activeTab === 'policies' && (
               <button
                 type="button"
                 onClick={handleAddPolicy}
-                className="flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110"
+                className={clsx(
+                  'col-start-1 row-start-1 flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110',
+                  activeTab !== 'policies' && 'invisible'
+                )}
                 style={{ background: '#C53D43' }}
+                tabIndex={activeTab === 'policies' ? 0 : -1}
               >
                 <Plus className="h-3.5 w-3.5" />
                 Add Policy
               </button>
-            )}
+            </div>
             <button
               type="button"
               onClick={handleClose}
@@ -435,12 +466,26 @@ export default function InsurancePlannerPage() {
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
         <div className="mx-auto max-w-7xl">
-          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setActiveTab('guidelines')} />}
+          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} />}
           {activeTab === 'journey' && <JourneyTab />}
           {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
-          {activeTab === 'guidelines' && <GuidelinesTab />}
         </div>
       </main>
+
+      {/* Guidelines Modal */}
+      <Modal
+        isOpen={isGuidelinesModalOpen}
+        onClose={() => setIsGuidelinesModalOpen(false)}
+        overlayClassName="bg-black/60 backdrop-blur-sm"
+        className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-lg"
+      >
+        <div
+          className="rounded-lg"
+          style={{ background: isMonet ? monetColors.bgCream : '#111113', border: `1px solid ${isMonet ? 'rgba(155, 139, 180, 0.15)' : '#2D2D33'}` }}
+        >
+          <GuidelinesTab />
+        </div>
+      </Modal>
     </div>
   )
 }
