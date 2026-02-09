@@ -554,25 +554,21 @@ function HospitalizationCard({
           <>
             {/* Detail rows */}
             <div className="flex gap-6">
-              <div className="flex-1 flex flex-col gap-1">
-                <span className={cn(T.cardLabel, 'text-slate-500')}>
-                  EXPENSES COVERED
+              <div className="flex flex-col gap-0.5">
+                <span className={cn(T.metaText, 'text-slate-500')}>
+                  Expenses Covered
                 </span>
-                <div className="flex items-center gap-2.5">
-                  <span className={cn(T.cardDetailValue, 'text-white')}>
-                    ~6 months
-                  </span>
-                </div>
+                <span className={cn(T.bodyText, 'font-medium text-slate-200')}>
+                  ~6 months
+                </span>
               </div>
-              <div className="flex-1 flex flex-col gap-1">
-                <span className={cn(T.cardLabel, 'text-slate-500')}>
-                  ANNUAL PREMIUM
+              <div className="flex flex-col gap-0.5">
+                <span className={cn(T.metaText, 'text-slate-500')}>
+                  Annual Premium
                 </span>
-                <div className="flex items-center gap-2.5">
-                  <span className={cn(T.cardDetailValue, 'text-white')}>
-                    {formatCurrency(annualPremium)}/yr
-                  </span>
-                </div>
+                <span className={cn(T.bodyText, 'font-medium text-slate-200')}>
+                  {formatCurrency(annualPremium)}/yr
+                </span>
               </div>
             </div>
 
