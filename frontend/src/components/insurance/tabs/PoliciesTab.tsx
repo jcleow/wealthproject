@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
 import { PolicyDetailModal } from '../modals/PolicyDetailModal'
 import { useColorScheme } from '@/stores'
@@ -127,18 +127,29 @@ function getInitials(name: string): string {
     .slice(0, 2)
 }
 
-function formatSumOrClass(policy: InsurancePolicyRecord): string {
-  if (policy.category === 'health' || policy.category === 'hospitalization') {
-    if (policy.notes) {
-      try {
-        const parsed = JSON.parse(policy.notes)
-        if (parsed.wardClass) return `Class ${parsed.wardClass}`
-      } catch {
-        /* fall through to default */
-      }
+function getWardClass(policy: InsurancePolicyRecord): string | null {
+  if (policy.category !== 'health' && policy.category !== 'hospitalization') return null
+  if (policy.notes) {
+    try {
+      const parsed = JSON.parse(policy.notes)
+      if (parsed.wardClass) return parsed.wardClass
+    } catch {
+      /* fall through */
     }
   }
-  return formatAmount(policy.coverageAmount)
+  return null
+}
+
+function formatWardClass(wardClass: string): string {
+  return `Class ${wardClass}`
+}
+
+// Sort priority for ward classes (lower = better)
+const WARD_CLASS_ORDER: Record<string, number> = {
+  a: 1, A: 1,
+  b1: 2, B1: 2,
+  b2: 3, B2: 3,
+  c: 4, C: 4,
 }
 
 function formatSubtitle(policy: InsurancePolicyRecord): string {
@@ -161,6 +172,51 @@ function formatSubtitle(policy: InsurancePolicyRecord): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const columnHeaderClass = 'shrink-0 font-mono text-[9px] font-medium uppercase tracking-wider'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sort types & sortable header
+// ─────────────────────────────────────────────────────────────────────────────
+
+type SortField = 'coverage' | 'sumAssured' | 'wardClass' | 'premium' | 'renewal' | 'status'
+type SortDirection = 'asc' | 'desc'
+
+interface SortState {
+  field: SortField | null
+  direction: SortDirection
+}
+
+function SortableColumnHeader({
+  label,
+  field,
+  sortState,
+  onSort,
+  width,
+  theme,
+}: {
+  label: string
+  field: SortField
+  sortState: SortState
+  onSort: (field: SortField) => void
+  width: string
+  theme: ReturnType<typeof getInsuranceTheme>
+}) {
+  const isActive = sortState.field === field
+  const SortIcon = isActive
+    ? sortState.direction === 'asc' ? ArrowUp : ArrowDown
+    : ArrowUpDown
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSort(field)}
+      className={`${width} flex items-center gap-1 ${columnHeaderClass} transition-colors duration-150`}
+      style={{ color: isActive ? theme.textSecondary : theme.textMuted }}
+    >
+      <span>{label}</span>
+      <SortIcon className="h-2.5 w-2.5" style={{ opacity: isActive ? 1 : 0.4 }} />
+    </button>
+  )
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Summary Cards
@@ -409,6 +465,61 @@ function PolicyTable({
   onViewPolicy: (policy: InsurancePolicyRecord) => void
 }) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [sortState, setSortState] = useState<SortState>({ field: null, direction: 'asc' })
+
+  const handleSort = useCallback((field: SortField) => {
+    setSortState((prev) => {
+      if (prev.field === field) {
+        return { field, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+      }
+      return { field, direction: 'asc' }
+    })
+  }, [])
+
+  const sortedPolicies = useMemo(() => {
+    if (!sortState.field) return policies
+
+    const sorted = [...policies]
+    const dir = sortState.direction === 'asc' ? 1 : -1
+
+    sorted.sort((a, b) => {
+      switch (sortState.field) {
+        case 'coverage': {
+          const labelA = formatCategoryLabel(a.category, a.subcategory)
+          const labelB = formatCategoryLabel(b.category, b.subcategory)
+          return dir * labelA.localeCompare(labelB)
+        }
+        case 'sumAssured':
+          return dir * (a.coverageAmount - b.coverageAmount)
+        case 'wardClass': {
+          const wardA = getWardClass(a)
+          const wardB = getWardClass(b)
+          const orderA = wardA ? (WARD_CLASS_ORDER[wardA] ?? 99) : 99
+          const orderB = wardB ? (WARD_CLASS_ORDER[wardB] ?? 99) : 99
+          return dir * (orderA - orderB)
+        }
+        case 'premium': {
+          const premA = annualizePremium(a.premiumAmount, a.premiumFrequency)
+          const premB = annualizePremium(b.premiumAmount, b.premiumFrequency)
+          return dir * (premA - premB)
+        }
+        case 'renewal': {
+          const dateA = a.renewalDate ?? a.endDate ?? a.startDate
+          const dateB = b.renewalDate ?? b.endDate ?? b.startDate
+          return dir * dateA.localeCompare(dateB)
+        }
+        case 'status': {
+          const statusA = a.isActive ? 1 : 0
+          const statusB = b.isActive ? 1 : 0
+          return dir * (statusA - statusB)
+        }
+        default:
+          return 0
+      }
+    })
+
+    return sorted
+  }, [policies, sortState])
 
   return (
     <div
@@ -434,26 +545,17 @@ function PolicyTable({
           theme={theme}
         />
 
-        <span className={`w-[110px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
-          Coverage
-        </span>
-        <span className={`w-[100px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
-          Sum / Class
-        </span>
-        <span className={`w-[85px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
-          Premium
-        </span>
-        <span className={`w-[80px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
-          Renewal
-        </span>
-        <span className={`w-[60px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
-          Status
-        </span>
+        <SortableColumnHeader label="Coverage" field="coverage" sortState={sortState} onSort={handleSort} width="w-[110px]" theme={theme} />
+        <SortableColumnHeader label="Sum Assured" field="sumAssured" sortState={sortState} onSort={handleSort} width="w-[100px]" theme={theme} />
+        <SortableColumnHeader label="Ward Class" field="wardClass" sortState={sortState} onSort={handleSort} width="w-[70px]" theme={theme} />
+        <SortableColumnHeader label="Premium" field="premium" sortState={sortState} onSort={handleSort} width="w-[85px]" theme={theme} />
+        <SortableColumnHeader label="Renewal" field="renewal" sortState={sortState} onSort={handleSort} width="w-[80px]" theme={theme} />
+        <SortableColumnHeader label="Status" field="status" sortState={sortState} onSort={handleSort} width="w-[60px]" theme={theme} />
         <div className="flex-1" />
       </div>
 
       {/* ── Policy Rows ── */}
-      {policies.map((policy, index) => {
+      {sortedPolicies.map((policy, index) => {
         const insurerName = policy.insurerName ?? 'Unknown'
         const insurerAbbr = getInsurerAbbreviation(policy.insurerName)
         const insurerColor = getInsurerColor(insurerName)
@@ -463,9 +565,10 @@ function PolicyTable({
         const personName = policy.personName
         const personInitials = personName ? getInitials(personName) : ''
         const personFirstName = personName?.split(' ')[0] ?? ''
-        const isLastRow = index === policies.length - 1
+        const isLastRow = index === sortedPolicies.length - 1
         const isMenuOpen = openMenuId === policy.id
         const subtitle = formatSubtitle(policy)
+        const wardClass = getWardClass(policy)
 
         return (
           <div
@@ -535,12 +638,20 @@ function PolicyTable({
               {categoryLabel}
             </span>
 
-            {/* Sum / Class */}
+            {/* Sum Assured */}
             <span
               className="w-[100px] shrink-0 text-xs font-medium"
               style={{ color: theme.textPrimary }}
             >
-              {formatSumOrClass(policy)}
+              {formatAmount(policy.coverageAmount)}
+            </span>
+
+            {/* Ward Class */}
+            <span
+              className="w-[70px] shrink-0 text-xs"
+              style={{ color: wardClass ? theme.textSecondary : theme.textMuted }}
+            >
+              {wardClass ? formatWardClass(wardClass) : '—'}
             </span>
 
             {/* Premium */}
@@ -876,56 +987,56 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
             onViewPolicy={(policy) => setViewingPolicy(policy)}
           />
 
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div
-              className="flex items-center justify-between rounded-sm px-5 py-3"
-              style={{
-                background: theme.cardBg,
-                border: `1px solid ${theme.cardBorder}`,
-              }}
-            >
-              <span className="text-xs" style={{ color: theme.textMuted }}>
-                Showing {rangeStart}–{rangeEnd} of {totalPolicies} policies
+          {/* Pagination Controls — always visible */}
+          <div
+            className="flex items-center justify-between rounded-sm px-5 py-3"
+            style={{
+              background: theme.cardBg,
+              border: `1px solid ${theme.cardBorder}`,
+            }}
+          >
+            <span className="text-xs" style={{ color: theme.textMuted }}>
+              {totalPolicies === 0
+                ? 'No policies'
+                : `Showing ${rangeStart}–${rangeEnd} of ${totalPolicies} ${totalPolicies === 1 ? 'policy' : 'policies'}`}
+            </span>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={isFirstPage}
+                onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+                className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{
+                  color: theme.textSecondary,
+                  border: `1px solid ${theme.cardBorder}`,
+                  background: theme.surfaceBg,
+                }}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Prev
+              </button>
+
+              <span className="text-xs font-medium" style={{ color: theme.textSecondary }}>
+                Page {currentPage + 1} of {Math.max(1, totalPages)}
               </span>
 
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  disabled={isFirstPage}
-                  onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
-                  className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={{
-                    color: theme.textSecondary,
-                    border: `1px solid ${theme.cardBorder}`,
-                    background: theme.surfaceBg,
-                  }}
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  Prev
-                </button>
-
-                <span className="text-xs font-medium" style={{ color: theme.textSecondary }}>
-                  Page {currentPage + 1} of {totalPages}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={isLastPage}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
-                  className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={{
-                    color: theme.textSecondary,
-                    border: `1px solid ${theme.cardBorder}`,
-                    background: theme.surfaceBg,
-                  }}
-                >
-                  Next
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <button
+                type="button"
+                disabled={isLastPage || totalPages <= 1}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+                className="flex h-7 items-center gap-1 rounded-md px-2.5 text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+                style={{
+                  color: theme.textSecondary,
+                  border: `1px solid ${theme.cardBorder}`,
+                  background: theme.surfaceBg,
+                }}
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
             </div>
-          )}
+          </div>
         </>
       )}
 
