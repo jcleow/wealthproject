@@ -13,9 +13,10 @@ import {
   type ChartData,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import { Shield, HeartPulse, Zap, AlertCircle, CheckCircle2, Calendar, GraduationCap, Home, Sunset, ChevronDown, ChevronRight, Check, Baby, ShieldAlert, Accessibility } from 'lucide-react'
+import { Shield, HeartPulse, Zap, AlertCircle, CheckCircle2, Calendar, GraduationCap, Home, Sunset, ChevronDown, ChevronRight, Check, Baby, ShieldAlert, Accessibility, Landmark } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
+import { useInsurancePoliciesQuery } from '@/hooks/queries/useInsurancePoliciesQuery'
 import { useQuestionnaireAutoPopulate } from '@/hooks/useQuestionnaireAutoPopulate'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useColorScheme } from '@/stores'
@@ -23,6 +24,8 @@ import { PersonSelector } from '@/components/ui/PersonSelector'
 import { PersonViewDropdown } from '@/components/insurance/shared/PersonViewDropdown'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
+import { formatCurrency } from '@/lib/format'
+import { calculateMediSaveSplit, getCpfAccountLabel } from '@/lib/medisave-utils'
 import {
   generateCoverageProjection,
   calculateMilestones,
@@ -1054,6 +1057,206 @@ function DarkMilestonesCard({
 }
 
 // =============================================================================
+// Dark Mode: Annual Premium Breakdown Card
+// =============================================================================
+
+function DarkAnnualPremiumBreakdownCard({
+  policies,
+  personAge,
+}: {
+  policies: Array<{
+    id: string
+    name: string
+    governmentScheme: string | null
+    category: string
+    premiumAmount: number
+    premiumFrequency: string
+    insurerName: string | null
+  }>
+  personAge: number
+}) {
+  const split = useMemo(
+    () => calculateMediSaveSplit(policies, personAge),
+    [policies, personAge]
+  )
+
+  if (policies.length === 0) {
+    return (
+      <div
+        className="rounded-sm p-6"
+        style={{
+          background: DARK_PALETTE.cardBg,
+          border: `1px solid ${DARK_PALETTE.cardBorder}`,
+        }}
+      >
+        <div className={T.cardLabel} style={{ color: DARK_PALETTE.textMuted }}>
+          ANNUAL PREMIUM BREAKDOWN
+        </div>
+        <p className={cn(T.bodyText, 'text-center py-6')} style={{ color: DARK_PALETTE.textMuted }}>
+          No policies found for this person
+        </p>
+      </div>
+    )
+  }
+
+  const awlPercent = split.awlLimit > 0
+    ? Math.min(100, Math.round((split.awlUsed / split.awlLimit) * 100))
+    : 0
+
+  return (
+    <div
+      className="rounded-sm"
+      style={{
+        background: DARK_PALETTE.cardBg,
+        border: `1px solid ${DARK_PALETTE.cardBorder}`,
+      }}
+    >
+      <div className="p-6 pb-0">
+        <div className={T.cardLabel} style={{ color: DARK_PALETTE.textMuted }}>
+          ANNUAL PREMIUM BREAKDOWN
+        </div>
+      </div>
+
+      <div className="mx-6 mt-3 mb-0 h-px" style={{ background: DARK_PALETTE.cardBorder }} />
+
+      {/* Header row */}
+      <div className="flex items-center gap-3 px-6 py-2.5">
+        <span className={cn(T.legendText, 'flex-1')} style={{ color: DARK_PALETTE.textMuted }}>
+          Policy
+        </span>
+        <span className={cn(T.legendText, 'w-16 text-right')} style={{ color: DARK_PALETTE.textMuted }}>
+          Annual
+        </span>
+        <span className={cn(T.legendText, 'w-16 text-center')} style={{ color: DARK_PALETTE.textMuted }}>
+          Source
+        </span>
+        <span className={cn(T.legendText, 'w-16 text-right')} style={{ color: DARK_PALETTE.textMuted }}>
+          MediSave
+        </span>
+        <span className={cn(T.legendText, 'w-16 text-right')} style={{ color: DARK_PALETTE.textMuted }}>
+          Cash
+        </span>
+      </div>
+
+      {/* Policy rows */}
+      <div className="px-6 pb-2">
+        {split.breakdown.map((row) => {
+          const badgeBg = row.payability === 'full'
+            ? 'rgba(34, 197, 94, 0.10)'
+            : row.payability === 'partial'
+              ? 'rgba(245, 158, 11, 0.10)'
+              : 'rgba(113, 113, 122, 0.10)'
+          const badgeColor = row.payability === 'full'
+            ? '#22C55E'
+            : row.payability === 'partial'
+              ? '#F59E0B'
+              : DARK_PALETTE.textMuted
+          const badgeLabel = row.payability === 'full'
+            ? (() => {
+                const policy = policies.find(p => p.id === row.policyId)
+                return getCpfAccountLabel(policy?.governmentScheme ?? null)
+              })()
+            : row.payability === 'partial'
+              ? 'Mixed'
+              : 'Cash'
+
+          return (
+            <div
+              key={row.policyId}
+              className="flex items-center gap-3 py-2.5"
+              style={{ borderTop: `1px solid ${DARK_PALETTE.cardBorder}` }}
+            >
+              <div className="flex-1 min-w-0">
+                <span className={cn(T.bodyText, 'truncate block')} style={{ color: DARK_PALETTE.textPrimary }}>
+                  {row.policyName}
+                </span>
+              </div>
+              <span className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums')} style={{ color: DARK_PALETTE.textPrimary }}>
+                {formatCurrency(row.annualPremium)}
+              </span>
+              <div className="w-16 flex justify-center">
+                <span
+                  className="inline-flex items-center gap-0.5 rounded px-1.5 py-px text-[9px] font-semibold"
+                  style={{ background: badgeBg, color: badgeColor }}
+                >
+                  <Landmark className="h-2 w-2" />
+                  {badgeLabel}
+                </span>
+              </div>
+              <span
+                className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums')}
+                style={{ color: row.medisavePortion > 0 ? '#22C55E' : DARK_PALETTE.textMuted }}
+              >
+                {row.medisavePortion > 0 ? formatCurrency(row.medisavePortion) : '\u2014'}
+              </span>
+              <span
+                className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums')}
+                style={{ color: row.cashPortion > 0 ? DARK_PALETTE.textPrimary : DARK_PALETTE.textMuted }}
+              >
+                {row.cashPortion > 0 ? formatCurrency(row.cashPortion) : '\u2014'}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Totals divider */}
+      <div className="mx-6 h-px" style={{ background: DARK_PALETTE.cardBorder }} />
+
+      {/* Totals row */}
+      <div className="flex items-center gap-3 px-6 py-3">
+        <span className={cn(T.bodyText, 'flex-1 font-semibold')} style={{ color: DARK_PALETTE.textPrimary }}>
+          Total
+        </span>
+        <span className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums font-semibold')} style={{ color: DARK_PALETTE.textPrimary }}>
+          {formatCurrency(split.totalAnnualPremium)}
+        </span>
+        <div className="w-16" />
+        <span className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums font-semibold')} style={{ color: '#22C55E' }}>
+          {split.medisavePayable > 0 ? formatCurrency(split.medisavePayable) : '\u2014'}
+        </span>
+        <span className={cn(T.bodyText, 'w-16 text-right font-mono tabular-nums font-semibold')} style={{ color: DARK_PALETTE.textPrimary }}>
+          {formatCurrency(split.cashPayable)}
+        </span>
+      </div>
+
+      {/* AWL Usage Bar */}
+      {split.awlLimit > 0 && (
+        <div className="px-6 pb-5 pt-1">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={T.legendText} style={{ color: DARK_PALETTE.textMuted }}>
+              MediSave AWL Usage
+            </span>
+            <span className={T.legendText} style={{ color: DARK_PALETTE.textMuted }}>
+              {formatCurrency(split.awlUsed)} / {formatCurrency(split.awlLimit)}
+            </span>
+          </div>
+          <div
+            className="h-1.5 w-full rounded-full overflow-hidden"
+            style={{ background: 'rgba(255, 255, 255, 0.06)' }}
+          >
+            <div
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${awlPercent}%`,
+                background: awlPercent >= 100
+                  ? '#F59E0B'
+                  : '#22C55E',
+              }}
+            />
+          </div>
+          {split.awlRemaining > 0 && (
+            <span className={cn(T.legendText, 'mt-1 block')} style={{ color: DARK_PALETTE.textMuted }}>
+              {formatCurrency(split.awlRemaining)} remaining
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// =============================================================================
 // Coverage Comparison (Monet/Light Theme) — preserved as-is
 // =============================================================================
 
@@ -1822,6 +2025,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
 
   const { includedPersons } = usePersonFilter()
   const { data: persons, isLoading: personsLoading } = usePersonsQuery()
+  const { data: allPolicies } = useInsurancePoliciesQuery()
 
   // Person selection state
   // Dark mode: multi-select (matching Pencil "Viewing for N persons" design)
@@ -1918,6 +2122,12 @@ export function JourneyTab({ className }: JourneyTabProps) {
   const selectedProjection = useMemo(() => {
     return projections.find(p => p.age === selectedAge) ?? projections.find(p => p.age === currentAge)
   }, [projections, selectedAge, currentAge])
+
+  // Filter insurance policies for the selected person
+  const personPolicies = useMemo(() => {
+    if (!allPolicies || !effectivePersonId) return []
+    return allPolicies.filter(p => p.personId === effectivePersonId && p.isActive)
+  }, [allPolicies, effectivePersonId])
 
   const currentYear = new Date().getFullYear()
   const isCurrentAge = selectedAge === currentAge
@@ -2031,6 +2241,14 @@ export function JourneyTab({ className }: JourneyTabProps) {
             currentYear={currentYear}
           />
         </div>
+
+        {/* Annual Premium Breakdown — full width below */}
+        {personPolicies.length > 0 && (
+          <DarkAnnualPremiumBreakdownCard
+            policies={personPolicies}
+            personAge={currentAge}
+          />
+        )}
       </div>
     )
   }

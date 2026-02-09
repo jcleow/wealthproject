@@ -3,9 +3,10 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   X, Shield, Heart, HeartHandshake, Link, Zap,
-  Check, Plus, ArrowLeft,
+  Check, Plus, ArrowLeft, Landmark, Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getBannerState, annualizePremium, getAWLLimit, type BannerState } from '@/lib/medisave-utils'
 import { Modal } from '@/components/ui/Modal'
 import { CustomDropdown } from '@/components/ui/CustomDropdown'
 import { DatePicker } from '@/components/ui/DatePicker'
@@ -130,7 +131,8 @@ export interface PolicyFormData {
   provider: string
   policyName: string
   sumAssured: number
-  monthlyPremium: number
+  premiumAmount: number
+  premiumFrequency: 'monthly' | 'annually'
   startDate: string
   endDate: string
   // Life-specific
@@ -164,6 +166,7 @@ interface EditingPolicy {
   insurerName: string | null
   coverageAmount: number
   premiumAmount: number
+  premiumFrequency: string
   startDate: string
   endDate: string | null
   deathBenefit: number | null
@@ -337,7 +340,8 @@ export function AddPolicyModal({ isOpen, onClose, onSave, editingPolicy }: AddPo
   const [provider, setProvider] = useState('')
   const [policyName, setPolicyName] = useState('')
   const [sumAssured, setSumAssured] = useState('')
-  const [monthlyPremium, setMonthlyPremium] = useState('')
+  const [premiumAmount, setPremiumAmount] = useState('')
+  const [premiumFrequency, setPremiumFrequency] = useState<'monthly' | 'annually'>('monthly')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [notes, setNotes] = useState('')
@@ -394,7 +398,8 @@ export function AddPolicyModal({ isOpen, onClose, onSave, editingPolicy }: AddPo
     setProvider(reverseProviderLabels[editingPolicy.insurerName ?? ''] ?? '')
     setPolicyName(editingPolicy.name)
     setSumAssured(editingPolicy.coverageAmount ? editingPolicy.coverageAmount.toString() : '')
-    setMonthlyPremium(editingPolicy.premiumAmount ? editingPolicy.premiumAmount.toString() : '')
+    setPremiumAmount(editingPolicy.premiumAmount ? editingPolicy.premiumAmount.toString() : '')
+    setPremiumFrequency(editingPolicy.premiumFrequency === 'annually' ? 'annually' : 'monthly')
     setStartDate(editingPolicy.startDate ?? '')
     setEndDate(editingPolicy.endDate ?? '')
     setNotes(typeof parsedNotes.userNotes === 'string' ? parsedNotes.userNotes : editingPolicy.notes ?? '')
@@ -445,7 +450,8 @@ export function AddPolicyModal({ isOpen, onClose, onSave, editingPolicy }: AddPo
     setProvider('')
     setPolicyName('')
     setSumAssured('')
-    setMonthlyPremium('')
+    setPremiumAmount('')
+    setPremiumFrequency('monthly')
     setStartDate('')
     setEndDate('')
     setNotes('')
@@ -475,6 +481,25 @@ export function AddPolicyModal({ isOpen, onClose, onSave, editingPolicy }: AddPo
 
   const isFormValid = policyName.trim() !== '' && startDate !== ''
 
+  // Compute MediSave payment source banner state reactively
+  const paymentSourceBanner: BannerState = (() => {
+    if (!selectedCategory) return { type: 'none' } as BannerState
+    const parsedPremium = parseFloat(premiumAmount.replace(/,/g, '')) || 0
+    const annualized = annualizePremium(parsedPremium, premiumFrequency)
+    // Map modal categories to API categories for payability check
+    const apiCategory = selectedCategory === 'health' ? 'hospitalization' : selectedCategory
+    const govScheme = selectedCategory === 'long_term_care' ? governmentScheme : undefined
+    // TODO: factor in existing IPs for this person to compute remaining AWL
+    const personAge = 35 // placeholder — will come from selected person's DOB
+    const awlLimit = getAWLLimit(personAge)
+    return getBannerState({
+      governmentScheme: govScheme ?? null,
+      category: apiCategory,
+      annualizedPremium: annualized,
+      remainingAWL: awlLimit, // full AWL for now, will subtract existing IPs later
+    })
+  })()
+
   const handleSave = () => {
     if (!selectedCategory || !isFormValid) return
 
@@ -485,7 +510,8 @@ export function AddPolicyModal({ isOpen, onClose, onSave, editingPolicy }: AddPo
       provider,
       policyName,
       sumAssured: parseFloat(sumAssured.replace(/,/g, '')) || 0,
-      monthlyPremium: parseFloat(monthlyPremium.replace(/,/g, '')) || 0,
+      premiumAmount: parseFloat(premiumAmount.replace(/,/g, '')) || 0,
+      premiumFrequency,
       startDate,
       endDate,
       notes,
@@ -899,13 +925,86 @@ export function AddPolicyModal({ isOpen, onClose, onSave, editingPolicy }: AddPo
               prefix="$"
             />
             <DarkInput
-              label="Monthly Premium"
-              value={formatCurrencyInput(monthlyPremium)}
-              onChange={(val) => setMonthlyPremium(val.replace(/[^\d]/g, ''))}
+              label="Premium Amount"
+              value={formatCurrencyInput(premiumAmount)}
+              onChange={(val) => setPremiumAmount(val.replace(/[^\d]/g, ''))}
               placeholder="0"
               prefix="$"
             />
           </div>
+
+          {/* Premium Frequency */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: darkTokens.textLabel }}>
+              Premium Frequency
+            </label>
+            <div
+              className="flex items-center p-[3px] rounded-lg"
+              style={{ backgroundColor: '#1A1A1D', border: '1px solid #2D2D33' }}
+            >
+              {(['monthly', 'annually'] as const).map((freq) => (
+                <button
+                  key={freq}
+                  type="button"
+                  onClick={() => setPremiumFrequency(freq)}
+                  className={cn(
+                    'flex-1 py-2 rounded-md text-sm font-medium transition-all duration-150',
+                    premiumFrequency === freq
+                      ? 'bg-blue-500 text-white'
+                      : 'text-zinc-500 hover:text-zinc-300'
+                  )}
+                >
+                  {freq === 'monthly' ? 'Monthly' : 'Annually'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Payment Source Banner — reactive to category, premium, frequency */}
+          {paymentSourceBanner.type === 'full' && (
+            <div
+              className="flex items-center gap-2.5 rounded-lg p-3"
+              style={{ backgroundColor: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.19)' }}
+            >
+              <Landmark className="h-4 w-4 shrink-0 text-emerald-500" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[13px] font-semibold text-emerald-500">MediSave Payable</span>
+                <span className="text-[11px] text-zinc-500">{paymentSourceBanner.label}</span>
+              </div>
+            </div>
+          )}
+          {paymentSourceBanner.type === 'mixed' && (
+            <div
+              className="flex flex-col gap-3 rounded-lg p-3.5"
+              style={{ backgroundColor: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.19)' }}
+            >
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[13px] font-semibold text-amber-500">Partially MediSave Payable</span>
+                <span className="text-[11px] text-zinc-500">Premium exceeds MediSave Additional Withdrawal Limit (AWL)</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 rounded-md p-2" style={{ backgroundColor: 'rgba(16, 185, 129, 0.06)' }}>
+                  <div className="text-[10px] text-zinc-500">MediSave</div>
+                  <div className="text-sm font-semibold text-emerald-500">
+                    ${paymentSourceBanner.medisavePortion.toLocaleString()} /yr
+                  </div>
+                </div>
+                <span className="text-zinc-600 text-base">+</span>
+                <div className="flex-1 rounded-md p-2" style={{ backgroundColor: 'rgba(245, 158, 11, 0.06)' }}>
+                  <div className="text-[10px] text-zinc-500">Cash</div>
+                  <div className="text-sm font-semibold text-amber-500">
+                    ${paymentSourceBanner.cashPortion.toLocaleString()} /yr
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Info className="h-3 w-3 shrink-0 text-zinc-500" />
+                <span className="text-[11px] text-zinc-500">
+                  AWL limit: ${paymentSourceBanner.awlLimit.toLocaleString()}/yr
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Date Row — gap-4 */}
           <div className="grid grid-cols-2 gap-4">

@@ -18,6 +18,8 @@ type insurancePolicyResponse struct {
 	PersonName       string  `json:"personName,omitempty"`
 	Name             string  `json:"name"`
 	Category         string  `json:"category"`
+	Subcategory      *string `json:"subcategory,omitempty"`
+	GovernmentScheme *string `json:"governmentScheme,omitempty"`
 	CoverageAmount   string  `json:"coverageAmount"`
 	PremiumAmount    string  `json:"premiumAmount"`
 	PremiumFrequency string  `json:"premiumFrequency"`
@@ -290,6 +292,221 @@ func TestInsurancePolicyNotFound(t *testing.T) {
 			testutil.AssertNotFound(t, resp)
 		})
 	}
+}
+
+// TestInsurancePolicyGovernmentScheme tests round-trip persistence of governmentScheme,
+// verifying MediSave-eligible policies (MediShield Life, CareShield Life, DPS, ElderShield)
+// and ISP hospitalization policies (null governmentScheme) work correctly through the API.
+func TestInsurancePolicyGovernmentScheme(t *testing.T) {
+	ts := testutil.NewTestServer(t)
+	person := createTestPerson(t, ts, "MediSave Test Person")
+
+	// Helper: create a policy and parse the response (handler returns 201 Created)
+	createPolicy := func(t *testing.T, payload map[string]interface{}) insurancePolicyResponse {
+		t.Helper()
+		resp := ts.Request("POST", "/api/v2/insurance/policies").
+			WithDefaultAuth().
+			WithJSON(payload).
+			Do(t)
+		var policy insurancePolicyResponse
+		testutil.AssertStatus(t, resp, http.StatusCreated)
+		testutil.AssertJSON(t, resp, &policy)
+		return policy
+	}
+
+	// Helper: GET a policy and parse the response
+	getPolicy := func(t *testing.T, id string) insurancePolicyResponse {
+		t.Helper()
+		resp := ts.Request("GET", "/api/v2/insurance/policies/"+id).
+			WithDefaultAuth().
+			Do(t)
+		return parsePolicyResponse(t, resp)
+	}
+
+	// --- Subtest 1: MediShield Life (governmentScheme round-trips) ---
+	t.Run("medishield_life round-trip", func(t *testing.T) {
+		created := createPolicy(t, map[string]interface{}{
+			"personId":         person.ID,
+			"name":             "MediShield Life",
+			"category":         "hospitalization",
+			"governmentScheme": "medishield_life",
+			"premiumAmount":    "350",
+			"premiumFrequency": "annually",
+			"startDate":        "2024-01-01",
+		})
+
+		if created.GovernmentScheme == nil || *created.GovernmentScheme != "medishield_life" {
+			t.Errorf("create: governmentScheme = %v, want %q", created.GovernmentScheme, "medishield_life")
+		}
+		if created.PremiumFrequency != "annually" {
+			t.Errorf("create: premiumFrequency = %q, want %q", created.PremiumFrequency, "annually")
+		}
+
+		// Verify GET returns the same value
+		fetched := getPolicy(t, created.ID)
+		if fetched.GovernmentScheme == nil || *fetched.GovernmentScheme != "medishield_life" {
+			t.Errorf("get: governmentScheme = %v, want %q", fetched.GovernmentScheme, "medishield_life")
+		}
+	})
+
+	// --- Subtest 2: DPS (different CPF account — OA, not MediSave) ---
+	t.Run("dps round-trip", func(t *testing.T) {
+		created := createPolicy(t, map[string]interface{}{
+			"personId":         person.ID,
+			"name":             "Dependants Protection Scheme",
+			"category":         "life",
+			"governmentScheme": "dps",
+			"premiumAmount":    "36",
+			"premiumFrequency": "annually",
+			"startDate":        "2024-01-01",
+		})
+
+		if created.GovernmentScheme == nil || *created.GovernmentScheme != "dps" {
+			t.Errorf("create: governmentScheme = %v, want %q", created.GovernmentScheme, "dps")
+		}
+	})
+
+	// --- Subtest 3: CareShield Life ---
+	t.Run("careshield_life round-trip", func(t *testing.T) {
+		created := createPolicy(t, map[string]interface{}{
+			"personId":         person.ID,
+			"name":             "CareShield Life",
+			"category":         "hospitalization",
+			"governmentScheme": "careshield_life",
+			"premiumAmount":    "280",
+			"premiumFrequency": "annually",
+			"startDate":        "2024-01-01",
+		})
+
+		if created.GovernmentScheme == nil || *created.GovernmentScheme != "careshield_life" {
+			t.Errorf("create: governmentScheme = %v, want %q", created.GovernmentScheme, "careshield_life")
+		}
+	})
+
+	// --- Subtest 4: ElderShield ---
+	t.Run("eldershield round-trip", func(t *testing.T) {
+		created := createPolicy(t, map[string]interface{}{
+			"personId":         person.ID,
+			"name":             "ElderShield",
+			"category":         "hospitalization",
+			"governmentScheme": "eldershield",
+			"premiumAmount":    "180",
+			"premiumFrequency": "annually",
+			"startDate":        "2024-01-01",
+		})
+
+		if created.GovernmentScheme == nil || *created.GovernmentScheme != "eldershield" {
+			t.Errorf("create: governmentScheme = %v, want %q", created.GovernmentScheme, "eldershield")
+		}
+	})
+
+	// --- Subtest 5: ISP (hospitalization, no governmentScheme → null) ---
+	t.Run("ISP without governmentScheme is null", func(t *testing.T) {
+		created := createPolicy(t, map[string]interface{}{
+			"personId":         person.ID,
+			"name":             "AIA HealthShield Gold Max A",
+			"category":         "hospitalization",
+			"premiumAmount":    "480",
+			"premiumFrequency": "annually",
+			"startDate":        "2024-01-01",
+			"insurerName":      "AIA",
+		})
+
+		if created.GovernmentScheme != nil {
+			t.Errorf("ISP: governmentScheme = %v, want nil", created.GovernmentScheme)
+		}
+
+		fetched := getPolicy(t, created.ID)
+		if fetched.GovernmentScheme != nil {
+			t.Errorf("ISP GET: governmentScheme = %v, want nil", fetched.GovernmentScheme)
+		}
+	})
+
+	// --- Subtest 6: Update governmentScheme (null → medishield_life) ---
+	t.Run("update governmentScheme from null to medishield_life", func(t *testing.T) {
+		created := createPolicy(t, map[string]interface{}{
+			"personId":         person.ID,
+			"name":             "Will Become MediShield",
+			"category":         "hospitalization",
+			"premiumAmount":    "200",
+			"premiumFrequency": "annually",
+			"startDate":        "2024-01-01",
+		})
+
+		if created.GovernmentScheme != nil {
+			t.Fatalf("setup: expected null governmentScheme, got %v", created.GovernmentScheme)
+		}
+
+		// Update to set governmentScheme
+		resp := ts.Request("PUT", "/api/v2/insurance/policies/"+created.ID).
+			WithDefaultAuth().
+			WithJSON(map[string]interface{}{
+				"personId":         person.ID,
+				"name":             "MediShield Life Upgraded",
+				"category":         "hospitalization",
+				"governmentScheme": "medishield_life",
+				"premiumAmount":    "350",
+				"premiumFrequency": "annually",
+				"startDate":        "2024-01-01",
+			}).
+			Do(t)
+
+		updated := parsePolicyResponse(t, resp)
+		if updated.GovernmentScheme == nil || *updated.GovernmentScheme != "medishield_life" {
+			t.Errorf("update: governmentScheme = %v, want %q", updated.GovernmentScheme, "medishield_life")
+		}
+		if updated.Name != "MediShield Life Upgraded" {
+			t.Errorf("update: name = %q, want %q", updated.Name, "MediShield Life Upgraded")
+		}
+	})
+
+	// --- Subtest 7: Invalid governmentScheme rejected by DB constraint ---
+	t.Run("invalid governmentScheme rejected", func(t *testing.T) {
+		resp := ts.Request("POST", "/api/v2/insurance/policies").
+			WithDefaultAuth().
+			WithJSON(map[string]interface{}{
+				"personId":         person.ID,
+				"name":             "Invalid Scheme",
+				"category":         "hospitalization",
+				"governmentScheme": "fake_scheme",
+				"premiumAmount":    "100",
+				"premiumFrequency": "annually",
+				"startDate":        "2024-01-01",
+			}).
+			Do(t)
+
+		// DB CHECK constraint rejects invalid values — handler returns 500
+		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusCreated {
+			t.Errorf("expected error for invalid governmentScheme, got %d", resp.StatusCode)
+		}
+	})
+
+	// --- Subtest 8: Premium frequency values ---
+	t.Run("premium frequency monthly and quarterly", func(t *testing.T) {
+		monthlyPolicy := createPolicy(t, map[string]interface{}{
+			"personId":         person.ID,
+			"name":             "Monthly Premium Policy",
+			"category":         "life",
+			"premiumAmount":    "75",
+			"premiumFrequency": "monthly",
+			"startDate":        "2024-01-01",
+		})
+		if monthlyPolicy.PremiumFrequency != "monthly" {
+			t.Errorf("monthly: premiumFrequency = %q, want %q", monthlyPolicy.PremiumFrequency, "monthly")
+		}
+
+		quarterlyPolicy := createPolicy(t, map[string]interface{}{
+			"personId":         person.ID,
+			"name":             "Quarterly Premium Policy",
+			"category":         "life",
+			"premiumAmount":    "200",
+			"premiumFrequency": "quarterly",
+			"startDate":        "2024-01-01",
+		})
+		if quarterlyPolicy.PremiumFrequency != "quarterly" {
+			t.Errorf("quarterly: premiumFrequency = %q, want %q", quarterlyPolicy.PremiumFrequency, "quarterly")
+		}
+	})
 }
 
 // TestInsurancePolicyUserIsolation verifies that users cannot see each other's policies.

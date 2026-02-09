@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Shield, Loader2, MoreHorizontal, Check, ChevronDown, ChevronLeft, ChevronRight, Eye, Pencil, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Landmark } from 'lucide-react'
 import { AddPolicyModal } from '../modals/AddPolicyModal'
 import { PolicyDetailModal } from '../modals/PolicyDetailModal'
 import { useColorScheme } from '@/stores'
@@ -16,6 +16,7 @@ import {
 import type { InsurancePolicyCreateInput, InsurancePolicyRecord } from '@/api/financial/insurance'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
+import { getMediSavePayability, getCpfAccountLabel } from '@/lib/medisave-utils'
 import type { Person } from '@/types/person'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -541,9 +542,30 @@ function PolicyTable({
                 >
                   {policy.name}
                 </button>
-                <span className="truncate text-[10px]" style={{ color: theme.textMuted }}>
-                  {subtitle}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-[10px]" style={{ color: theme.textMuted }}>
+                    {subtitle}
+                  </span>
+                  {(() => {
+                    const payability = getMediSavePayability(policy)
+                    if (payability === 'none') return null
+                    const isFull = payability === 'full'
+                    const label = isFull
+                      ? getCpfAccountLabel(policy.governmentScheme ?? null)
+                      : 'MediSave/Cash'
+                    const badgeBg = isFull ? 'rgba(34, 197, 94, 0.10)' : 'rgba(245, 158, 11, 0.10)'
+                    const badgeColor = isFull ? '#22C55E' : '#F59E0B'
+                    return (
+                      <span
+                        className="inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-px text-[8px] font-semibold"
+                        style={{ background: badgeBg, color: badgeColor }}
+                      >
+                        <Landmark className="h-2 w-2" />
+                        {label}
+                      </span>
+                    )
+                  })()}
+                </div>
               </div>
             </div>
 
@@ -809,7 +831,8 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
     provider: string
     policyName: string
     sumAssured: number
-    monthlyPremium: number
+    premiumAmount: number
+    premiumFrequency: 'monthly' | 'annually'
     startDate: string
     endDate: string
     deathBenefit?: number
@@ -854,8 +877,8 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
       category: formData.category,
       subcategory: formData.type,
       coverageAmount: formData.sumAssured.toString(),
-      premiumAmount: formData.monthlyPremium.toString(),
-      premiumFrequency: 'monthly',
+      premiumAmount: formData.premiumAmount.toString(),
+      premiumFrequency: formData.premiumFrequency,
       startDate: formData.startDate || new Date().toISOString().split('T')[0],
       endDate: formData.endDate || undefined,
       insurerName: providerLabels[formData.provider] ?? formData.provider,

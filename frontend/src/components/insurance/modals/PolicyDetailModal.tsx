@@ -1,9 +1,10 @@
 'use client'
 
-import { Heart, Shield, Activity, Building2, X, Trash2, Pencil, Calendar } from 'lucide-react'
+import { Heart, Shield, Activity, Building2, X, Trash2, Pencil, Calendar, Landmark } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/format'
 import type { InsurancePolicyRecord } from '@/api/financial/insurance'
+import { getMediSavePayability, getCpfAccountLabel } from '@/lib/medisave-utils'
 
 // ============================================================================
 // DARK PALETTE (matches Pencil design KZCh7)
@@ -249,6 +250,56 @@ export function PolicyDetailModal({ isOpen, onClose, policy, personColor, onEdit
               />
             </div>
           </div>
+
+          {/* Payment Source */}
+          {(() => {
+            const payability = getMediSavePayability(policy)
+            if (payability === 'none') return null
+            const isFull = payability === 'full'
+            const cpfLabel = getCpfAccountLabel(policy.governmentScheme ?? null)
+            const medisavePortion = isFull ? annualPremium : 0
+            const cashPortion = isFull ? 0 : annualPremium
+            const badgeBg = isFull ? 'rgba(34, 197, 94, 0.10)' : 'rgba(245, 158, 11, 0.10)'
+            const badgeColor = isFull ? '#22C55E' : '#F59E0B'
+            const badgeLabel = isFull ? cpfLabel : 'MediSave/Cash'
+            return (
+              <div
+                className="flex flex-col gap-4 p-5 rounded-sm"
+                style={{ background: D.cardBg, border: `1px solid ${D.border}` }}
+              >
+                <SectionHeader label="PAYMENT SOURCE" />
+                <div className="flex gap-4">
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    <span className="text-xs" style={{ color: D.textMuted }}>Source</span>
+                    <span
+                      className="inline-flex w-fit items-center gap-1 rounded px-2 py-0.5 text-[11px] font-semibold"
+                      style={{ background: badgeBg, color: badgeColor }}
+                    >
+                      <Landmark className="h-3 w-3" />
+                      {badgeLabel}
+                    </span>
+                  </div>
+                  <DetailCell
+                    label={`${cpfLabel} Portion`}
+                    value={medisavePortion > 0 ? formatCurrency(medisavePortion) + '/yr' : '\u2014'}
+                    valueColor={medisavePortion > 0 ? '#22C55E' : D.textDim}
+                  />
+                  <DetailCell
+                    label="Cash Portion"
+                    value={cashPortion > 0 ? formatCurrency(cashPortion) + '/yr' : '\u2014'}
+                    valueColor={cashPortion > 0 ? D.textPrimary : D.textDim}
+                  />
+                </div>
+                {!isFull && (
+                  <div className="flex items-center gap-2 rounded-md px-3 py-2" style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.12)' }}>
+                    <span className="text-[11px] leading-relaxed" style={{ color: '#F59E0B' }}>
+                      ISP premiums are subject to the MediSave Additional Withdrawal Limit (AWL). The actual MediSave/Cash split depends on remaining AWL after other ISPs.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Dates & Person */}
           <div
