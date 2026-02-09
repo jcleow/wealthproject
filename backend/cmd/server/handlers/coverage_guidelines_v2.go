@@ -183,6 +183,11 @@ func (h *CoverageGuidelinesV2Handler) HandleUpsert(w http.ResponseWriter, r *htt
 		return
 	}
 
+	// Validate person belongs to authenticated user
+	if !validatePersonOwnership(w, r, h.store, userID, &input.PersonID) {
+		return
+	}
+
 	guidelines, err := input.toCoverageGuidelines()
 	if err != nil {
 		badRequest(w, err)

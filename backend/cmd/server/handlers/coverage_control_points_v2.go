@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -103,6 +104,11 @@ func (h *CoverageControlPointV2Handler) HandleCreate(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Validate person belongs to authenticated user
+	if !validatePersonOwnership(w, r, h.store, userID, &input.PersonID) {
+		return
+	}
+
 	point, err := input.toControlPoint()
 	if err != nil {
 		badRequest(w, err)
@@ -115,7 +121,7 @@ func (h *CoverageControlPointV2Handler) HandleCreate(w http.ResponseWriter, r *h
 		return
 	}
 
-	jsonResponse(w, http.StatusOK, created)
+	jsonResponse(w, http.StatusCreated, created)
 }
 
 // HandleUpdate updates an existing coverage control point.
@@ -186,6 +192,21 @@ func (h *CoverageControlPointV2Handler) HandleBulkUpsert(w http.ResponseWriter, 
 	if input.PersonID == "" {
 		badRequest(w, errMissingFields("personId"))
 		return
+	}
+
+	// Validate person belongs to authenticated user
+	if !validatePersonOwnership(w, r, h.store, userID, &input.PersonID) {
+		return
+	}
+
+	// Validate no duplicate ages in the input
+	seenAges := make(map[int]bool, len(input.Points))
+	for _, pointInput := range input.Points {
+		if seenAges[pointInput.Age] {
+			badRequest(w, fmt.Errorf("duplicate age %d in control points", pointInput.Age))
+			return
+		}
+		seenAges[pointInput.Age] = true
 	}
 
 	var points []repo.CoverageControlPoint

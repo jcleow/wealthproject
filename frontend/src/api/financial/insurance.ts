@@ -141,11 +141,7 @@ export async function deleteInsurancePolicy(id: string): Promise<void> {
 }
 
 export async function deleteAllInsurancePolicies(): Promise<void> {
-  const response = await fetch('/api/v2/insurance/policies', { method: 'DELETE' })
-  if (!response.ok && response.status !== 204) {
-    const errorText = await response.text()
-    throw new Error(`Failed to delete insurance policies: ${response.status} ${errorText}`)
-  }
+  await apiClient.delete<void>('/insurance/policies', { baseUrl: '/api/v2' })
 }
 
 export const insuranceApi = {

@@ -10,9 +10,7 @@ import {
   FileText,
   MoreHorizontal,
   Plus,
-  ChevronDown,
   ChevronRight,
-  Check,
   Pencil,
   Eye,
 } from 'lucide-react'
@@ -21,9 +19,9 @@ import { formatCurrency } from '@/lib/format'
 import { useInsurancePoliciesQuery } from '@/hooks/queries/useInsurancePoliciesQuery'
 import type { InsurancePolicyRecord } from '@/api/financial/insurance'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
-import { useGuidelineTargets } from '@/stores/coverageGuidelinesStore'
+import { PersonViewDropdown } from '@/components/insurance/shared/PersonViewDropdown'
+import { useGuidelineTargets, useQuestionnaireAnswers, useCoverageGuidelinesStore } from '@/stores/coverageGuidelinesStore'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
-import type { Person } from '@/types/person'
 
 // ============================================================================
 // CATEGORY DEFINITIONS
@@ -88,6 +86,12 @@ const COVERAGE_CATEGORIES: CategoryDefinition[] = [
 // HELPERS
 // ============================================================================
 
+/** Shared menu popup style for card action dropdowns */
+const cardActionMenuStyle: React.CSSProperties = {
+  background: '#111113',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
+}
+
 /** Safely coerce any value to a finite number (guards against string/NaN from API) */
 function toNum(value: unknown): number {
   const n = Number(value)
@@ -125,149 +129,24 @@ function getCategoryAnnualPremium(policies: InsurancePolicyRecord[]): number {
   return policies.reduce((sum, p) => sum + getAnnualPremium(p), 0)
 }
 
-// ============================================================================
-// PERSON HELPERS
-// ============================================================================
+// PersonViewDropdown is imported from @/components/insurance/shared/PersonViewDropdown
 
-function getPersonAge(dateOfBirth: string): number {
-  const today = new Date()
-  const birth = new Date(dateOfBirth)
-  let age = today.getFullYear() - birth.getFullYear()
-  const monthDiff = today.getMonth() - birth.getMonth()
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--
+/** Format a dollar amount as months of income or expenses, or as raw cash */
+function formatTargetAmount(
+  amount: number,
+  mode: TargetDisplayMode,
+  monthlyIncome: number,
+  monthlyExpenses: number,
+): string {
+  if (mode === 'months_income' && monthlyIncome > 0) {
+    const months = Math.round(amount / monthlyIncome)
+    return `${months} mo. income`
   }
-  return age
-}
-
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
-
-function getRelationshipLabel(relationship: string): string {
-  if (relationship === 'self') return 'You'
-  return relationship.charAt(0).toUpperCase() + relationship.slice(1)
-}
-
-// ============================================================================
-// PERSON VIEW DROPDOWN (Pencil design)
-// Multi-select with avatar circles, initials, and age/relationship metadata
-// ============================================================================
-
-function PersonViewDropdown({
-  persons,
-  selectedIds,
-  onToggle,
-}: {
-  persons: Person[]
-  selectedIds: Set<string>
-  onToggle: (personId: string) => void
-}) {
-  const [isOpen, setIsOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!isOpen) return
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen])
-
-  const selectedCount = selectedIds.size === 0 ? persons.length : selectedIds.size
-  const triggerLabel = `${selectedCount} person${selectedCount !== 1 ? 's' : ''}`
-
-  return (
-    <div ref={containerRef} className="relative">
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs transition-all duration-200"
-        style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}
-      >
-        <span className="text-slate-500">Viewing for</span>
-        <span className="font-medium text-slate-200">{triggerLabel}</span>
-        <ChevronDown
-          className="h-3.5 w-3.5 text-slate-500 transition-transform duration-200"
-          style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}
-        />
-      </button>
-
-      {/* Dropdown Panel */}
-      {isOpen && (
-        <div
-          className="absolute right-0 top-full z-30 mt-1 w-[240px] rounded-lg py-2 shadow-xl"
-          style={{
-            background: '#111113',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-          }}
-        >
-          {persons.map((person) => {
-            const isSelected = selectedIds.size === 0 || selectedIds.has(person.id)
-            const age = getPersonAge(person.dateOfBirth)
-            const initials = getInitials(person.name)
-            const relationshipLabel = getRelationshipLabel(person.relationship ?? 'self')
-            const avatarColor = person.displayColor || '#64748b'
-
-            return (
-              <button
-                key={person.id}
-                type="button"
-                onClick={() => onToggle(person.id)}
-                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-white/[0.04]"
-                style={{ background: isSelected ? '#1A1A1D' : undefined }}
-              >
-                {/* Checkbox */}
-                <div
-                  className="flex h-4 w-4 shrink-0 items-center justify-center"
-                  style={{
-                    borderRadius: 3,
-                    background: isSelected ? '#F0F0F0' : 'transparent',
-                    border: isSelected ? 'none' : '1.5px solid #52525B',
-                  }}
-                >
-                  {isSelected && <Check className="h-2.5 w-2.5 text-[#111113]" />}
-                </div>
-
-                {/* Avatar circle */}
-                <div
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-                  style={{ background: avatarColor }}
-                >
-                  <span className="text-[10px] font-semibold text-white">{initials}</span>
-                </div>
-
-                {/* Info */}
-                <div className="flex flex-col items-start gap-px min-w-0">
-                  <span className="text-xs font-medium text-slate-200 truncate w-full text-left">
-                    {person.name}
-                  </span>
-                  <span className="text-[11px] text-slate-500">
-                    Age {age} · {relationshipLabel}
-                  </span>
-                </div>
-              </button>
-            )
-          })}
-
-          {persons.length === 0 && (
-            <div className="px-3.5 py-3 text-xs text-center text-slate-500">
-              No persons added yet
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
+  if (mode === 'months_expenses' && monthlyExpenses > 0) {
+    const months = Math.round(amount / monthlyExpenses)
+    return `${months} mo. expenses`
+  }
+  return formatCurrency(amount)
 }
 
 // ============================================================================
@@ -276,15 +155,20 @@ function PersonViewDropdown({
 
 interface MyCoverageTabProps {
   onNavigateToPolicy?: () => void
+  onEditTargets?: () => void
 }
 
-export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
+export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageTabProps) {
   const { data: policies = [] } = useInsurancePoliciesQuery()
   const { data: personsData } = usePersonsQuery()
   const persons = useMemo(() => personsData ?? [], [personsData])
   const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
   const [targetDisplayMode, setTargetDisplayMode] = useState<TargetDisplayMode>('cash')
   const guidelineTargets = useGuidelineTargets()
+  const annualIncome = useCoverageGuidelinesStore((s) => s.guidelines.annualIncome)
+  const questionnaireAnswers = useQuestionnaireAnswers()
+  const monthlyIncome = annualIncome / 12
+  const monthlyExpenses = questionnaireAnswers.criticalIllness.monthlyExpenses || annualIncome / 12
 
   const handleTogglePerson = (personId: string) => {
     setSelectedPersonIds((prev) => {
@@ -350,10 +234,16 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
     .map((c) => c.title)
     .join(', ')
 
-  const coveragePercent =
-    categoryData.length > 0
-      ? Math.round((coveredCount / categoryData.length) * 100)
-      : 0
+  // Weighted coverage score: average of (coverage / target) across non-hospitalization categories
+  const coveragePercent = (() => {
+    const scoreable = categoryData.filter((c) => c.id !== 'hospitalization' && c.resolvedTarget > 0)
+    if (scoreable.length === 0) return 0
+    const totalRatio = scoreable.reduce((sum, c) => {
+      const ratio = Math.min(1, toNum(c.coverageAmount) / c.resolvedTarget)
+      return sum + ratio
+    }, 0)
+    return Math.round((totalRatio / scoreable.length) * 100)
+  })()
 
   return (
     <div className="p-8 space-y-8">
@@ -407,6 +297,7 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
                   category={category}
                   onAddPolicy={onNavigateToPolicy}
                   onViewPolicies={onNavigateToPolicy}
+                  onEditTargets={onEditTargets}
                   targetDisplayMode={targetDisplayMode}
                   onChangeTargetDisplay={setTargetDisplayMode}
                 />
@@ -418,8 +309,11 @@ export function MyCoverageTab({ onNavigateToPolicy }: MyCoverageTabProps) {
                 category={category}
                 onAddPolicy={onNavigateToPolicy}
                 onViewPolicies={onNavigateToPolicy}
+                onEditTargets={onEditTargets}
                 targetDisplayMode={targetDisplayMode}
                 onChangeTargetDisplay={setTargetDisplayMode}
+                monthlyIncome={monthlyIncome}
+                monthlyExpenses={monthlyExpenses}
               />
             )
           })}
@@ -568,20 +462,19 @@ function HospitalizationCard({
   category,
   onAddPolicy,
   onViewPolicies,
+  onEditTargets,
   targetDisplayMode,
   onChangeTargetDisplay,
 }: {
   category: CategoryCardData
   onAddPolicy?: () => void
   onViewPolicies?: () => void
+  onEditTargets?: () => void
   targetDisplayMode: TargetDisplayMode
   onChangeTargetDisplay: (mode: TargetDisplayMode) => void
 }) {
-  const { primaryPolicy, annualPremium, hasCoverage } = category
+  const { primaryPolicy, categoryPolicies, annualPremium, hasCoverage } = category
   const Icon = category.icon
-
-  // Derive ward class from notes or subcategory
-  const wardClass = primaryPolicy?.subcategory === 'isp' ? 'ISP Plan' : 'MediShield Life'
 
   return (
     <div className="flex flex-col rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
@@ -590,6 +483,7 @@ function HospitalizationCard({
         icon={Icon}
         title={category.title}
         subtitle={category.subtitle}
+        onEditTargets={onEditTargets}
         onViewPolicies={onViewPolicies}
         targetDisplayMode={targetDisplayMode}
         onChangeTargetDisplay={onChangeTargetDisplay}
@@ -634,23 +528,8 @@ function HospitalizationCard({
             {/* Divider */}
             <div className="h-px bg-white/[0.04]" />
 
-            {/* Policy info footer */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-slate-500" />
-                <span className={cn(T.bodyText, 'text-slate-400')}>
-                  {primaryPolicy?.name ?? 'No policy name'}
-                </span>
-                {primaryPolicy?.personName && (
-                  <span className={cn(T.metaText, 'text-slate-500')}>
-                    · {primaryPolicy.personName}
-                  </span>
-                )}
-              </div>
-              <span className="text-[13px] font-medium font-mono tabular-nums text-slate-300">
-                {wardClass}
-              </span>
-            </div>
+            {/* Policy list */}
+            <PolicyList policies={categoryPolicies} annualPremium={annualPremium} />
           </>
         ) : (
           <EmptyPolicyState onAddPolicy={onAddPolicy} />
@@ -669,20 +548,27 @@ function HospitalizationCard({
 function ProgressCoverageCard({
   category,
   onViewPolicies,
+  onEditTargets,
   targetDisplayMode,
   onChangeTargetDisplay,
+  monthlyIncome,
+  monthlyExpenses,
 }: {
   category: CategoryCardData
   onAddPolicy?: () => void
   onViewPolicies?: () => void
+  onEditTargets?: () => void
   targetDisplayMode: TargetDisplayMode
   onChangeTargetDisplay: (mode: TargetDisplayMode) => void
+  monthlyIncome: number
+  monthlyExpenses: number
 }) {
   const {
     coverageAmount,
     resolvedTarget,
     annualPremium,
     primaryPolicy,
+    categoryPolicies,
   } = category
   const Icon = category.icon
 
@@ -703,9 +589,13 @@ function ProgressCoverageCard({
     : isLowCoverage
       ? 'text-red-400'
       : 'text-amber-500'
+
+  const displayCoverage = formatTargetAmount(safeCoverage, targetDisplayMode, monthlyIncome, monthlyExpenses)
+  const displayTarget = formatTargetAmount(targetAmount, targetDisplayMode, monthlyIncome, monthlyExpenses)
+  const displayGap = formatTargetAmount(gapAmount, targetDisplayMode, monthlyIncome, monthlyExpenses)
   const barMessage = isFullyCovered
     ? '100% of target \u2014 fully covered'
-    : `${percentage}% of target \u2014 ${formatCurrency(gapAmount)} gap`
+    : `${percentage}% of target \u2014 ${displayGap} gap`
 
   return (
     <div className="flex flex-col rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
@@ -714,6 +604,7 @@ function ProgressCoverageCard({
         icon={Icon}
         title={category.title}
         subtitle={category.subtitle}
+        onEditTargets={onEditTargets}
         onViewPolicies={onViewPolicies}
         targetDisplayMode={targetDisplayMode}
         onChangeTargetDisplay={onChangeTargetDisplay}
@@ -727,14 +618,14 @@ function ProgressCoverageCard({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <span className={cn(T.cardDetailValue, 'text-white')}>
-                {formatCurrency(safeCoverage)}
+                {displayCoverage}
               </span>
               <span className={cn(T.metaText, 'text-slate-500')}>current</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className={cn(T.metaText, 'text-slate-500')}>Target:</span>
               <span className={cn(T.metaText, 'font-medium text-slate-300')}>
-                {formatCurrency(targetAmount)}
+                {displayTarget}
               </span>
             </div>
           </div>
@@ -768,38 +659,78 @@ function ProgressCoverageCard({
         {/* Divider */}
         <div className="h-px bg-white/[0.04]" />
 
-        {/* Policy footer */}
-        <div className="flex items-center justify-between">
-          {primaryPolicy ? (
-            <>
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-slate-500" />
-                <span className={cn(T.bodyText, 'text-slate-400')}>
-                  {primaryPolicy.name}
-                </span>
-                {primaryPolicy.personName && (
-                  <span className={cn(T.metaText, 'text-slate-500')}>
-                    · {primaryPolicy.personName}
-                  </span>
-                )}
-              </div>
-              <span className="text-[13px] font-medium font-mono tabular-nums text-slate-300">
-                {formatCurrency(annualPremium)}/yr
-              </span>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-slate-500" />
-                <span className={cn(T.bodyText, 'text-slate-400')}>No active policy</span>
-              </div>
-              <span className="text-[13px] font-medium font-mono tabular-nums text-slate-300">
-                $0/yr
-              </span>
-            </>
-          )}
-        </div>
+        {/* Policy list */}
+        <PolicyList policies={categoryPolicies} annualPremium={annualPremium} />
       </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// POLICY LIST
+// Shows all contributing policies for a category card (multi-person aware)
+// ============================================================================
+
+function PolicyList({
+  policies,
+  annualPremium,
+  onAddPolicy,
+}: {
+  policies: InsurancePolicyRecord[]
+  annualPremium: number
+  onAddPolicy?: () => void
+}) {
+  if (policies.length === 0) {
+    return (
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-slate-500" />
+          <span className={cn(T.bodyText, 'text-slate-400')}>No active policy</span>
+        </div>
+        {onAddPolicy && (
+          <button
+            type="button"
+            onClick={onAddPolicy}
+            className="flex items-center gap-1 text-xs text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            <Plus className="h-3 w-3" />
+            Add
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {policies.map((policy) => (
+        <div key={policy.id} className="flex items-center justify-between">
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+            <span className={cn(T.metaText, 'text-slate-300 truncate')}>
+              {policy.name}
+            </span>
+            {policy.personName && (
+              <span className={cn(T.metaText, 'text-slate-500 shrink-0')}>
+                · {policy.personName}
+              </span>
+            )}
+          </div>
+          <span className="text-[11px] font-medium font-mono tabular-nums text-slate-400 shrink-0 ml-2">
+            {formatCurrency(toNum(policy.coverageAmount))}
+          </span>
+        </div>
+      ))}
+      {policies.length > 1 && (
+        <div className="flex items-center justify-between pt-1 border-t border-white/[0.04]">
+          <span className={cn(T.metaText, 'text-slate-500')}>
+            {policies.length} policies · Total premium
+          </span>
+          <span className="text-[11px] font-medium font-mono tabular-nums text-slate-300">
+            {formatCurrency(annualPremium)}/yr
+          </span>
+        </div>
+      )}
     </div>
   )
 }
@@ -946,11 +877,6 @@ function CardActionMenu({
     if (showSubmenu) updateSubmenuPos()
   }, [showSubmenu, updateSubmenuPos])
 
-  const menuStyle = {
-    background: '#111113',
-    border: '1px solid rgba(255, 255, 255, 0.08)',
-  }
-
   return (
     <div className="relative">
       {/* Ellipsis trigger */}
@@ -969,7 +895,7 @@ function CardActionMenu({
         <div
           ref={dropdownRef}
           className="fixed z-[9999] w-[210px] rounded-lg py-1.5 shadow-xl"
-          style={{ ...menuStyle, top: dropdownPos.top, left: dropdownPos.left }}
+          style={{ ...cardActionMenuStyle, top: dropdownPos.top, left: dropdownPos.left }}
         >
           {/* Edit Targets */}
           <button
@@ -1022,7 +948,7 @@ function CardActionMenu({
         <div
           id="card-action-submenu"
           className="fixed z-[10000] w-[200px] rounded-lg py-1.5 shadow-xl"
-          style={{ ...menuStyle, top: submenuPos.top, left: submenuPos.left }}
+          style={{ ...cardActionMenuStyle, top: submenuPos.top, left: submenuPos.left }}
           onMouseLeave={() => setShowSubmenu(false)}
         >
           {TARGET_DISPLAY_OPTIONS.map((option) => {

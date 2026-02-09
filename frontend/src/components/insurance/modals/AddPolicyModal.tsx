@@ -370,11 +370,19 @@ export function AddPolicyModal({ isOpen, onClose, onSave, editingPolicy }: AddPo
   const [dailyHospitalCash, setDailyHospitalCash] = useState(false)
 
   // --- Pre-fill form when editing ---
-  const editingPolicyRef = useRef(editingPolicy)
-  editingPolicyRef.current = editingPolicy
+  // Track which policy ID we last pre-filled to avoid overwriting user edits
+  // when the parent re-renders with a new editingPolicy object reference.
+  const lastPrefilledIdRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!isOpen || !editingPolicy) return
+    if (!isOpen) {
+      lastPrefilledIdRef.current = null
+      return
+    }
+    if (!editingPolicy) return
+    // Skip pre-fill if we already populated for this exact policy
+    if (lastPrefilledIdRef.current === editingPolicy.id) return
+    lastPrefilledIdRef.current = editingPolicy.id
 
     // Parse structured notes if present
     let parsedNotes: Record<string, unknown> = {}

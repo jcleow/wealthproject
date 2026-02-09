@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -150,6 +151,24 @@ func (input *insurancePolicyInput) toInsurancePolicy() (repo.InsurancePolicy, er
 	}, nil
 }
 
+// validatePersonOwnership checks that the given personId belongs to the authenticated user.
+// Returns true if valid (or nil), false and writes error response if invalid.
+func validatePersonOwnership(w http.ResponseWriter, r *http.Request, store *repo.Store, userID string, personID *string) bool {
+	if personID == nil || *personID == "" {
+		return true
+	}
+	_, err := store.GetPerson(r.Context(), userID, *personID)
+	if err == repo.ErrNotFound {
+		badRequest(w, errors.New("person not found or does not belong to user"))
+		return false
+	}
+	if err != nil {
+		internalError(w, err)
+		return false
+	}
+	return true
+}
+
 // InsurancePolicyV2Handler serves insurance policy v2 endpoints.
 type InsurancePolicyV2Handler struct {
 	store *repo.Store
@@ -214,6 +233,11 @@ func (h *InsurancePolicyV2Handler) HandleCreate(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Validate person belongs to authenticated user
+	if !validatePersonOwnership(w, r, h.store, userID, input.PersonID) {
+		return
+	}
+
 	policy, err := input.toInsurancePolicy()
 	if err != nil {
 		badRequest(w, err)
@@ -226,7 +250,7 @@ func (h *InsurancePolicyV2Handler) HandleCreate(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	jsonResponse(w, http.StatusOK, created)
+	jsonResponse(w, http.StatusCreated, created)
 }
 
 // HandleGet returns a single insurance policy by ID.
@@ -272,6 +296,11 @@ func (h *InsurancePolicyV2Handler) HandleUpdate(w http.ResponseWriter, r *http.R
 	}
 	if input.StartDate == "" {
 		badRequest(w, errMissingFields("startDate"))
+		return
+	}
+
+	// Validate person belongs to authenticated user
+	if !validatePersonOwnership(w, r, h.store, userID, input.PersonID) {
 		return
 	}
 

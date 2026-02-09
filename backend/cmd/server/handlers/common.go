@@ -164,14 +164,18 @@ func parsePagination(r *http.Request) repository.PaginationParams {
 }
 
 // parsePaginationV2 extracts limit and offset from query parameters for v2 repository.
-// Defaults to limit=20 if not specified. Use limit=-1 to return all results (no limit).
+// Defaults to limit=20 if not specified. Maximum allowed limit is 500.
 func parsePaginationV2(r *http.Request) repoV2.PaginationParams {
 	defaultLimit := 20
+	maxLimit := 500
 	limit := &defaultLimit
 	var offset *int
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil {
+			if l > maxLimit {
+				l = maxLimit
+			}
 			limit = &l
 		}
 	}
