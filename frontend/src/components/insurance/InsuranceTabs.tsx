@@ -3,7 +3,7 @@
 import { cn } from '@/lib/utils'
 import { useColorScheme } from '@/stores'
 
-export type InsuranceTabId = 'overview' | 'journey' | 'policies'
+export type InsuranceTabId = 'overview' | 'journey' | 'policies' | 'guidelines'
 
 interface InsuranceTabsProps {
   activeTab: InsuranceTabId
@@ -14,6 +14,7 @@ const tabs: { id: InsuranceTabId; label: string }[] = [
   { id: 'overview', label: 'My Coverage' },
   { id: 'journey', label: 'Journey' },
   { id: 'policies', label: 'Policies' },
+  { id: 'guidelines', label: 'Guidelines' },
 ]
 
 export function InsuranceTabs({ activeTab, onTabChange }: InsuranceTabsProps) {

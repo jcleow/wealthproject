@@ -21,6 +21,7 @@ import type { InsurancePolicyRecord } from '@/api/financial/insurance'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
 import { PersonViewDropdown } from '@/components/insurance/shared/PersonViewDropdown'
 import { useGuidelineTargets, useQuestionnaireAnswers, useCoverageGuidelinesStore } from '@/stores/coverageGuidelinesStore'
+import type { CoverageQuestionnaireAnswers } from '@/stores/coverageGuidelinesStore'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 
 // ============================================================================
@@ -314,6 +315,7 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
                 onChangeTargetDisplay={setTargetDisplayMode}
                 monthlyIncome={monthlyIncome}
                 monthlyExpenses={monthlyExpenses}
+                questionnaireAnswers={questionnaireAnswers}
               />
             )
           })}
@@ -503,9 +505,6 @@ function HospitalizationCard({
                   <span className={cn(T.cardDetailValue, 'text-white')}>
                     ~6 months
                   </span>
-                  <span className={cn(T.cardDescription, 'text-slate-500')}>
-                    Based on avg ward stay cost
-                  </span>
                 </div>
               </div>
               <div className="flex-1 flex flex-col gap-1">
@@ -515,11 +514,6 @@ function HospitalizationCard({
                 <div className="flex items-center gap-2.5">
                   <span className={cn(T.cardDetailValue, 'text-white')}>
                     {formatCurrency(annualPremium)}/yr
-                  </span>
-                  <span className={cn(T.cardDescription, 'text-slate-500')}>
-                    {primaryPolicy?.insurerName
-                      ? `${primaryPolicy.insurerName}`
-                      : 'MediShield Life'}
                   </span>
                 </div>
               </div>
@@ -553,6 +547,7 @@ function ProgressCoverageCard({
   onChangeTargetDisplay,
   monthlyIncome,
   monthlyExpenses,
+  questionnaireAnswers,
 }: {
   category: CategoryCardData
   onAddPolicy?: () => void
@@ -562,12 +557,12 @@ function ProgressCoverageCard({
   onChangeTargetDisplay: (mode: TargetDisplayMode) => void
   monthlyIncome: number
   monthlyExpenses: number
+  questionnaireAnswers: CoverageQuestionnaireAnswers
 }) {
   const {
     coverageAmount,
     resolvedTarget,
     annualPremium,
-    primaryPolicy,
     categoryPolicies,
   } = category
   const Icon = category.icon
@@ -651,8 +646,9 @@ function ProgressCoverageCard({
         <div className="flex flex-col gap-2.5">
           <CoverageDetailStats
             categoryId={category.id}
-            policy={primaryPolicy}
             coverageAmount={coverageAmount}
+            monthlyExpenses={monthlyExpenses}
+            questionnaireAnswers={questionnaireAnswers}
           />
         </div>
 
@@ -743,35 +739,57 @@ function PolicyList({
 function CoverageDetailStats({
   categoryId,
   coverageAmount,
+  monthlyExpenses,
+  questionnaireAnswers,
 }: {
   categoryId: string
-  policy: InsurancePolicyRecord | null
   coverageAmount: number
+  monthlyExpenses: number
+  questionnaireAnswers: CoverageQuestionnaireAnswers
 }) {
-  // Category-specific detail stats matching Pencil design layout
+  const ciAnswers = questionnaireAnswers.criticalIllness
+  const paAnswers = questionnaireAnswers.personalAccident
+  const lifeTpdAnswers = questionnaireAnswers.lifeTpd
+
+  // Compute "months of expenses covered" using real monthly expenses
+  const expensesMonths = monthlyExpenses > 0
+    ? Math.floor(coverageAmount / monthlyExpenses)
+    : 0
+
+  // Emergency fund amount = emergency fund months * monthly expenses
+  const emergencyFundAmount = ciAnswers.emergencyFundMonths * (ciAnswers.monthlyExpenses || monthlyExpenses)
+
+  // Map occupation risk to display label
+  const riskLevelLabels: Record<string, string> = {
+    low: 'Low',
+    medium: 'Medium',
+    high: 'High',
+  }
+
+  // Category-specific detail stats using real questionnaire data
   const statSets: Record<string, { label: string; value: string }[]> = {
     life_tpd: [
       {
         label: 'Expenses Covered',
-        value: coverageAmount > 0 ? `${Math.floor(coverageAmount / 5000)} months` : '0 months',
+        value: coverageAmount > 0 ? `${expensesMonths} months` : '0 months',
       },
-      { label: 'Dependents', value: '0' },
+      { label: 'Dependents', value: String(lifeTpdAnswers.dependentCount) },
     ],
     critical_illness: [
       {
         label: 'Expenses Covered',
-        value: coverageAmount > 0 ? `${Math.floor(coverageAmount / 5000)} months` : '0 months',
+        value: coverageAmount > 0 ? `${expensesMonths} months` : '0 months',
       },
-      { label: 'Monthly Expenses', value: '$5,294' },
-      { label: 'Emergency Fund', value: '$3,250' },
+      { label: 'Monthly Expenses', value: formatCurrency(ciAnswers.monthlyExpenses || monthlyExpenses) },
+      { label: 'Emergency Fund', value: formatCurrency(emergencyFundAmount) },
     ],
     personal_accident: [
       {
         label: 'Expenses Covered',
-        value: coverageAmount > 0 ? `~${Math.max(1, Math.floor(coverageAmount / 18000))} months` : '0 months',
+        value: coverageAmount > 0 ? `~${expensesMonths} months` : '0 months',
       },
-      { label: 'Risk Level', value: 'Medium' },
-      { label: 'Occupation', value: 'Moderate' },
+      { label: 'Risk Level', value: riskLevelLabels[paAnswers.occupationRisk] ?? 'Unknown' },
+      { label: 'Commute', value: paAnswers.commuteMethod.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) },
     ],
   }
 

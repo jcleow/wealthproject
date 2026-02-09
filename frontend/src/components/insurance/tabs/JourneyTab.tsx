@@ -20,6 +20,7 @@ import { useQuestionnaireAutoPopulate } from '@/hooks/useQuestionnaireAutoPopula
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
 import { useColorScheme } from '@/stores'
 import { PersonSelector } from '@/components/ui/PersonSelector'
+import { PersonViewDropdown } from '@/components/insurance/shared/PersonViewDropdown'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
 import {
@@ -1703,16 +1704,37 @@ export function JourneyTab({ className }: JourneyTabProps) {
   const { includedPersons } = usePersonFilter()
   const { data: persons, isLoading: personsLoading } = usePersonsQuery()
 
-  // Person selection state - default to first included person
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null)
+  // Person selection state
+  // Dark mode: multi-select (matching Pencil "Viewing for N persons" design)
+  // Monet mode: single-select via PersonSelector
+  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string>>(new Set())
+  const [monetSelectedPersonId, setMonetSelectedPersonId] = useState<string | null>(null)
 
   // Category filter state (dark mode only)
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
 
-  // Initialize/update selected person when includedPersons changes
-  const effectivePersonId = selectedPersonId && includedPersons.some(p => p.id === selectedPersonId)
-    ? selectedPersonId
-    : includedPersons[0]?.id ?? null
+  const handleTogglePerson = (personId: string) => {
+    setSelectedPersonIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(personId)) {
+        next.delete(personId)
+      } else {
+        next.add(personId)
+      }
+      return next
+    })
+  }
+
+  // Derive effective person for projections:
+  // - Dark mode: first selected person (or first included if none selected)
+  // - Monet mode: single-select value
+  const effectivePersonId = isMonet
+    ? (monetSelectedPersonId && includedPersons.some(p => p.id === monetSelectedPersonId)
+        ? monetSelectedPersonId
+        : includedPersons[0]?.id ?? null)
+    : (selectedPersonIds.size > 0
+        ? (includedPersons.find(p => selectedPersonIds.has(p.id))?.id ?? includedPersons[0]?.id ?? null)
+        : includedPersons[0]?.id ?? null)
 
   const selectedPerson = persons?.find(p => p.id === effectivePersonId)
 
@@ -1845,15 +1867,12 @@ export function JourneyTab({ className }: JourneyTabProps) {
               </p>
             </div>
 
-            {/* Person Selector */}
+            {/* Person Selector — multi-select matching Pencil design */}
             {includedPersons.length > 1 && (
-              <PersonSelector
-                value={effectivePersonId}
-                onChange={(id) => setSelectedPersonId(id)}
-                variant="dark"
-                showCreate={false}
-                required
-                className="w-44"
+              <PersonViewDropdown
+                persons={includedPersons}
+                selectedIds={selectedPersonIds}
+                onToggle={handleTogglePerson}
               />
             )}
           </div>
@@ -1923,7 +1942,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
         {includedPersons.length > 1 && (
           <PersonSelector
             value={effectivePersonId}
-            onChange={(id) => setSelectedPersonId(id)}
+            onChange={(id) => setMonetSelectedPersonId(id)}
             variant="monet"
             showCreate={false}
             required

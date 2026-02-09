@@ -11,6 +11,7 @@ import {
 import { PoliciesTab } from '@/components/insurance/tabs/PoliciesTab'
 import { JourneyTab } from '@/components/insurance/tabs/JourneyTab'
 import { MyCoverageTab } from '@/components/insurance/tabs/MyCoverageTab'
+import { GuidelinesTab } from '@/components/insurance/tabs/GuidelinesTab'
 import { useColorScheme } from '@/stores'
 import { useCoverageGuidelinesStore } from '@/stores/coverageGuidelinesStore'
 import { useLoadSampleInsuranceData } from '@/hooks/queries/useLoadSampleInsuranceData'
@@ -248,9 +249,10 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
 
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
-        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} />}
+        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setActiveTab('guidelines')} />}
         {activeTab === 'journey' && <JourneyTab />}
         {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
+        {activeTab === 'guidelines' && <GuidelinesTab />}
       </main>
     </div>
   )
@@ -433,9 +435,10 @@ export default function InsurancePlannerPage() {
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
         <div className="mx-auto max-w-7xl">
-          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} />}
+          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setActiveTab('guidelines')} />}
           {activeTab === 'journey' && <JourneyTab />}
           {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
+          {activeTab === 'guidelines' && <GuidelinesTab />}
         </div>
       </main>
     </div>
