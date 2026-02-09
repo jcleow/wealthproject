@@ -13,7 +13,7 @@ import {
   type ChartData,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import { Shield, HeartPulse, Zap, AlertCircle, CheckCircle2, Calendar, GraduationCap, Home, Sunset, ChevronDown, ChevronRight, Baby, ShieldAlert, Accessibility } from 'lucide-react'
+import { Shield, HeartPulse, Zap, AlertCircle, Check, CheckCircle2, Calendar, GraduationCap, Home, Sunset, ChevronDown, ChevronRight, Baby, ShieldAlert, Accessibility } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { useQuestionnaireAutoPopulate } from '@/hooks/useQuestionnaireAutoPopulate'
@@ -23,7 +23,7 @@ import { PersonSelector } from '@/components/ui/PersonSelector'
 import { PersonViewDropdown } from '@/components/insurance/shared/PersonViewDropdown'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
-import { CheckboxPillGroup, type CheckboxPillOption } from '@/components/insurance/shared/CheckboxPill'
+import { type CheckboxPillOption } from '@/components/insurance/shared/CheckboxPill'
 import {
   generateCoverageProjection,
   calculateMilestones,
@@ -149,21 +149,126 @@ const JOURNEY_CATEGORY_PILLS: CheckboxPillOption[] = [
   { key: 'personalAccident', label: 'Personal Accident', checkColor: DARK_CATEGORY_CONFIG.personalAccident.chipCheckColor },
 ]
 
-function DarkCategoryFilterChips({
+function DarkCategoryFilterDropdown({
   activeCategories,
   onToggleCategory,
+  onSelectAll,
 }: {
   activeCategories: Set<IndividualCategory>
   onToggleCategory: (category: IndividualCategory) => void
+  onSelectAll: () => void
 }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  const selectedCount = activeCategories.size
+  const allSelected = selectedCount === ALL_CATEGORIES.length
+
   return (
-    <CheckboxPillGroup
-      label="Analyze:"
-      options={JOURNEY_CATEGORY_PILLS}
-      activeKeys={activeCategories as Set<string>}
-      onToggle={(key) => onToggleCategory(key as IndividualCategory)}
-      labelColor={DARK_PALETTE.textMuted}
-    />
+    <div ref={containerRef} className="relative">
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className="flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs transition-all duration-200"
+        style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}
+      >
+        <span className="text-slate-500">Analyze:</span>
+        <span className="font-medium text-slate-200">
+          {allSelected ? 'All coverage' : `${selectedCount} of ${ALL_CATEGORIES.length}`}
+        </span>
+        <ChevronDown
+          className="h-3.5 w-3.5 text-slate-500 transition-transform duration-200"
+          style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}
+        />
+      </button>
+
+      {/* Dropdown Panel */}
+      {isOpen && (
+        <div
+          role="listbox"
+          aria-multiselectable
+          className="absolute left-0 top-full z-30 mt-1 w-[220px] rounded-lg py-2 shadow-xl"
+          style={{
+            background: '#111113',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}
+        >
+          {/* Select All */}
+          <button
+            type="button"
+            onClick={onSelectAll}
+            className="flex w-full items-center gap-2.5 px-3.5 py-2 transition-colors hover:bg-white/[0.04]"
+          >
+            <div
+              className="flex h-4 w-4 shrink-0 items-center justify-center"
+              style={{
+                borderRadius: 3,
+                background: allSelected ? '#F0F0F0' : 'transparent',
+                border: allSelected ? 'none' : '1.5px solid #52525B',
+              }}
+            >
+              {allSelected && <Check className="h-2.5 w-2.5 text-[#111113]" />}
+            </div>
+            <span className="text-xs font-medium text-slate-400">Select All</span>
+          </button>
+          <div className="mx-3 my-1 h-px" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
+
+          {/* Category rows */}
+          {JOURNEY_CATEGORY_PILLS.map((option) => {
+            const isSelected = activeCategories.has(option.key as IndividualCategory)
+            const config = DARK_CATEGORY_CONFIG[option.key as IndividualCategory]
+            return (
+              <button
+                key={option.key}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => onToggleCategory(option.key as IndividualCategory)}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 transition-colors hover:bg-white/[0.04]"
+              >
+                {/* Checkbox */}
+                <div
+                  className="flex h-4 w-4 shrink-0 items-center justify-center"
+                  style={{
+                    borderRadius: 3,
+                    background: isSelected ? '#F0F0F0' : 'transparent',
+                    border: isSelected ? 'none' : '1.5px solid #52525B',
+                  }}
+                >
+                  {isSelected && <Check className="h-2.5 w-2.5 text-[#111113]" />}
+                </div>
+
+                {/* Color dot */}
+                <div
+                  className="h-3 w-3 shrink-0 rounded-md"
+                  style={{
+                    background: config.legendDotFill,
+                    border: `1.5px solid ${config.legendDotStroke}`,
+                  }}
+                />
+
+                {/* Label */}
+                <span className="text-xs font-medium text-slate-200">{option.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1974,9 +2079,12 @@ export function JourneyTab({ className }: JourneyTabProps) {
 
           {/* Filters row: chips + legend */}
           <div className="flex items-center justify-between mb-5">
-            <DarkCategoryFilterChips
+            <DarkCategoryFilterDropdown
               activeCategories={activeCategories}
               onToggleCategory={handleToggleCategory}
+              onSelectAll={() => setActiveCategories((prev) =>
+                prev.size === ALL_CATEGORIES.length ? new Set() : new Set(ALL_CATEGORIES)
+              )}
             />
             <DarkChartLegend />
           </div>
