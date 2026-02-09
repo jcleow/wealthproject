@@ -19,6 +19,8 @@ var insurancePolicySortColumns = map[string]string{
 	"renewalDate":    "COALESCE(ip.renewal_date, ip.end_date, ip.start_date)",
 	"isActive":       "ip.is_active",
 	"createdAt":      "ip.created_at",
+	"startDate":      "ip.start_date",
+	"endDate":        "COALESCE(ip.end_date, '9999-12-31')",
 }
 
 // buildInsurancePolicyOrderBy validates sort params against the allowlist
