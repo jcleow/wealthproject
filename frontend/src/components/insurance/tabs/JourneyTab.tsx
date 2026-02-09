@@ -13,7 +13,7 @@ import {
   type ChartData,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import { Shield, HeartPulse, Zap, AlertCircle, CheckCircle2, Calendar, GraduationCap, Home, Sunset, ChevronDown, ChevronRight, Check, Baby } from 'lucide-react'
+import { Shield, HeartPulse, Zap, AlertCircle, CheckCircle2, Calendar, GraduationCap, Home, Sunset, ChevronDown, ChevronRight, Check, Baby, ShieldAlert, Accessibility } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { useQuestionnaireAutoPopulate } from '@/hooks/useQuestionnaireAutoPopulate'
@@ -51,7 +51,9 @@ interface JourneyTabProps {
   className?: string
 }
 
-type CategoryFilter = 'all' | 'lifeTpd' | 'criticalIllness' | 'personalAccident'
+type IndividualCategory = 'lifeTpd' | 'criticalIllness' | 'earlyCi' | 'disability' | 'personalAccident'
+
+const ALL_CATEGORIES: IndividualCategory[] = ['lifeTpd', 'criticalIllness', 'earlyCi', 'disability', 'personalAccident']
 
 // =============================================================================
 // Dark Mode Palette (from Pencil design bpFdW)
@@ -73,6 +75,8 @@ const DARK_PALETTE = {
   grayCriticalIllness: '#6B7280',
   grayCriticalIllnessChip: '#A1A1AA',
   goldPersonalAccident: '#E5A100',
+  tealEarlyCi: '#14B8A6',
+  purpleDisability: '#A78BFA',
   gapCardBg: 'rgba(217, 119, 6, 0.08)',
   gapCardBorder: 'rgba(217, 119, 6, 0.20)',
   chipActiveBg: '#F0F0F0',
@@ -102,6 +106,24 @@ const DARK_CATEGORY_CONFIG = {
     legendDotStroke: DARK_PALETTE.grayCriticalIllness,
     icon: HeartPulse,
     label: 'Critical Illness',
+  },
+  earlyCi: {
+    chartLine: DARK_PALETTE.tealEarlyCi,
+    chartFill: '#14B8A640',
+    chipCheckColor: DARK_PALETTE.tealEarlyCi,
+    legendDotFill: '#14B8A640',
+    legendDotStroke: DARK_PALETTE.tealEarlyCi,
+    icon: ShieldAlert,
+    label: 'Early CI',
+  },
+  disability: {
+    chartLine: DARK_PALETTE.purpleDisability,
+    chartFill: '#A78BFA40',
+    chipCheckColor: DARK_PALETTE.purpleDisability,
+    legendDotFill: '#A78BFA40',
+    legendDotStroke: DARK_PALETTE.purpleDisability,
+    icon: Accessibility,
+    label: 'Disability',
   },
   personalAccident: {
     chartLine: DARK_PALETTE.goldPersonalAccident,
@@ -225,18 +247,19 @@ function DarkSummaryCards({
 // =============================================================================
 
 function DarkCategoryFilterChips({
-  activeFilter,
-  onFilterChange,
+  activeCategories,
+  onToggleCategory,
 }: {
-  activeFilter: CategoryFilter
-  onFilterChange: (filter: CategoryFilter) => void
+  activeCategories: Set<IndividualCategory>
+  onToggleCategory: (category: IndividualCategory) => void
 }) {
   const chipBaseClassName = cn('flex items-center gap-1.5 rounded-full px-3 py-[5px] cursor-pointer transition-all duration-150', T.chipText)
 
-  const allCategories: { key: CategoryFilter; label: string; checkColor: string }[] = [
-    { key: 'all', label: 'All Categories', checkColor: DARK_PALETTE.chipActiveText },
+  const categoryChips: { key: IndividualCategory; label: string; checkColor: string }[] = [
     { key: 'lifeTpd', label: 'Life/TPD', checkColor: DARK_CATEGORY_CONFIG.lifeTpd.chipCheckColor },
     { key: 'criticalIllness', label: 'Critical Illness', checkColor: DARK_CATEGORY_CONFIG.criticalIllness.chipCheckColor },
+    { key: 'earlyCi', label: 'Early CI', checkColor: DARK_CATEGORY_CONFIG.earlyCi.chipCheckColor },
+    { key: 'disability', label: 'Disability', checkColor: DARK_CATEGORY_CONFIG.disability.chipCheckColor },
     { key: 'personalAccident', label: 'Personal Accident', checkColor: DARK_CATEGORY_CONFIG.personalAccident.chipCheckColor },
   ]
 
@@ -245,14 +268,14 @@ function DarkCategoryFilterChips({
       <span className={T.metaText} style={{ color: DARK_PALETTE.textMuted }}>
         Analyze:
       </span>
-      {allCategories.map((category) => {
-        const isActive = activeFilter === category.key
+      {categoryChips.map((category) => {
+        const isActive = activeCategories.has(category.key)
 
         return (
           <button
             key={category.key}
             type="button"
-            onClick={() => onFilterChange(category.key)}
+            onClick={() => onToggleCategory(category.key)}
             className={chipBaseClassName}
             style={isActive ? {
               background: DARK_PALETTE.chipActiveBg,
@@ -284,6 +307,8 @@ function DarkChartLegend() {
   const legendItems = [
     DARK_CATEGORY_CONFIG.lifeTpd,
     DARK_CATEGORY_CONFIG.criticalIllness,
+    DARK_CATEGORY_CONFIG.earlyCi,
+    DARK_CATEGORY_CONFIG.disability,
     DARK_CATEGORY_CONFIG.personalAccident,
   ]
 
@@ -317,7 +342,7 @@ function DarkCoverageChart({
   currentAge,
   selectedAge,
   onAgeSelect,
-  activeFilter,
+  activeCategories,
   isMultiPerson,
 }: {
   projections: CoverageProjectionYear[]
@@ -325,7 +350,7 @@ function DarkCoverageChart({
   currentAge: number
   selectedAge: number
   onAgeSelect: (age: number) => void
-  activeFilter: CategoryFilter
+  activeCategories: Set<IndividualCategory>
   isMultiPerson: boolean
 }) {
   const currentYear = new Date().getFullYear()
@@ -362,9 +387,11 @@ function DarkCoverageChart({
     return projections.findIndex(p => p.age === selectedAge)
   }, [projections, selectedAge])
 
-  const showLifeTpd = activeFilter === 'all' || activeFilter === 'lifeTpd'
-  const showCriticalIllness = activeFilter === 'all' || activeFilter === 'criticalIllness'
-  const showPersonalAccident = activeFilter === 'all' || activeFilter === 'personalAccident'
+  const showLifeTpd = activeCategories.has('lifeTpd')
+  const showCriticalIllness = activeCategories.has('criticalIllness')
+  const showEarlyCi = activeCategories.has('earlyCi')
+  const showDisability = activeCategories.has('disability')
+  const showPersonalAccident = activeCategories.has('personalAccident')
 
   const chartData: ChartData<'line'> = useMemo(() => {
     const labels = projections.map(p => isMultiPerson ? ageToYear(p.age).toString() : p.age.toString())
@@ -404,6 +431,40 @@ function DarkCoverageChart({
       })
     }
 
+    if (showEarlyCi) {
+      datasets.push({
+        label: 'Early CI',
+        data: projections.map(p => p.recommendedEarlyCi),
+        borderColor: DARK_CATEGORY_CONFIG.earlyCi.chartLine,
+        backgroundColor: DARK_CATEGORY_CONFIG.earlyCi.chartFill,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.earlyCi.chartLine,
+        pointHoverBorderColor: DARK_PALETTE.textPrimary,
+        pointHoverBorderWidth: 2,
+        borderWidth: 1.5,
+      })
+    }
+
+    if (showDisability) {
+      datasets.push({
+        label: 'Disability',
+        data: projections.map(p => p.recommendedDisability),
+        borderColor: DARK_CATEGORY_CONFIG.disability.chartLine,
+        backgroundColor: DARK_CATEGORY_CONFIG.disability.chartFill,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.disability.chartLine,
+        pointHoverBorderColor: DARK_PALETTE.textPrimary,
+        pointHoverBorderWidth: 2,
+        borderWidth: 1.5,
+      })
+    }
+
     if (showPersonalAccident) {
       datasets.push({
         label: 'Personal Accident',
@@ -422,7 +483,7 @@ function DarkCoverageChart({
     }
 
     return { labels, datasets }
-  }, [projections, showLifeTpd, showCriticalIllness, showPersonalAccident, isMultiPerson, ageToYear])
+  }, [projections, showLifeTpd, showCriticalIllness, showEarlyCi, showDisability, showPersonalAccident, isMultiPerson, ageToYear])
 
   const handleMarkerMouseDown = useCallback((event: React.MouseEvent) => {
     event.preventDefault()
@@ -466,7 +527,7 @@ function DarkCoverageChart({
     return () => { tooltipRef.current?.remove() }
   }, [])
 
-  // External HTML tooltip — renders as a DOM element above milestone icons
+  // External HTML tooltip — renders as a DOM element with boundary-aware positioning
   const externalTooltipHandler = useCallback(
     (context: { chart: ChartJS<'line'>; tooltip: any }) => {
       const { chart, tooltip } = context
@@ -511,11 +572,37 @@ function DarkCoverageChart({
       }
 
       tooltipEl.innerHTML = html
-      tooltipEl.style.opacity = '1'
+      tooltipEl.style.transform = 'none'
+
+      // Boundary-aware positioning (matches net worth tooltip logic)
       const { offsetLeft: canvasLeft, offsetTop: canvasTop } = chart.canvas
-      tooltipEl.style.left = (canvasLeft + tooltip.caretX) + 'px'
-      tooltipEl.style.top = (canvasTop + tooltip.caretY) + 'px'
-      tooltipEl.style.transform = 'translate(-50%, -110%)'
+      const caretX = canvasLeft + tooltip.caretX
+      const caretY = canvasTop + tooltip.caretY
+      const containerWidth = container.clientWidth
+      const containerHeight = container.clientHeight
+      const tooltipWidth = tooltipEl.offsetWidth
+      const tooltipHeight = tooltipEl.offsetHeight
+
+      // Offset tooltip to the right of cursor
+      let adjustedX = caretX + 15
+      let adjustedY = caretY
+
+      // If tooltip overflows right edge, flip to the left of cursor
+      if (adjustedX + tooltipWidth > containerWidth) {
+        adjustedX = caretX - tooltipWidth - 15
+      }
+
+      // Keep tooltip within vertical bounds
+      if (adjustedY + tooltipHeight > containerHeight) {
+        adjustedY = containerHeight - tooltipHeight - 10
+      }
+      if (adjustedY < 10) {
+        adjustedY = 10
+      }
+
+      tooltipEl.style.left = adjustedX + 'px'
+      tooltipEl.style.top = adjustedY + 'px'
+      tooltipEl.style.opacity = '1'
     },
     []
   )
@@ -664,6 +751,8 @@ function DarkCoverageChart({
         const visibleValues: number[] = []
         if (showLifeTpd) visibleValues.push(projection.recommendedLifeTpd)
         if (showCriticalIllness) visibleValues.push(projection.recommendedCriticalIllness)
+        if (showEarlyCi) visibleValues.push(projection.recommendedEarlyCi)
+        if (showDisability) visibleValues.push(projection.recommendedDisability)
         if (showPersonalAccident) visibleValues.push(projection.recommendedPersonalAccident)
         const maxValue = visibleValues.length > 0 ? Math.max(...visibleValues) : 0
 
@@ -732,6 +821,22 @@ function DarkCoverageBreakdownCard({
       iconColor: DARK_PALETTE.grayCriticalIllnessChip,
       recommended: selectedProjection.recommendedCriticalIllness,
       current: selectedProjection.currentCriticalIllness,
+    },
+    {
+      key: 'earlyCi',
+      label: 'Early CI',
+      icon: ShieldAlert,
+      iconColor: DARK_PALETTE.tealEarlyCi,
+      recommended: selectedProjection.recommendedEarlyCi,
+      current: selectedProjection.currentEarlyCi,
+    },
+    {
+      key: 'disability',
+      label: 'Disability',
+      icon: Accessibility,
+      iconColor: DARK_PALETTE.purpleDisability,
+      recommended: selectedProjection.recommendedDisability,
+      current: selectedProjection.currentDisability,
     },
     {
       key: 'personalAccident',
@@ -1061,10 +1166,14 @@ function DarkMilestonesCard({
 function CoverageComparisonLight({
   recommendedLifeTpd,
   recommendedCriticalIllness,
+  recommendedEarlyCi,
+  recommendedDisability,
   recommendedPersonalAccident,
 }: {
   recommendedLifeTpd: number
   recommendedCriticalIllness: number
+  recommendedEarlyCi: number
+  recommendedDisability: number
   recommendedPersonalAccident: number
 }) {
   const colorScheme = useColorScheme()
@@ -1073,6 +1182,8 @@ function CoverageComparisonLight({
   const categories = [
     { name: 'Life/TPD', icon: Shield, recommended: recommendedLifeTpd, current: 0 },
     { name: 'Critical Illness', icon: HeartPulse, recommended: recommendedCriticalIllness, current: 0 },
+    { name: 'Early CI', icon: ShieldAlert, recommended: recommendedEarlyCi, current: 0 },
+    { name: 'Disability', icon: Accessibility, recommended: recommendedDisability, current: 0 },
     { name: 'Personal Accident', icon: Zap, recommended: recommendedPersonalAccident, current: 0 },
   ]
 
@@ -1297,6 +1408,14 @@ function getChartColors(theme: ReturnType<typeof getInsuranceTheme>) {
       line: theme.sage,
       fill: 'rgba(127, 178, 133, 0.15)',
     },
+    earlyCi: {
+      line: '#14B8A6',
+      fill: 'rgba(20, 184, 166, 0.12)',
+    },
+    disability: {
+      line: '#A78BFA',
+      fill: 'rgba(167, 139, 250, 0.12)',
+    },
     personalAccident: {
       line: theme.coralRose,
       fill: 'rgba(232, 168, 152, 0.1)',
@@ -1397,6 +1516,34 @@ function CoverageChartLight({
           pointRadius: 0,
           pointHoverRadius: 5,
           pointHoverBackgroundColor: CHART_COLORS_LIGHT.criticalIllness.line,
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2,
+          borderWidth: 1.5,
+        },
+        {
+          label: 'Early CI',
+          data: projections.map(p => p.recommendedEarlyCi),
+          borderColor: CHART_COLORS_LIGHT.earlyCi.line,
+          backgroundColor: CHART_COLORS_LIGHT.earlyCi.fill,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBackgroundColor: CHART_COLORS_LIGHT.earlyCi.line,
+          pointHoverBorderColor: '#fff',
+          pointHoverBorderWidth: 2,
+          borderWidth: 1.5,
+        },
+        {
+          label: 'Disability',
+          data: projections.map(p => p.recommendedDisability),
+          borderColor: CHART_COLORS_LIGHT.disability.line,
+          backgroundColor: CHART_COLORS_LIGHT.disability.fill,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          pointHoverBackgroundColor: CHART_COLORS_LIGHT.disability.line,
           pointHoverBorderColor: '#fff',
           pointHoverBorderWidth: 2,
           borderWidth: 1.5,
@@ -1703,6 +1850,8 @@ function CoverageChartLight({
           const maxValue = Math.max(
             projection.recommendedLifeTpd,
             projection.recommendedCriticalIllness,
+            projection.recommendedEarlyCi,
+            projection.recommendedDisability,
             projection.recommendedPersonalAccident
           )
 
@@ -1737,7 +1886,7 @@ function CoverageChartLight({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-6">
+      <div className="flex items-center justify-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Shield className="h-3.5 w-3.5" style={{ color: monetColors.lavender }} />
           <div className="w-3 h-0.5 rounded-full" style={{ background: monetColors.lavender }} />
@@ -1747,6 +1896,16 @@ function CoverageChartLight({
           <HeartPulse className="h-3.5 w-3.5" style={{ color: monetColors.sage }} />
           <div className="w-3 h-0.5 rounded-full" style={{ background: monetColors.sage }} />
           <span className={T.legendText} style={{ color: monetColors.textMuted }}>Critical Illness</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <ShieldAlert className="h-3.5 w-3.5" style={{ color: '#14B8A6' }} />
+          <div className="w-3 h-0.5 rounded-full" style={{ background: '#14B8A6' }} />
+          <span className={T.legendText} style={{ color: monetColors.textMuted }}>Early CI</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Accessibility className="h-3.5 w-3.5" style={{ color: '#A78BFA' }} />
+          <div className="w-3 h-0.5 rounded-full" style={{ background: '#A78BFA' }} />
+          <span className={T.legendText} style={{ color: monetColors.textMuted }}>Disability</span>
         </div>
         <div className="flex items-center gap-2">
           <Zap className="h-3.5 w-3.5" style={{ color: monetColors.coralRose }} />
@@ -1776,8 +1935,22 @@ export function JourneyTab({ className }: JourneyTabProps) {
   const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string> | null>(null)
   const [monetSelectedPersonId, setMonetSelectedPersonId] = useState<string | null>(null)
 
-  // Category filter state (dark mode only)
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all')
+  // Category filter state (dark mode only) — multi-select via Set
+  const [activeCategories, setActiveCategories] = useState<Set<IndividualCategory>>(
+    () => new Set(ALL_CATEGORIES)
+  )
+
+  const handleToggleCategory = useCallback((category: IndividualCategory) => {
+    setActiveCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(category)) {
+        next.delete(category)
+      } else {
+        next.add(category)
+      }
+      return next
+    })
+  }, [])
 
   const handleTogglePerson = (personId: string) => {
     setSelectedPersonIds((prev) => {
@@ -1861,13 +2034,15 @@ export function JourneyTab({ className }: JourneyTabProps) {
     const proj = selectedProjection
     if (!proj) return { targetTotal: 0, currentCoverage: 0, coverageGap: 0, uncoveredCount: 0 }
 
-    const targetTotal = proj.recommendedLifeTpd + proj.recommendedCriticalIllness + proj.recommendedPersonalAccident
-    const currentCoverage = proj.currentLifeTpd + proj.currentCriticalIllness + proj.currentPersonalAccident
+    const targetTotal = proj.recommendedLifeTpd + proj.recommendedCriticalIllness + proj.recommendedEarlyCi + proj.recommendedDisability + proj.recommendedPersonalAccident
+    const currentCoverage = proj.currentLifeTpd + proj.currentCriticalIllness + proj.currentEarlyCi + proj.currentDisability + proj.currentPersonalAccident
     const coverageGap = targetTotal - currentCoverage
 
     let uncoveredCount = 0
     if (proj.recommendedLifeTpd > proj.currentLifeTpd) uncoveredCount++
     if (proj.recommendedCriticalIllness > proj.currentCriticalIllness) uncoveredCount++
+    if (proj.recommendedEarlyCi > proj.currentEarlyCi) uncoveredCount++
+    if (proj.recommendedDisability > proj.currentDisability) uncoveredCount++
     if (proj.recommendedPersonalAccident > proj.currentPersonalAccident) uncoveredCount++
 
     return { targetTotal, currentCoverage, coverageGap, uncoveredCount }
@@ -1959,8 +2134,8 @@ export function JourneyTab({ className }: JourneyTabProps) {
           {/* Filters row: chips + legend */}
           <div className="flex items-center justify-between mb-5">
             <DarkCategoryFilterChips
-              activeFilter={categoryFilter}
-              onFilterChange={setCategoryFilter}
+              activeCategories={activeCategories}
+              onToggleCategory={handleToggleCategory}
             />
             <DarkChartLegend />
           </div>
@@ -1972,7 +2147,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
             currentAge={currentAge}
             selectedAge={selectedAge}
             onAgeSelect={setSelectedAge}
-            activeFilter={categoryFilter}
+            activeCategories={activeCategories}
             isMultiPerson={includedPersons.length > 1 && (selectedPersonIds === null || selectedPersonIds.size !== 1)}
           />
         </div>
@@ -2119,6 +2294,8 @@ export function JourneyTab({ className }: JourneyTabProps) {
             <CoverageComparisonLight
               recommendedLifeTpd={selectedProjection.recommendedLifeTpd}
               recommendedCriticalIllness={selectedProjection.recommendedCriticalIllness}
+              recommendedEarlyCi={selectedProjection.recommendedEarlyCi}
+              recommendedDisability={selectedProjection.recommendedDisability}
               recommendedPersonalAccident={selectedProjection.recommendedPersonalAccident}
             />
           )}

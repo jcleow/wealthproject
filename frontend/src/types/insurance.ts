@@ -1453,6 +1453,10 @@ export interface CoverageControlPoint {
   lifeTpd: number | null
   /** Critical Illness coverage amount. Null = use auto-calculated. */
   criticalIllness: number | null
+  /** Early Critical Illness coverage amount. Null = use auto-calculated. */
+  earlyCi: number | null
+  /** Disability / Income Protection coverage amount. Null = use auto-calculated. */
+  disability: number | null
   /** Personal Accident coverage amount. Null = use auto-calculated. */
   personalAccident: number | null
 

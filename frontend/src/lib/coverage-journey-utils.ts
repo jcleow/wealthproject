@@ -34,10 +34,14 @@ export interface CoverageProjectionYear {
   // Recommended coverage amounts
   recommendedLifeTpd: number
   recommendedCriticalIllness: number
+  recommendedEarlyCi: number
+  recommendedDisability: number
   recommendedPersonalAccident: number
   // Current coverage (from policies - future phase)
   currentLifeTpd: number
   currentCriticalIllness: number
+  currentEarlyCi: number
+  currentDisability: number
   currentPersonalAccident: number
 }
 
@@ -201,7 +205,7 @@ function getCriticalIllnessMultiplier(age: number): number {
 export function calculateRecommendedCoverage(
   age: number,
   context: PersonCoverageContext
-): Omit<CoverageProjectionYear, 'year' | 'currentLifeTpd' | 'currentCriticalIllness' | 'currentPersonalAccident'> {
+): Omit<CoverageProjectionYear, 'year' | 'currentLifeTpd' | 'currentCriticalIllness' | 'currentEarlyCi' | 'currentDisability' | 'currentPersonalAccident'> {
   // Adjust dependents count based on age (they grow up!)
   const yearsFromNow = age - context.age
   const activeDependents = context.dependents.filter(d => {
@@ -229,6 +233,17 @@ export function calculateRecommendedCoverage(
   const ciMultiplier = getCriticalIllnessMultiplier(age)
   const recommendedCriticalIllness = Math.round(context.annualIncome * ciMultiplier * 0.7) // 70% of income as expenses
 
+  // Early Critical Illness: ~50% of late-stage CI (smaller lump sum for early detection)
+  // Most relevant ages 30-65; tapers off before and after
+  const earlyCiMultiplier = age < 30 ? 0.3 : age >= 65 ? 0.5 : 0.5
+  const recommendedEarlyCi = Math.round(recommendedCriticalIllness * earlyCiMultiplier)
+
+  // Disability (income protection): replaces 60-75% of income during disability
+  // Peaks during working years, drops at retirement
+  const disabilityReplacementRatio = age >= 65 ? 0 : age >= 55 ? 0.4 : 0.6
+  const disabilityYears = age >= 65 ? 0 : Math.min(5, 65 - age) // up to 5 years of income replacement
+  const recommendedDisability = Math.round(context.annualIncome * disabilityReplacementRatio * disabilityYears)
+
   // Personal accident: 1-2x income
   const paMultiplier = age >= 55 ? 1 : 2
   const recommendedPersonalAccident = Math.round(context.annualIncome * paMultiplier)
@@ -237,6 +252,8 @@ export function calculateRecommendedCoverage(
     age,
     recommendedLifeTpd: Math.max(0, recommendedLifeTpd),
     recommendedCriticalIllness: Math.max(0, recommendedCriticalIllness),
+    recommendedEarlyCi: Math.max(0, recommendedEarlyCi),
+    recommendedDisability: Math.max(0, recommendedDisability),
     recommendedPersonalAccident: Math.max(0, recommendedPersonalAccident),
   }
 }
@@ -267,6 +284,8 @@ export function generateCoverageProjection(
       // Current coverage placeholder (to be filled from actual policies)
       currentLifeTpd: 0,
       currentCriticalIllness: 0,
+      currentEarlyCi: 0,
+      currentDisability: 0,
       currentPersonalAccident: 0,
     })
   }
@@ -486,6 +505,8 @@ export function interpolateCoverageWithControlPoints(
         recommendedLifeTpd: exactMatch.lifeTpd ?? proj.recommendedLifeTpd,
         recommendedCriticalIllness:
           exactMatch.criticalIllness ?? proj.recommendedCriticalIllness,
+        recommendedEarlyCi: exactMatch.earlyCi ?? proj.recommendedEarlyCi,
+        recommendedDisability: exactMatch.disability ?? proj.recommendedDisability,
         recommendedPersonalAccident:
           exactMatch.personalAccident ?? proj.recommendedPersonalAccident,
       }
@@ -529,10 +550,28 @@ export function interpolateCoverageWithControlPoints(
       interpolationMode
     )
 
+    const interpolatedEarlyCi = interpolateValue(
+      proj.age,
+      before ? { age: before.age, value: before.earlyCi } : null,
+      after ? { age: after.age, value: after.earlyCi } : null,
+      proj.recommendedEarlyCi,
+      interpolationMode
+    )
+
+    const interpolatedDisability = interpolateValue(
+      proj.age,
+      before ? { age: before.age, value: before.disability } : null,
+      after ? { age: after.age, value: after.disability } : null,
+      proj.recommendedDisability,
+      interpolationMode
+    )
+
     return {
       ...proj,
       recommendedLifeTpd: interpolatedLifeTpd,
       recommendedCriticalIllness: interpolatedCriticalIllness,
+      recommendedEarlyCi: interpolatedEarlyCi,
+      recommendedDisability: interpolatedDisability,
       recommendedPersonalAccident: interpolatedPersonalAccident,
     }
   })
