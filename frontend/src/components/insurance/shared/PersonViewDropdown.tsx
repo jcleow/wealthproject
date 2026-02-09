@@ -84,11 +84,9 @@ export function PersonViewDropdown(props: PersonViewDropdownProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-  // Reset focused index when dropdown opens/closes
+  // Reset focused index when dropdown closes
   useEffect(() => {
-    if (isOpen) {
-      setFocusedIndex(0)
-    } else {
+    if (!isOpen) {
       setFocusedIndex(-1)
     }
   }, [isOpen])
