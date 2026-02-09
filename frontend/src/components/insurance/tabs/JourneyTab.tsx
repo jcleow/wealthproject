@@ -137,115 +137,6 @@ const DARK_CATEGORY_CONFIG = {
 } as const
 
 // =============================================================================
-// Dark Mode: Summary Cards
-// =============================================================================
-
-function DarkSummaryCards({
-  projection,
-}: {
-  projection: CoverageProjectionYear
-}) {
-  const categorySummaries: {
-    key: string
-    label: string
-    icon: typeof Shield
-    iconColor: string
-    recommended: number
-    current: number
-  }[] = [
-    {
-      key: 'lifeTpd',
-      label: 'Life/TPD',
-      icon: Shield,
-      iconColor: DARK_PALETTE.blueLifeTpd,
-      recommended: projection.recommendedLifeTpd,
-      current: projection.currentLifeTpd,
-    },
-    {
-      key: 'criticalIllness',
-      label: 'Critical Illness',
-      icon: HeartPulse,
-      iconColor: DARK_PALETTE.grayCriticalIllnessChip,
-      recommended: projection.recommendedCriticalIllness,
-      current: projection.currentCriticalIllness,
-    },
-    {
-      key: 'earlyCi',
-      label: 'Early CI',
-      icon: ShieldAlert,
-      iconColor: DARK_PALETTE.tealEarlyCi,
-      recommended: projection.recommendedEarlyCi,
-      current: projection.currentEarlyCi,
-    },
-    {
-      key: 'disability',
-      label: 'Disability',
-      icon: Accessibility,
-      iconColor: DARK_PALETTE.purpleDisability,
-      recommended: projection.recommendedDisability,
-      current: projection.currentDisability,
-    },
-    {
-      key: 'personalAccident',
-      label: 'Personal Accident',
-      icon: Zap,
-      iconColor: DARK_PALETTE.goldPersonalAccident,
-      recommended: projection.recommendedPersonalAccident,
-      current: projection.currentPersonalAccident,
-    },
-  ]
-
-  return (
-    <div className="grid grid-cols-5 gap-4">
-      {categorySummaries.map((category) => {
-        const Icon = category.icon
-        const gap = category.recommended - category.current
-        const hasGap = gap > 0
-
-        return (
-          <div
-            key={category.key}
-            className="flex flex-col gap-2 rounded-sm p-5"
-            style={{
-              background: hasGap ? DARK_PALETTE.gapCardBg : DARK_PALETTE.cardBg,
-              border: `1px solid ${hasGap ? DARK_PALETTE.gapCardBorder : DARK_PALETTE.cardBorder}`,
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <Icon className="h-4 w-4" style={{ color: category.iconColor }} />
-              <span
-                className={T.cardLabel}
-                style={{ color: DARK_PALETTE.textMuted }}
-              >
-                {category.label}
-              </span>
-            </div>
-            <span
-              className={T.cardValue}
-              style={{ color: DARK_PALETTE.textPrimary }}
-            >
-              {formatCoverageAmount(category.recommended)}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <div
-                className="w-2 h-2 rounded"
-                style={{ background: hasGap ? DARK_PALETTE.red : DARK_PALETTE.green }}
-              />
-              <span
-                className={T.cardDescription}
-                style={{ color: hasGap ? DARK_PALETTE.red : DARK_PALETTE.green }}
-              >
-                {hasGap ? `Gap: ${formatCoverageAmount(gap)}` : 'On Target'}
-              </span>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// =============================================================================
 // Dark Mode: Category Filter Chips
 // =============================================================================
 
@@ -2071,11 +1962,6 @@ export function JourneyTab({ className }: JourneyTabProps) {
   if (!isMonet) {
     return (
       <div className={cn('space-y-6 p-8', className)}>
-        {/* Summary Metric Cards */}
-        {selectedProjection && (
-          <DarkSummaryCards projection={selectedProjection} />
-        )}
-
         {/* Coverage Projection Chart Card */}
         <div
           className="rounded-sm p-6"
