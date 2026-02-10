@@ -956,7 +956,7 @@ function DarkCoverageBreakdownCard({
                           className={cn(T.bodyText, 'w-24 text-right')}
                           style={{ color: perPersonGap > 0 ? DARK_PALETTE.red : DARK_PALETTE.green }}
                         >
-                          {perPersonGap > 0 ? `(\u2212${formatCoverageAmount(perPersonGap)})` : 'OK'}
+                          {perPersonGap > 0 ? `(${formatCoverageAmount(perPersonGap)})` : 'OK'}
                         </span>
                       </div>
                     )
