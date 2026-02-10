@@ -7,10 +7,147 @@ import { createExpense } from '@/api/financial/expenses'
 import { createAsset } from '@/api/financial/assets'
 import { createLiability } from '@/api/financial/liabilities'
 import { createCPFAccount } from '@/api/financial/cpf'
+import { createScenario } from '@/api/financial/propertyPlannerV2'
 import { settingsApi } from '@/api/financial/settings'
 import { QUERY_KEYS } from '@/lib/queryKeys'
-import type { OnboardingFormData } from '../types'
+import { defaultInputsByType, DEFAULT_SALE_FEES, DEFAULT_PURCHASE_FEES, DEFAULT_APPRECIATION_PERIODS } from '@/app/property-planner/hooks/constants'
+import type { PropertyType as FrontendPropertyType } from '@/app/property-planner/types'
+import type { CreateScenarioInput, PropertyType as ApiPropertyType, PropertySubtype } from '@/types/propertyPlannerV2'
+import type { OnboardingFormData, OnboardingAsset, OnboardingLiability } from '../types'
 import type { FieldErrors } from 'react-hook-form'
+
+// ─── Property type decomposition ──────────────────────────────────────────────
+
+/** Convert flat frontend property type to API's two-level type + subtype */
+function decomposePropertyType(frontendType: FrontendPropertyType): { propertyType: ApiPropertyType; propertySubtype: PropertySubtype } {
+  const mapping: Record<FrontendPropertyType, { propertyType: ApiPropertyType; propertySubtype: PropertySubtype }> = {
+    'hdb-resale': { propertyType: 'hdb', propertySubtype: 'resale' },
+    'hdb-bto': { propertyType: 'hdb', propertySubtype: 'bto' },
+    'ec': { propertyType: 'private', propertySubtype: 'ec' },
+    'private-resale': { propertyType: 'private', propertySubtype: 'resale' },
+    'private-new': { propertyType: 'private', propertySubtype: 'new' },
+  }
+  return mapping[frontendType]
+}
+
+/** Get current month in YYYY-MM format */
+function getCurrentMonth(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+
+/**
+ * Build a skeleton CreateScenarioInput from an onboarding property asset.
+ * Uses default property planner values as a base, overridden with user's actual
+ * property value, mortgage balance, and interest rate from the wizard.
+ */
+function buildSkeletonScenario(
+  asset: OnboardingAsset,
+  matchingMortgage: OnboardingLiability | undefined,
+): CreateScenarioInput | null {
+  const frontendPropertyType = asset.propertyType as FrontendPropertyType
+  if (!frontendPropertyType) return null
+
+  const defaults = defaultInputsByType[frontendPropertyType]
+  const { propertyType, propertySubtype } = decomposePropertyType(frontendPropertyType)
+  const currentMonth = getCurrentMonth()
+
+  // Use the user's property value, falling back to the defaults
+  const propertyPrice = asset.currentValue
+  const valuationPrice = propertyPrice
+
+  // Determine loan amount: use mortgage balance if available, else derive from default LTV ratio
+  const defaultLtvRatio = defaults.loanAmount / defaults.propertyPrice
+  const loanAmount = matchingMortgage
+    ? matchingMortgage.currentBalance
+    : Math.round(propertyPrice * defaultLtvRatio)
+
+  // Downpayment = price - loanAmount (simplified: all cash for skeleton)
+  const totalDownpayment = propertyPrice - loanAmount
+  const downpaymentCpfOa = Math.min(totalDownpayment, Math.round(totalDownpayment * 0.6))
+  const downpaymentCash = totalDownpayment - downpaymentCpfOa
+
+  // Interest rate: use mortgage APR if available, else default
+  const fixedRate = matchingMortgage ? matchingMortgage.interestRateApr : defaults.fixedRate
+
+  // Sale date: 10 years from now
+  const saleDate = new Date()
+  saleDate.setFullYear(saleDate.getFullYear() + 10)
+  const saleMonth = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}`
+  const salePrice = Math.round(propertyPrice * 1.3)
+
+  return {
+    country: 'SG',
+    propertySG: {
+      name: asset.name || `${propertySubtype.toUpperCase()} Property`,
+      propertyType,
+      propertySubtype,
+      purchaseIcon: 'home',
+      purchaseIconColor: '#6366f1',
+      saleIcon: 'banknote',
+      saleIconColor: '#10b981',
+      isIncluded: true,
+      propertyPrice: String(propertyPrice),
+      valuationPrice: String(valuationPrice),
+      loanType: defaults.loanType,
+      downpaymentCpfOa: String(downpaymentCpfOa),
+      downpaymentCash: String(downpaymentCash),
+      borrowerType: 'single',
+      otherDebt: '0',
+      leaseRemainingYears: defaults.leaseRemainingYears,
+      saleExpectedDate: saleMonth,
+      saleExpectedPrice: String(salePrice),
+      // Per-borrower defaults (skeleton — user refines later)
+      borrower1DownpaymentCpfOaAmountType: 'fixed',
+      borrower1DownpaymentCpfOa: String(downpaymentCpfOa),
+      borrower2DownpaymentCpfOaAmountType: 'fixed',
+      borrower2DownpaymentCpfOa: '0',
+      borrower1DownpaymentCashAmountType: 'remainder',
+      borrower1DownpaymentCashAmount: String(downpaymentCash),
+      borrower2DownpaymentCashAmountType: 'remainder',
+      borrower2DownpaymentCashAmount: '0',
+      borrower1MonthlyCashAmountType: 'remainder',
+      borrower1MonthlyCashAmount: '0',
+      borrower2MonthlyCashAmountType: 'remainder',
+      borrower2MonthlyCashAmount: '0',
+    },
+    fees: [
+      ...DEFAULT_PURCHASE_FEES.filter(f => f.enabled).map(f => ({
+        feeContext: 'purchase' as const,
+        feeType: f.id,
+        description: f.name,
+        amount: String(f.value),
+        isPercentage: f.type === 'percentage',
+        icon: f.icon ?? 'file-text',
+        iconColor: f.iconColor ?? '#6366f1',
+      })),
+      ...DEFAULT_SALE_FEES.filter(f => f.enabled).map(f => ({
+        feeContext: 'sale' as const,
+        feeType: f.id,
+        description: f.name,
+        amount: String(f.value),
+        isPercentage: f.type === 'percentage',
+        icon: f.icon ?? 'file-text',
+        iconColor: f.iconColor ?? '#6366f1',
+      })),
+    ],
+    growthPeriods: DEFAULT_APPRECIATION_PERIODS.map(p => ({
+      startYear: p.startYear,
+      endYear: p.endYear ?? undefined,
+      growthRate: String(p.rate),
+    })),
+    ratePeriods: [{
+      startMonth: currentMonth,
+      termYears: defaults.loanTermYears,
+      rate: String(fixedRate),
+      rateType: 'fixed' as const,
+    }],
+    grants: defaults.grants.map(g => ({
+      name: g.name,
+      amount: String(g.amount),
+    })),
+  }
+}
 
 /** Recursively extract the first human-readable error message from nested FieldErrors. */
 function extractFirstErrorMessage(errors: FieldErrors): string | null {
@@ -40,6 +177,11 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
   // Persistent map across steps: tempId → serverId
   const personIdMapRef = useRef<PersonIdMap>(new Map())
 
+  // Clear submission state when form data is fundamentally replaced (e.g. sample data load)
+  const resetSubmitState = useCallback(() => {
+    personIdMapRef.current.clear()
+  }, [])
+
   // ─── Step 1: Create persons + update planning horizon ─────────────────────
 
   const submitStep1 = useCallback(async (): Promise<boolean> => {
@@ -52,11 +194,23 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
       return false
     }
 
+    // Fetch existing persons to detect stale serverIds (e.g. after Reset All Data)
+    const existingPersonsResponse = await personsApi.listPersons()
+    const existingPersonIds = new Set(existingPersonsResponse.data.map(p => p.id))
+
     for (const person of validPersons) {
-      // Skip if already saved
-      if (person.serverId) {
+      // Only trust serverId if the person still exists in the DB
+      if (person.serverId && existingPersonIds.has(person.serverId)) {
         personIdMapRef.current.set(person.tempId, person.serverId)
         continue
+      }
+
+      // Clear stale serverId so future steps don't reuse a deleted person reference
+      if (person.serverId) {
+        const stalePersonIndex = persons.findIndex(p => p.tempId === person.tempId)
+        if (stalePersonIndex >= 0) {
+          form.setValue(`persons.${stalePersonIndex}.serverId`, null)
+        }
       }
 
       const created = await personsApi.createPerson({
@@ -186,11 +340,37 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.liabilities })
     // cash_savings assets are routed to cash accounts table on the backend
     queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashAccounts })
+
+    // Auto-create skeleton property planner scenarios for property assets
+    const propertyAssets = assets.filter(
+      (a) => a.category === 'property' && a.currentValue > 0 && a.propertyType
+    )
+
+    if (propertyAssets.length > 0) {
+      for (const propertyAsset of propertyAssets) {
+        // Find the mortgage linked to this property (liability → asset link)
+        const linkedMortgage = liabilities.find(
+          (l) => l.linkedAssetTempId === propertyAsset.tempId && l.category === 'mortgage'
+        ) ?? liabilities.find((l) => l.category === 'mortgage' && l.currentBalance > 0)
+
+        const scenarioInput = buildSkeletonScenario(propertyAsset, linkedMortgage)
+        if (scenarioInput) {
+          try {
+            await createScenario(scenarioInput)
+          } catch (scenarioError) {
+            // Non-critical — don't block wizard progression, but log for debugging
+            console.warn('[Wizard] Failed to auto-create property scenario:', scenarioError)
+          }
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.propertyPlannerV2 })
+    }
+
     return true
   }, [form, queryClient])
 
   // ─── Step 4: Create CPF accounts ──────────────────────────────────────────
-  // TODO(human): Implement the CPF account creation logic
   const submitStep4 = useCallback(async (): Promise<boolean> => {
     const { cpfAccounts } = form.getValues()
 
@@ -265,5 +445,5 @@ export function useOnboardingSubmit(form: UseFormReturn<OnboardingFormData>) {
     }
   }, [stepSubmitters, form])
 
-  return { submitStep, isSubmitting, submissionError }
+  return { submitStep, isSubmitting, submissionError, resetSubmitState }
 }

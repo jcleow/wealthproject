@@ -78,17 +78,17 @@ export function CpfAccountsStep({ isMonet }: CpfAccountsStepProps) {
   // ─── CPF balance entry cards ──────────────────────────────────────────────
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <div>
-        <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
+        <h3 className={cn('text-lg font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
           CPF Account Balances
         </h3>
         <p className={cn('text-xs mt-0.5', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
-          Enter your current CPF balances (check cpf.gov.sg)
+          Enter your current CPF balances
         </p>
       </div>
 
-      {eligiblePersons.map((person) => {
+      {eligiblePersons.map((person, personIndex) => {
         const cpfIndex = cpfAccounts.findIndex((c) => c.personTempId === person.tempId)
         if (cpfIndex === -1) return null
 
@@ -97,17 +97,16 @@ export function CpfAccountsStep({ isMonet }: CpfAccountsStepProps) {
           : 'Citizen'
 
         return (
-          <div
-            key={person.tempId}
-            className={cn(
-              'rounded-xl border p-4',
-              isMonet
-                ? 'border-[var(--monet-lavender)]/15 bg-[var(--monet-lavender)]/[0.03]'
-                : 'border-white/[0.06] bg-white/[0.02]'
+          <div key={person.tempId}>
+            {/* Divider between persons */}
+            {personIndex > 0 && (
+              <div className={cn(
+                'border-t mb-5',
+                isMonet ? 'border-[var(--monet-lavender)]/10' : 'border-white/[0.06]'
+              )} />
             )}
-          >
             {/* Person header */}
-            <div className="flex items-center gap-2 mb-4">
+            <div className="flex items-center gap-2 mb-3">
               <div
                 className="w-2.5 h-2.5 rounded-full"
                 style={{ backgroundColor: person.displayColor }}
@@ -126,15 +125,10 @@ export function CpfAccountsStep({ isMonet }: CpfAccountsStepProps) {
               </span>
             </div>
 
-            {/* 2x2 grid of CPF accounts */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className={cn(
-                'rounded-lg border p-3',
-                isMonet
-                  ? 'border-[var(--monet-lavender)]/10 bg-white/50'
-                  : 'border-white/[0.04] bg-white/[0.02]'
-              )}>
-                <label className={labelClass}>Ordinary Account (OA)</label>
+            {/* 2x2 grid of CPF accounts — flat labels + inputs */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+              <div>
+                <label className={cn(labelClass, 'uppercase tracking-wider text-[10px]')}>Ordinary Account (OA)</label>
                 <CurrencyInput
                   value={cpfAccounts[cpfIndex]?.oaBalance ?? 0}
                   onChange={(val) => setValue(`cpfAccounts.${cpfIndex}.oaBalance`, val)}
@@ -142,13 +136,8 @@ export function CpfAccountsStep({ isMonet }: CpfAccountsStepProps) {
                 />
               </div>
 
-              <div className={cn(
-                'rounded-lg border p-3',
-                isMonet
-                  ? 'border-[var(--monet-lavender)]/10 bg-white/50'
-                  : 'border-white/[0.04] bg-white/[0.02]'
-              )}>
-                <label className={labelClass}>Special Account (SA)</label>
+              <div>
+                <label className={cn(labelClass, 'uppercase tracking-wider text-[10px]')}>Special Account (SA)</label>
                 <CurrencyInput
                   value={cpfAccounts[cpfIndex]?.saBalance ?? 0}
                   onChange={(val) => setValue(`cpfAccounts.${cpfIndex}.saBalance`, val)}
@@ -156,13 +145,8 @@ export function CpfAccountsStep({ isMonet }: CpfAccountsStepProps) {
                 />
               </div>
 
-              <div className={cn(
-                'rounded-lg border p-3',
-                isMonet
-                  ? 'border-[var(--monet-lavender)]/10 bg-white/50'
-                  : 'border-white/[0.04] bg-white/[0.02]'
-              )}>
-                <label className={labelClass}>MediSave Account (MA)</label>
+              <div>
+                <label className={cn(labelClass, 'uppercase tracking-wider text-[10px]')}>MediSave Account (MA)</label>
                 <CurrencyInput
                   value={cpfAccounts[cpfIndex]?.maBalance ?? 0}
                   onChange={(val) => setValue(`cpfAccounts.${cpfIndex}.maBalance`, val)}
@@ -170,13 +154,8 @@ export function CpfAccountsStep({ isMonet }: CpfAccountsStepProps) {
                 />
               </div>
 
-              <div className={cn(
-                'rounded-lg border p-3',
-                isMonet
-                  ? 'border-[var(--monet-lavender)]/10 bg-white/50'
-                  : 'border-white/[0.04] bg-white/[0.02]'
-              )}>
-                <label className={labelClass}>Retirement Account (RA)</label>
+              <div>
+                <label className={cn(labelClass, 'uppercase tracking-wider text-[10px]')}>Retirement Account (RA)</label>
                 <CurrencyInput
                   value={cpfAccounts[cpfIndex]?.raBalance ?? 0}
                   onChange={(val) => setValue(`cpfAccounts.${cpfIndex}.raBalance`, val)}

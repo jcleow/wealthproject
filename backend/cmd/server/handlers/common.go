@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial/repository"
 	repoV2 "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/middleware"
@@ -112,6 +114,53 @@ func requireUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
 	return userID, true
 }
 
+
+// =============================================================================
+// Shared Parsing Helpers
+// =============================================================================
+
+// parseOptionalDecimal parses a nullable string into an optional Decimal.
+func parseOptionalDecimal(s *string) (*decimal.Decimal, error) {
+	if s == nil || *s == "" {
+		return nil, nil
+	}
+	d, err := decimal.NewFromString(*s)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// parseOptionalDate parses a nullable string into an optional time.Time.
+func parseOptionalDate(s *string) (*time.Time, error) {
+	if s == nil || *s == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", *s)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// validatePersonOwnership checks that the given personId belongs to the authenticated user.
+// Returns true if valid (or nil), false and writes error response if invalid.
+func validatePersonOwnership(w http.ResponseWriter, r *http.Request, store *repoV2.Store, userID string, personID *string) bool {
+	if personID == nil || *personID == "" {
+		return true
+	}
+	_, err := store.GetPerson(r.Context(), userID, *personID)
+	if err == repoV2.ErrNotFound {
+		badRequest(w, errors.New("person not found or does not belong to user"))
+		return false
+	}
+	if err != nil {
+		internalError(w, err)
+		return false
+	}
+	return true
+}
+
 // =============================================================================
 // Query Parameter Helpers
 // =============================================================================
@@ -164,14 +213,18 @@ func parsePagination(r *http.Request) repository.PaginationParams {
 }
 
 // parsePaginationV2 extracts limit and offset from query parameters for v2 repository.
-// Defaults to limit=20 if not specified. Use limit=-1 to return all results (no limit).
+// Defaults to limit=20 if not specified. Maximum allowed limit is 500.
 func parsePaginationV2(r *http.Request) repoV2.PaginationParams {
 	defaultLimit := 20
+	maxLimit := 500
 	limit := &defaultLimit
 	var offset *int
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
 		if l, err := strconv.Atoi(limitStr); err == nil {
+			if l > maxLimit {
+				l = maxLimit
+			}
 			limit = &l
 		}
 	}
@@ -183,4 +236,68 @@ func parsePaginationV2(r *http.Request) repoV2.PaginationParams {
 	}
 
 	return repoV2.PaginationParams{Limit: limit, Offset: offset}
+}
+
+// parseSortParams extracts sortBy and sortDir from query parameters.
+func parseSortParams(r *http.Request) repoV2.SortParams {
+	var sort repoV2.SortParams
+	if field := r.URL.Query().Get("sortBy"); field != "" {
+		sort.Field = &field
+	}
+	if dir := r.URL.Query().Get("sortDir"); dir != "" {
+		sort.Direction = &dir
+	}
+	return sort
+}
+
+// parseCategories extracts category values from a comma-separated query parameter.
+func parseCategories(r *http.Request) []string {
+	raw := r.URL.Query().Get("categories")
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	result := make([]string, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
+}
+
+// parseDateParam parses an optional date query parameter in YYYY-MM-DD format.
+// Returns nil if the parameter is missing or empty.
+func parseDateParam(r *http.Request, key string) *time.Time {
+	raw := r.URL.Query().Get(key)
+	if raw == "" {
+		return nil
+	}
+	t, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
+// parsePersonIDs extracts person IDs from query parameters.
+// Supports comma-separated "personIds" param, and falls back to legacy single "personId".
+func parsePersonIDs(r *http.Request) []string {
+	if ids := r.URL.Query().Get("personIds"); ids != "" {
+		parts := strings.Split(ids, ",")
+		result := make([]string, 0, len(parts))
+		for _, part := range parts {
+			trimmed := strings.TrimSpace(part)
+			if trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+		return result
+	}
+	// Backwards compat: single personId
+	if pid := r.URL.Query().Get("personId"); pid != "" {
+		return []string{pid}
+	}
+	return nil
 }

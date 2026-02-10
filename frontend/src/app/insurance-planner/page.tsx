@@ -2,16 +2,21 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Shield, X } from 'lucide-react'
+import { Plus, RotateCcw, X, Database, Loader2, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import {
   InsuranceTabs,
   type InsuranceTabId,
 } from '@/components/insurance/InsuranceTabs'
 import { PoliciesTab } from '@/components/insurance/tabs/PoliciesTab'
-import { GuidelinesTab } from '@/components/insurance/tabs/GuidelinesTab'
 import { JourneyTab } from '@/components/insurance/tabs/JourneyTab'
+import { MyCoverageTab } from '@/components/insurance/tabs/MyCoverageTab'
+import { GuidelinesTab } from '@/components/insurance/tabs/GuidelinesTab'
+import { Modal } from '@/components/ui/Modal'
 import { useColorScheme } from '@/stores'
+import { useCoverageGuidelinesStore } from '@/stores/coverageGuidelinesStore'
+import { useLoadSampleInsuranceData } from '@/hooks/queries/useLoadSampleInsuranceData'
+import { useDeleteAllInsurancePoliciesMutation } from '@/hooks/queries/useInsurancePoliciesQuery'
 
 // ============================================================================
 // THEME-AWARE DESIGN SYSTEM
@@ -96,12 +101,29 @@ const canvasTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmln
 // Embedded view component for use within Dashboard
 export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
+  const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
+  const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
   const colors = isMonet ? monetColors : darkColors
 
+  const resetToDefaults = useCoverageGuidelinesStore((s) => s.resetToDefaults)
+  const loadSampleMutation = useLoadSampleInsuranceData()
+  const deleteAllMutation = useDeleteAllInsurancePoliciesMutation()
+
   const handleNavigateToPolicy = () => {
     setActiveTab('policies')
+  }
+
+  const handleAddPolicy = () => {
+    setActiveTab('policies')
+    setAddPolicyTrigger((prev) => prev + 1)
+  }
+
+  const handleResetTargets = () => {
+    resetToDefaults()
+    setActiveTab('overview')
+    setIsGuidelinesModalOpen(true)
   }
 
   return (
@@ -135,61 +157,94 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
         }}
       />
 
-      {/* Header */}
-      <header className="shrink-0 relative z-10">
-        <div
-          className="px-6 py-5 backdrop-blur-sm"
-          style={{
-            background: isMonet
-              ? `linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(255,255,255,0.4))`
-              : `linear-gradient(to bottom, rgba(17,17,17,0.9), rgba(17,17,17,0.7))`,
-            borderBottom: isMonet
-              ? `1px solid rgba(155, 139, 180, 0.15)`
-              : `1px solid rgba(255, 255, 255, 0.06)`,
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div
-                className="flex h-12 w-12 items-center justify-center rounded-2xl relative overflow-hidden"
+      {/* Title Section: title row + underline tabs */}
+      <div className="shrink-0 relative z-10 px-8 pt-6">
+        {/* Title Row */}
+        <div className="flex items-center justify-between mb-5">
+          <h1
+            className="text-2xl font-semibold tracking-tight"
+            style={{
+              color: colors.textPrimary,
+              fontFamily: isMonet ? "'Cormorant Garamond', Georgia, serif" : 'inherit',
+            }}
+          >
+            Insurance Planner
+          </h1>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => loadSampleMutation.mutate()}
+              disabled={loadSampleMutation.isPending}
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
+                color: isMonet ? '#9B9B9B' : '#64748b',
+              }}
+              title="Load sample data"
+            >
+              {loadSampleMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (window.confirm('Delete all insurance policies? This cannot be undone.')) deleteAllMutation.mutate() }}
+              disabled={deleteAllMutation.isPending}
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
+                color: isMonet ? '#9B9B9B' : '#64748b',
+              }}
+              title="Clear all policies"
+            >
+              {deleteAllMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+            </button>
+            {/* Action button slot — grid overlay keeps width stable across tabs */}
+            <div className="grid">
+              <button
+                type="button"
+                onClick={handleResetTargets}
+                className={clsx(
+                  'col-start-1 row-start-1 flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110',
+                  activeTab !== 'overview' && 'invisible'
+                )}
                 style={{
-                  background: isMonet
-                    ? `linear-gradient(145deg, ${monetColors.lavender}, ${monetColors.lavenderDark})`
-                    : `linear-gradient(145deg, ${darkColors.primary}, ${darkColors.primaryDark})`,
-                  boxShadow: isMonet
-                    ? `0 8px 32px ${monetColors.shadowMedium}, inset 0 1px 0 rgba(255,255,255,0.3)`
-                    : `0 8px 32px ${darkColors.shadowMedium}, inset 0 1px 0 rgba(255,255,255,0.1)`,
+                  color: isMonet ? '#6B7280' : '#A1A1AA',
+                  border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
                 }}
+                tabIndex={activeTab === 'overview' ? 0 : -1}
               >
-                <Shield className="h-6 w-6 text-white drop-shadow-sm" />
-              </div>
-              <div>
-                <h1
-                  className="text-xl font-semibold tracking-tight"
-                  style={{
-                    color: colors.textPrimary,
-                    fontFamily: isMonet ? "'Cormorant Garamond', Georgia, serif" : 'inherit',
-                  }}
-                >
-                  Insurance Planner
-                </h1>
-                <p
-                  className="text-sm mt-0.5"
-                  style={{ color: colors.textSecondary }}
-                >
-                  Analyze scenarios and explore coverage options
-                </p>
-              </div>
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset Targets
+              </button>
+              <button
+                type="button"
+                onClick={handleAddPolicy}
+                className={clsx(
+                  'col-start-1 row-start-1 flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110',
+                  activeTab !== 'policies' && 'invisible'
+                )}
+                style={{ background: '#C53D43' }}
+                tabIndex={activeTab === 'policies' ? 0 : -1}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Policy
+              </button>
             </div>
             {onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                className="flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-300 hover:scale-105"
+                className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105"
                 style={{
                   background: isMonet ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.05)',
                   color: colors.textSecondary,
-                  boxShadow: `0 2px 8px ${colors.shadowSoft}`,
                 }}
               >
                 <X className="h-4 w-4" />
@@ -197,17 +252,32 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
             )}
           </div>
         </div>
-      </header>
 
-      {/* Tab Navigation */}
-      <InsuranceTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* Tab Navigation */}
+        <InsuranceTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
 
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
-        {activeTab === 'overview' && <GuidelinesTab onNavigateToPolicy={handleNavigateToPolicy} />}
+        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} />}
         {activeTab === 'journey' && <JourneyTab />}
-        {activeTab === 'policies' && <PoliciesTab />}
+        {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
       </main>
+
+      {/* Guidelines Modal */}
+      <Modal
+        isOpen={isGuidelinesModalOpen}
+        onClose={() => setIsGuidelinesModalOpen(false)}
+        overlayClassName="bg-black/60 backdrop-blur-sm"
+        className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-lg"
+      >
+        <div
+          className="rounded-lg"
+          style={{ background: isMonet ? monetColors.bgCream : '#111113', border: `1px solid ${isMonet ? 'rgba(155, 139, 180, 0.15)' : '#2D2D33'}` }}
+        >
+          <GuidelinesTab onClose={() => setIsGuidelinesModalOpen(false)} />
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -216,9 +286,15 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
 export default function InsurancePlannerPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
+  const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
+  const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
   const colors = isMonet ? monetColors : darkColors
+
+  const resetToDefaults = useCoverageGuidelinesStore((s) => s.resetToDefaults)
+  const loadSampleMutation = useLoadSampleInsuranceData()
+  const deleteAllMutation = useDeleteAllInsurancePoliciesMutation()
 
   const handleClose = () => {
     router.push('/dashboard')
@@ -226,6 +302,17 @@ export default function InsurancePlannerPage() {
 
   const handleNavigateToPolicy = () => {
     setActiveTab('policies')
+  }
+
+  const handleAddPolicy = () => {
+    setActiveTab('policies')
+    setAddPolicyTrigger((prev) => prev + 1)
+  }
+
+  const handleResetTargets = () => {
+    resetToDefaults()
+    setActiveTab('overview')
+    setIsGuidelinesModalOpen(true)
   }
 
   return (
@@ -279,87 +366,128 @@ export default function InsurancePlannerPage() {
         }}
       />
 
-      {/* Header */}
-      <header className="shrink-0 relative z-10">
-        <div
-          className="mx-auto max-w-7xl px-8 py-6 backdrop-blur-sm"
-          style={{
-            background: isMonet
-              ? `linear-gradient(to bottom, rgba(255,255,255,0.85), rgba(255,255,255,0.5))`
-              : `linear-gradient(to bottom, rgba(10,10,10,0.9), rgba(10,10,10,0.7))`,
-            borderBottom: isMonet
-              ? `1px solid rgba(155, 139, 180, 0.12)`
-              : `1px solid rgba(255, 255, 255, 0.06)`,
-          }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-5">
-              <div
-                className="flex h-14 w-14 items-center justify-center rounded-2xl relative overflow-hidden transform hover:scale-105 transition-transform duration-500"
+      {/* Title Section: title row + underline tabs */}
+      <div className="shrink-0 relative z-10 mx-auto max-w-7xl px-8 pt-6">
+        {/* Title Row */}
+        <div className="flex items-center justify-between mb-5">
+          <h1
+            className="text-2xl font-semibold tracking-tight"
+            style={{
+              color: colors.textPrimary,
+              fontFamily: isMonet ? "'Cormorant Garamond', Georgia, serif" : 'inherit',
+            }}
+          >
+            Insurance Planner
+          </h1>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => loadSampleMutation.mutate()}
+              disabled={loadSampleMutation.isPending}
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
+                color: isMonet ? '#9B9B9B' : '#64748b',
+              }}
+              title="Load sample data"
+            >
+              {loadSampleMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Database className="h-4 w-4" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => { if (window.confirm('Delete all insurance policies? This cannot be undone.')) deleteAllMutation.mutate() }}
+              disabled={deleteAllMutation.isPending}
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
+                color: isMonet ? '#9B9B9B' : '#64748b',
+              }}
+              title="Clear all policies"
+            >
+              {deleteAllMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+            </button>
+            {/* Action button slot — grid overlay keeps width stable across tabs */}
+            <div className="grid">
+              <button
+                type="button"
+                onClick={handleResetTargets}
+                className={clsx(
+                  'col-start-1 row-start-1 flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium transition-all duration-200 hover:brightness-110',
+                  activeTab !== 'overview' && 'invisible'
+                )}
                 style={{
-                  background: isMonet
-                    ? `linear-gradient(145deg, ${monetColors.lavender}, ${monetColors.lavenderDark})`
-                    : `linear-gradient(145deg, ${darkColors.primary}, ${darkColors.primaryDark})`,
-                  boxShadow: isMonet
-                    ? `0 12px 40px ${monetColors.shadowMedium}, 0 4px 12px rgba(155, 139, 180, 0.2), inset 0 1px 0 rgba(255,255,255,0.35)`
-                    : `0 12px 40px ${darkColors.shadowMedium}, inset 0 1px 0 rgba(255,255,255,0.1)`,
+                  color: isMonet ? '#6B7280' : '#A1A1AA',
+                  border: `1px solid ${isMonet ? '#E8E6E1' : '#2D2D33'}`,
                 }}
+                tabIndex={activeTab === 'overview' ? 0 : -1}
               >
-                <Shield className="h-7 w-7 text-white drop-shadow-sm" />
-              </div>
-
-              <div>
-                <h1
-                  className="text-2xl font-semibold tracking-tight"
-                  style={{
-                    color: colors.textPrimary,
-                    fontFamily: isMonet ? "'Cormorant Garamond', Georgia, serif" : 'inherit',
-                    letterSpacing: '-0.01em',
-                  }}
-                >
-                  Insurance Planner
-                </h1>
-                <p
-                  className="text-sm mt-1"
-                  style={{
-                    color: colors.textSecondary,
-                    fontFamily: isMonet ? "'DM Sans', system-ui, sans-serif" : 'inherit',
-                  }}
-                >
-                  Analyze scenarios and explore coverage options
-                </p>
-              </div>
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset Targets
+              </button>
+              <button
+                type="button"
+                onClick={handleAddPolicy}
+                className={clsx(
+                  'col-start-1 row-start-1 flex items-center gap-2 rounded-sm px-[18px] py-[10px] text-[13px] font-medium text-white transition-all duration-200 hover:brightness-110',
+                  activeTab !== 'policies' && 'invisible'
+                )}
+                style={{ background: '#C53D43' }}
+                tabIndex={activeTab === 'policies' ? 0 : -1}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Policy
+              </button>
             </div>
-
             <button
               type="button"
               onClick={handleClose}
-              className="flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-300 hover:scale-105 group"
+              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105"
               style={{
-                background: isMonet ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.05)',
+                background: isMonet ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.05)',
                 color: colors.textSecondary,
-                boxShadow: `0 4px 16px ${colors.shadowSoft}`,
-                backdropFilter: 'blur(8px)',
               }}
               title="Return to Dashboard"
             >
-              <X className="h-5 w-5 group-hover:rotate-90 transition-transform duration-300" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
-      </header>
 
-      {/* Tab Navigation */}
-      <InsuranceTabs activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* Tab Navigation */}
+        <InsuranceTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      </div>
 
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
         <div className="mx-auto max-w-7xl">
-          {activeTab === 'overview' && <GuidelinesTab onNavigateToPolicy={handleNavigateToPolicy} />}
+          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} />}
           {activeTab === 'journey' && <JourneyTab />}
-          {activeTab === 'policies' && <PoliciesTab />}
+          {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
         </div>
       </main>
+
+      {/* Guidelines Modal */}
+      <Modal
+        isOpen={isGuidelinesModalOpen}
+        onClose={() => setIsGuidelinesModalOpen(false)}
+        overlayClassName="bg-black/60 backdrop-blur-sm"
+        className="w-full max-w-3xl max-h-[85vh] overflow-y-auto rounded-lg"
+      >
+        <div
+          className="rounded-lg"
+          style={{ background: isMonet ? monetColors.bgCream : '#111113', border: `1px solid ${isMonet ? 'rgba(155, 139, 180, 0.15)' : '#2D2D33'}` }}
+        >
+          <GuidelinesTab onClose={() => setIsGuidelinesModalOpen(false)} />
+        </div>
+      </Modal>
     </div>
   )
 }

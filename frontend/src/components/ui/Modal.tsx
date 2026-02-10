@@ -15,6 +15,8 @@ interface ModalProps {
 export function Modal({ isOpen, onClose, children, className = '', overlayClassName = '' }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
   const previousActiveElement = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   // Use the reusable scroll lock hook
   useBodyScrollLock(isOpen)
@@ -25,10 +27,9 @@ export function Modal({ isOpen, onClose, children, className = '', overlayClassN
     // Store the currently focused element
     previousActiveElement.current = document.activeElement as HTMLElement
 
-    // Focus trap
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && onClose) {
-        onClose()
+      if (e.key === 'Escape' && onCloseRef.current) {
+        onCloseRef.current()
       }
     }
 
@@ -42,7 +43,7 @@ export function Modal({ isOpen, onClose, children, className = '', overlayClassN
 
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 

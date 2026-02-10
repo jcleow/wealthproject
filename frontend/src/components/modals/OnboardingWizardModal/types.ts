@@ -72,6 +72,7 @@ export const onboardingAssetSchema = z.object({
   category: z.enum(['cash_savings', 'stocks_etfs', 'bonds', 'property', 'vehicle', 'other']),
   currentValue: z.number().min(0),
   growthRate: z.number(),
+  propertyType: z.enum(['hdb-resale', 'hdb-bto', 'ec', 'private-resale', 'private-new']).nullable(),
 })
 
 export type OnboardingAsset = z.infer<typeof onboardingAssetSchema>
@@ -86,6 +87,7 @@ export const onboardingLiabilitySchema = z.object({
   currentBalance: z.number().min(0),
   interestRateApr: z.number().min(0),
   minimumPayment: z.number().min(0),
+  linkedAssetTempId: z.string().nullable(), // Links this liability to its corresponding asset (e.g. mortgage → property)
 })
 
 export type OnboardingLiability = z.infer<typeof onboardingLiabilitySchema>

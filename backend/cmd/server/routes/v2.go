@@ -367,4 +367,58 @@ func RegisterV2Routes(router *mux.Router, deps V2Dependencies) {
 		id := vars["id"]
 		fundFlowRuleHandler.HandleStop(w, r, id)
 	}).Methods("POST")
+
+	// Insurance policy endpoints
+	insurancePolicyHandler := handlers.NewInsurancePolicyV2Handler(deps.FinStore)
+	router.HandleFunc("/insurance/policies", insurancePolicyHandler.HandleList).Methods("GET")
+	router.HandleFunc("/insurance/policies", insurancePolicyHandler.HandleCreate).Methods("POST")
+	router.HandleFunc("/insurance/policies", insurancePolicyHandler.HandleDeleteAll).Methods("DELETE")
+	router.HandleFunc("/insurance/policies/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "GET":
+			insurancePolicyHandler.HandleGet(w, r, id)
+		case "PUT":
+			insurancePolicyHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			insurancePolicyHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("GET", "PUT", "DELETE")
+
+	// Coverage guidelines endpoints
+	coverageGuidelinesHandler := handlers.NewCoverageGuidelinesV2Handler(deps.FinStore)
+	router.HandleFunc("/insurance/guidelines", coverageGuidelinesHandler.HandleList).Methods("GET")
+	router.HandleFunc("/insurance/guidelines", coverageGuidelinesHandler.HandleUpsert).Methods("PUT")
+	router.HandleFunc("/insurance/guidelines/{personId}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		personID := vars["personId"]
+		switch r.Method {
+		case "GET":
+			coverageGuidelinesHandler.HandleGet(w, r, personID)
+		case "DELETE":
+			coverageGuidelinesHandler.HandleDelete(w, r, personID)
+		}
+	}).Methods("GET", "DELETE")
+
+	// Coverage control points endpoints
+	controlPointHandler := handlers.NewCoverageControlPointV2Handler(deps.FinStore)
+	router.HandleFunc("/insurance/control-points", controlPointHandler.HandleList).Methods("GET")
+	router.HandleFunc("/insurance/control-points", controlPointHandler.HandleCreate).Methods("POST")
+	router.HandleFunc("/insurance/control-points/bulk", controlPointHandler.HandleBulkUpsert).Methods("PUT")
+	router.HandleFunc("/insurance/control-points/{id}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		id := vars["id"]
+		switch r.Method {
+		case "PUT":
+			controlPointHandler.HandleUpdate(w, r, id)
+		case "DELETE":
+			controlPointHandler.HandleDelete(w, r, id)
+		}
+	}).Methods("PUT", "DELETE")
+	router.HandleFunc("/insurance/control-points/person/{personId}", func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		personID := vars["personId"]
+		controlPointHandler.HandleDeleteByPerson(w, r, personID)
+	}).Methods("DELETE")
 }

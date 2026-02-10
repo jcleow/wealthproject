@@ -11,7 +11,10 @@ export const PERSONS_QUERY_KEY = QUERY_KEYS.financial.persons
 export function usePersonsQuery() {
   return useQuery({
     queryKey: PERSONS_QUERY_KEY,
-    queryFn: personsApi.listPersons,
+    queryFn: async () => {
+      const result = await personsApi.listPersons()
+      return result.data
+    },
   })
 }
 

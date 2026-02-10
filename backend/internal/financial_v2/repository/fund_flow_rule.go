@@ -589,13 +589,7 @@ func (s *Store) GetPaymentRulesForLiability(ctx context.Context, userID, liabili
 
 // DeleteAllFundFlowRules deletes all fund flow rules for a user (bulk delete).
 func (s *Store) DeleteAllFundFlowRules(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM fund_flow_rules WHERE user_id = $1`
-	logQuery(query, QueryArgs{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all fund flow rules: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "fund_flow_rules", userID)
 }
 
 // DeleteBySourcePropertyID deletes all fund flow rules that originate from a specific property.

@@ -31,6 +31,29 @@ export interface ProfileGradient {
 }
 
 /**
+ * Configuration for an asset in a financial profile
+ */
+export interface ProfileAssetConfig {
+  name: string
+  category: 'cash_savings' | 'stocks_etfs' | 'bonds' | 'property' | 'vehicle' | 'other'
+  currentValue: number
+  growthRate: number
+  propertyType?: 'hdb-resale' | 'hdb-bto' | 'ec' | 'private-resale' | 'private-new' | null
+}
+
+/**
+ * Configuration for a liability in a financial profile
+ */
+export interface ProfileLiabilityConfig {
+  name: string
+  category: 'mortgage' | 'car_loan' | 'student_loan' | 'credit_card' | 'personal_loan' | 'other'
+  currentBalance: number
+  interestRateApr: number
+  minimumPayment: number
+  linkedAssetIndex?: number // Index into the profile's assets[] array
+}
+
+/**
  * Display configuration for a financial profile template
  */
 export interface FinancialProfile {
@@ -41,6 +64,8 @@ export interface FinancialProfile {
   icon: LucideIcon
   gradient: ProfileGradient
   persons: ProfilePersonConfig[]
+  assets?: ProfileAssetConfig[]
+  liabilities?: ProfileLiabilityConfig[]
 }
 
 /**

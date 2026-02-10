@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -61,18 +62,20 @@ func (h *PersonV2Handler) HandleList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	persons, err := h.store.ListPersonsWithStats(r.Context(), userID)
+	pagination := parsePaginationV2(r)
+	result, err := h.store.ListPersonsWithStats(r.Context(), userID, pagination)
 	if err != nil {
+		log.Printf("persons.List error: %v", err)
 		internalError(w, err)
 		return
 	}
 
 	// Return empty array instead of null
-	if persons == nil {
-		persons = []repo.Person{}
+	if result.Data == nil {
+		result.Data = []repo.Person{}
 	}
 
-	jsonResponse(w, http.StatusOK, persons)
+	writeJSON(w, result)
 }
 
 // POST /api/v2/persons

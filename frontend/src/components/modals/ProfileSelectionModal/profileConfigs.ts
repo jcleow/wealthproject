@@ -32,6 +32,15 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         },
       },
     ],
+    liabilities: [
+      {
+        name: 'University Tuition Loan',
+        category: 'student_loan',
+        currentBalance: 20000,
+        interestRateApr: 4.75,
+        minimumPayment: 300,
+      },
+    ],
   },
   {
     id: 'dink',
@@ -69,6 +78,26 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
           growthRate: 4.0,
           cpfWageType: 'ow',
         },
+      },
+    ],
+    assets: [
+      {
+        name: '4-Room BTO Flat',
+        category: 'property',
+        currentValue: 480000,
+        growthRate: 3,
+        propertyType: 'hdb-bto',
+
+      },
+    ],
+    liabilities: [
+      {
+        name: 'BTO Flat Mortgage',
+        category: 'mortgage',
+        currentBalance: 350000,
+        interestRateApr: 2.6,
+        minimumPayment: 1500,
+        linkedAssetIndex: 0,
       },
     ],
   },
@@ -111,6 +140,26 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         },
       },
     ],
+    assets: [
+      {
+        name: '4-Room HDB Flat',
+        category: 'property',
+        currentValue: 550000,
+        growthRate: 3,
+        propertyType: 'hdb-resale',
+
+      },
+    ],
+    liabilities: [
+      {
+        name: 'HDB Mortgage',
+        category: 'mortgage',
+        currentBalance: 400000,
+        interestRateApr: 2.6,
+        minimumPayment: 1800,
+        linkedAssetIndex: 0,
+      },
+    ],
   },
   {
     id: 'single-income-family',
@@ -145,6 +194,33 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
         // No income - stay-at-home parent
       },
     ],
+    assets: [
+      {
+        name: 'Executive Condo',
+        category: 'property',
+        currentValue: 680000,
+        growthRate: 3,
+        propertyType: 'ec',
+
+      },
+    ],
+    liabilities: [
+      {
+        name: 'HDB Executive Flat Mortgage',
+        category: 'mortgage',
+        currentBalance: 450000,
+        interestRateApr: 2.6,
+        minimumPayment: 2000,
+        linkedAssetIndex: 0,
+      },
+      {
+        name: 'Car Loan',
+        category: 'car_loan',
+        currentBalance: 65000,
+        interestRateApr: 2.78,
+        minimumPayment: 900,
+      },
+    ],
   },
   {
     id: 'fire-focused',
@@ -169,6 +245,26 @@ export const FINANCIAL_PROFILES: FinancialProfile[] = [
           growthRate: 5.0,
           cpfWageType: 'ow',
         },
+      },
+    ],
+    assets: [
+      {
+        name: 'Private Condo',
+        category: 'property',
+        currentValue: 1200000,
+        growthRate: 3,
+        propertyType: 'private-resale',
+
+      },
+    ],
+    liabilities: [
+      {
+        name: 'Condo Mortgage',
+        category: 'mortgage',
+        currentBalance: 280000,
+        interestRateApr: 3.5,
+        minimumPayment: 2500,
+        linkedAssetIndex: 0,
       },
     ],
   },

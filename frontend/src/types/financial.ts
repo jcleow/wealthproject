@@ -28,6 +28,11 @@ export type PaginationParams = {
   offset?: number
 }
 
+export type SortParams = {
+  sortBy?: string
+  sortDir?: 'asc' | 'desc'
+}
+
 export const frequencyEnum = z.enum([
   "weekly",
   "biweekly",

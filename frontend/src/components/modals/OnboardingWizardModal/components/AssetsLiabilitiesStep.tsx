@@ -21,6 +21,7 @@ function createEmptyAsset(): OnboardingAsset {
     category: 'cash_savings',
     currentValue: 0,
     growthRate: 3,
+    propertyType: null,
   }
 }
 
@@ -33,6 +34,7 @@ function createEmptyLiability(): OnboardingLiability {
     currentBalance: 0,
     interestRateApr: 0,
     minimumPayment: 0,
+    linkedAssetTempId: null,
   }
 }
 
@@ -80,7 +82,7 @@ export function AssetsLiabilitiesStep({ isMonet }: AssetsLiabilitiesStepProps) {
 
   const addButtonClass = cn(
     'flex items-center gap-1.5 text-xs font-medium transition-colors mt-3',
-    isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400 hover:text-emerald-300'
+    isMonet ? 'text-[var(--monet-sage)]' : 'text-slate-400 hover:text-slate-200'
   )
 
   return (
@@ -92,20 +94,20 @@ export function AssetsLiabilitiesStep({ isMonet }: AssetsLiabilitiesStepProps) {
           ? 'border-[var(--monet-lavender)]/10 bg-[var(--monet-lavender)]/3'
           : 'border-white/[0.06] bg-white/[0.02]'
       )}>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
-            Assets
-          </h3>
+        <h3 className={cn('text-sm font-semibold mb-1', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
+          Assets
+        </h3>
+        <div className="flex items-center justify-between mb-4 pr-[46px]">
+          <p className={cn('text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+            What you own — savings, investments, property, etc.
+          </p>
           <span className={cn(
-            'text-lg font-semibold font-mono tabular-nums',
-            isMonet ? 'text-[var(--monet-sage)]' : 'text-emerald-400'
+            'text-sm font-mono tabular-nums text-right min-w-[100px]',
+            isMonet ? 'text-[var(--monet-sage)]' : 'text-slate-300'
           )}>
             {formatCurrency(assetTotal)}
           </span>
         </div>
-        <p className={cn('text-xs mb-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
-          What you own — savings, investments, property, etc.
-        </p>
 
         <div className="space-y-1">
           <AnimatePresence mode="popLayout">
@@ -150,20 +152,20 @@ export function AssetsLiabilitiesStep({ isMonet }: AssetsLiabilitiesStepProps) {
           ? 'border-[var(--monet-lavender)]/10 bg-[var(--monet-lavender)]/3'
           : 'border-white/[0.06] bg-white/[0.02]'
       )}>
-        <div className="flex items-center justify-between mb-1">
-          <h3 className={cn('text-sm font-semibold', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
-            Liabilities
-          </h3>
+        <h3 className={cn('text-sm font-semibold mb-1', isMonet ? 'text-[var(--monet-text-primary)]' : 'text-white')}>
+          Liabilities
+        </h3>
+        <div className="flex items-center justify-between mb-4 pr-[46px]">
+          <p className={cn('text-xs', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
+            What you owe — mortgages, loans, credit cards, etc.
+          </p>
           <span className={cn(
-            'text-lg font-semibold font-mono tabular-nums',
-            isMonet ? 'text-rose-500' : 'text-rose-400'
+            'text-sm font-mono tabular-nums text-right min-w-[100px]',
+            isMonet ? 'text-rose-500' : 'text-slate-300'
           )}>
             ({formatCurrency(liabilityTotal)})
           </span>
         </div>
-        <p className={cn('text-xs mb-4', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>
-          What you owe — mortgages, loans, credit cards, etc.
-        </p>
 
         <div className="space-y-1">
           <AnimatePresence mode="popLayout">

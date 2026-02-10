@@ -242,7 +242,7 @@ export function useQuestionnaireAutoPopulate(selectedPersonId: string | null): A
     const hasSpouse = !!spouse
     const spouseHasIncome = spouseIncome > 0
 
-    // Life/TPD answers
+    // Life/TPD answers (only user-intent fields, not derived financials)
     const lifeTpdData: Partial<LifeTpdAnswers> = {
       dependentPersonIds: dependents.map(d => d.id),
       dependentCount: dependents.length,
@@ -250,12 +250,7 @@ export function useQuestionnaireAutoPopulate(selectedPersonId: string | null): A
       yearsUntilIndependent: youngestDependent
         ? yearsUntilIndependent(youngestDependent.age)
         : 0,
-      mortgageBalance: totalMortgage,
-      otherDebts: totalOtherDebts,
-      existingAssets: totalAssets,
       spousePersonId: spouse?.id ?? null,
-      spouseHasIncome,
-      spouseIncome: spouseHasIncome ? spouseIncome : 0,
     }
 
     // Critical Illness answers

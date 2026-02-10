@@ -1,5 +1,8 @@
 import { apiClient } from '../client'
+import { buildPaginatedPath } from './helpers'
+import { normalizePaginatedResponse } from './transformers'
 import type { Person, PersonCreatePayload, PersonUpdatePayload, Relationship } from '@/types/person'
+import type { PaginatedResponse, PaginationParams } from '@/types/financial'
 import type { ResidencyStatus } from '@/types/cpf'
 import type {
   Person as ApiPerson,
@@ -32,9 +35,10 @@ function toPerson(data: ApiPerson): Person {
 /**
  * List all persons for the current user (with income/CPF counts)
  */
-export async function listPersons(): Promise<Person[]> {
-  const data = await apiClient.get<ApiPerson[]>('/persons', {}, { baseUrl: '/api/v2' })
-  return (data || []).map(toPerson)
+export async function listPersons(params?: PaginationParams): Promise<PaginatedResponse<Person>> {
+  const path = buildPaginatedPath('/persons', params)
+  const data = await apiClient.get<{ data: ApiPerson[]; total?: number; limit?: number; offset?: number }>(path, undefined, { baseUrl: '/api/v2' })
+  return normalizePaginatedResponse<Person>(data, toPerson as (item: unknown) => Person, params)
 }
 
 /**

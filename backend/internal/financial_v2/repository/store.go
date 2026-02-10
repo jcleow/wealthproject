@@ -70,6 +70,13 @@ type PaginationParams struct {
 	Offset *int
 }
 
+// SortParams holds sorting parameters for list queries.
+// Field is the API-level field name (e.g. "annualPremium"); Direction is "asc" or "desc".
+type SortParams struct {
+	Field     *string
+	Direction *string
+}
+
 // WithDefaultLimit returns a copy of the pagination params with a default limit applied
 // if no limit was specified. This ensures queries are always bounded.
 func (p PaginationParams) WithDefaultLimit() PaginationParams {
@@ -87,6 +94,7 @@ func (p PaginationParams) WithDefaultLimit() PaginationParams {
 type PaginatedResult[T any] struct {
 	Data   []T  `json:"data"`
 	Count  int  `json:"count"`
+	Total  *int `json:"total,omitempty"` // Total matching records across all pages (only set when a count query is run)
 	Limit  *int `json:"limit"`
 	Offset *int `json:"offset"`
 }
@@ -263,6 +271,83 @@ type Person struct {
 	// Stats populated by GetPersonsWithStats
 	IncomeCount int `json:"incomeCount,omitempty"`
 	CPFCount    int `json:"cpfCount,omitempty"`
+}
+
+// InsurancePolicy represents a persisted insurance policy record.
+type InsurancePolicy struct {
+	ID                    string           `json:"id"`
+	UserID                string           `json:"userId"`
+	PersonID              *string          `json:"personId,omitempty"`
+	PersonName            string           `json:"personName,omitempty"`
+	Name                  string           `json:"name"`
+	Category              string           `json:"category"`
+	Subcategory           *string          `json:"subcategory,omitempty"`
+	GovernmentScheme      *string          `json:"governmentScheme,omitempty"`
+	CoverageAmount        decimal.Decimal  `json:"coverageAmount"`
+	DeathBenefit          *decimal.Decimal `json:"deathBenefit,omitempty"`
+	CriticalIllnessBenefit *decimal.Decimal `json:"criticalIllnessBenefit,omitempty"`
+	TpdBenefit            *decimal.Decimal `json:"tpdBenefit,omitempty"`
+	DailyHospitalCash     *decimal.Decimal `json:"dailyHospitalCash,omitempty"`
+	PayoutAmount          *decimal.Decimal `json:"payoutAmount,omitempty"`
+	PayoutFrequency       *string          `json:"payoutFrequency,omitempty"`
+	PremiumAmount         decimal.Decimal  `json:"premiumAmount"`
+	PremiumFrequency      string           `json:"premiumFrequency"`
+	StartDate             time.Time        `json:"startDate"`
+	EndDate               *time.Time       `json:"endDate,omitempty"`
+	RenewalDate           *time.Time       `json:"renewalDate,omitempty"`
+	InsurerName           *string          `json:"insurerName,omitempty"`
+	PolicyNumber          *string          `json:"policyNumber,omitempty"`
+	LinkedExpenseID       *string          `json:"linkedExpenseId,omitempty"`
+	IsActive              bool             `json:"isActive"`
+	Notes                 *string          `json:"notes,omitempty"`
+	CreatedAt             time.Time        `json:"createdAt"`
+	UpdatedAt             time.Time        `json:"updatedAt"`
+}
+
+// CoverageGuidelines represents per-person coverage recommendation settings.
+type CoverageGuidelines struct {
+	ID                      string          `json:"id"`
+	UserID                  string          `json:"userId"`
+	PersonID                string          `json:"personId"`
+	PersonName              string          `json:"personName,omitempty"`
+	AnnualIncome            decimal.Decimal `json:"annualIncome"`
+	MaxPremiumPercentage    decimal.Decimal `json:"maxPremiumPercentage"`
+	Preset                  string          `json:"preset"`
+	HospRequiresIspUpgrade  bool            `json:"hospRequiresIspUpgrade"`
+	HospPreferredWardClass  string          `json:"hospPreferredWardClass"`
+	HospRecommendsRider     bool            `json:"hospRecommendsRider"`
+	HospIsEnabled           bool            `json:"hospIsEnabled"`
+	HospNotes               *string         `json:"hospNotes,omitempty"`
+	LifeTpdIncomeMultiplier decimal.Decimal `json:"lifeTpdIncomeMultiplier"`
+	LifeTpdIsRequired       bool            `json:"lifeTpdIsRequired"`
+	LifeTpdIsEnabled        bool            `json:"lifeTpdIsEnabled"`
+	LifeTpdNotes            *string         `json:"lifeTpdNotes,omitempty"`
+	CiIncomeMultiplier      decimal.Decimal `json:"ciIncomeMultiplier"`
+	CiIsRequired            bool            `json:"ciIsRequired"`
+	CiIsEnabled             bool            `json:"ciIsEnabled"`
+	CiNotes                 *string         `json:"ciNotes,omitempty"`
+	PaIncomeMultiplier      decimal.Decimal `json:"paIncomeMultiplier"`
+	PaIsRequired            bool            `json:"paIsRequired"`
+	PaIsEnabled             bool            `json:"paIsEnabled"`
+	PaNotes                 *string         `json:"paNotes,omitempty"`
+	QuestionnaireAnswers    []byte          `json:"questionnaireAnswers"`
+	CreatedAt               time.Time       `json:"createdAt"`
+	UpdatedAt               time.Time       `json:"updatedAt"`
+}
+
+// CoverageControlPoint represents an age-based coverage override for a person.
+type CoverageControlPoint struct {
+	ID               string           `json:"id"`
+	UserID           string           `json:"userId"`
+	PersonID         string           `json:"personId"`
+	PersonName       string           `json:"personName,omitempty"`
+	Age              int              `json:"age"`
+	LifeTpd          *decimal.Decimal `json:"lifeTpd,omitempty"`
+	CriticalIllness  *decimal.Decimal `json:"criticalIllness,omitempty"`
+	PersonalAccident *decimal.Decimal `json:"personalAccident,omitempty"`
+	Reason           *string          `json:"reason,omitempty"`
+	CreatedAt        time.Time        `json:"createdAt"`
+	UpdatedAt        time.Time        `json:"updatedAt"`
 }
 
 type DateRangeOptions struct {
@@ -1055,13 +1140,7 @@ func nullIfEmpty(s string) *string {
 
 // DeleteAllNonCashAssets deletes all non-cash assets for a user (bulk delete).
 func (s *Store) DeleteAllNonCashAssets(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM finance_assets WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all non-cash assets: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "finance_assets", userID)
 }
 
 // DeleteAllCashAssets resets all cash accounts for a user (bulk delete).
@@ -1088,47 +1167,23 @@ func (s *Store) DeleteAllCashAssets(ctx context.Context, userID string) (int64, 
 
 // DeleteAllLiabilities deletes all liabilities for a user (bulk delete).
 func (s *Store) DeleteAllLiabilities(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM finance_liabilities WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all liabilities: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "finance_liabilities", userID)
 }
 
 // DeleteAllIncomes deletes all incomes for a user (bulk delete).
 // Also cascades to delete income_allocations via FK constraint.
 func (s *Store) DeleteAllIncomes(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM finance_incomes WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all incomes: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "finance_incomes", userID)
 }
 
 // DeleteAllInvestments deletes all investments for a user (bulk delete).
 func (s *Store) DeleteAllInvestments(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM finance_investments WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all investments: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "finance_investments", userID)
 }
 
 // DeleteAllCPFAccounts deletes all CPF accounts for a user (bulk delete).
 func (s *Store) DeleteAllCPFAccounts(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM cpf_accounts WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all CPF accounts: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "cpf_accounts", userID)
 }
 
 // ResetAllUserData deletes all financial data for a user in a single transaction.
@@ -1291,6 +1346,25 @@ func (s *Store) ResetAllUserData(ctx context.Context, userID string) (int64, err
 	tag, err = tx.Exec(ctx, `DELETE FROM scenario_events WHERE user_id = $1`, userID)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete scenario events: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	// 6b. Delete insurance-related tables (before persons, since policies ON DELETE SET NULL)
+	tag, err = tx.Exec(ctx, `DELETE FROM insurance_policies WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete insurance policies: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM coverage_control_points WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete coverage control points: %w", err)
+	}
+	totalAffected += tag.RowsAffected()
+
+	tag, err = tx.Exec(ctx, `DELETE FROM coverage_guidelines WHERE user_id = $1`, userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete coverage guidelines: %w", err)
 	}
 	totalAffected += tag.RowsAffected()
 
