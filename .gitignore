@@ -84,6 +84,7 @@ frontend/test-results/
 
 # Playwright MCP screenshots
 .playwright-mcp/
+frontend/e2e/screenshots/
 
 # Temporary output files
 output.json
