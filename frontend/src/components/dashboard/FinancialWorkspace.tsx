@@ -46,12 +46,14 @@ export function FinancialWorkspace({
     openCPFView,
     openPropertyPlanner,
     openInsurancePlanner,
+    openVehiclePlanner,
     openLayoutModal,
   } = useFeatureModulesStore(
     useShallow((s) => ({
       openCPFView: s.openCPFView,
       openPropertyPlanner: s.openPropertyPlanner,
       openInsurancePlanner: s.openInsurancePlanner,
+      openVehiclePlanner: s.openVehiclePlanner,
       openLayoutModal: s.openLayoutModal,
     }))
   )
@@ -301,18 +303,23 @@ export function FinancialWorkspace({
                     <p className={classes.menuText.secondary}>Analyze coverage gaps and plan your protection.</p>
                   </div>
                 </button>
-                {/* Coming Soon Modules */}
-                <div className={classes.menuItem.disabled}>
-                  <div className="flex items-start w-full gap-3 px-4 py-3 text-left text-sm">
-                    <span className={clsx(classes.iconBadge.base, classes.iconBadge.disabled)}>
-                      <Car className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className={clsx("font-medium", classes.menuText.disabled)}>Vehicle Purchase</div>
-                      <p className={classes.menuText.disabledSecondary}>Coming soon</p>
-                    </div>
+                {/* Vehicle Planner */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    openVehiclePlanner()
+                  }}
+                  className={clsx(classes.menuItem.base, classes.menuItem.withBorder, classes.menuItem.hover)}
+                  type="button"
+                >
+                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.amber)}>
+                    <Car className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Vehicle Planner</div>
+                    <p className={classes.menuText.secondary}>Calculate total cost of vehicle ownership in SG.</p>
                   </div>
-                </div>
+                </button>
                 <div className={classes.menuItem.disabled}>
                   <div className="flex items-start w-full gap-3 px-4 py-3 text-left text-sm">
                     <span className={clsx(classes.iconBadge.base, classes.iconBadge.disabled)}>

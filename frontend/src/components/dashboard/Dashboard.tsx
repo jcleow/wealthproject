@@ -37,6 +37,11 @@ const InsurancePlannerView = dynamic(
   { ssr: false, loading: FeatureModuleLoading }
 )
 
+const VehiclePlannerView = dynamic(
+  () => import('@/app/vehicle-planner/page').then(mod => ({ default: mod.VehiclePlannerView })),
+  { ssr: false, loading: FeatureModuleLoading }
+)
+
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { useTimeline } from '@/hooks/useTimeline'
 import { usePictureInPicture } from '@/hooks/usePictureInPicture'
@@ -61,6 +66,8 @@ export function Dashboard() {
     closeCPFView,
     showInsurancePlanner,
     closeInsurancePlanner,
+    showVehiclePlanner,
+    closeVehiclePlanner,
     showPropertyPlanner,
     propertyScenarioToEdit,
     openPropertyPlanner,
@@ -87,6 +94,8 @@ export function Dashboard() {
       closeCPFView: s.closeCPFView,
       showInsurancePlanner: s.showInsurancePlanner,
       closeInsurancePlanner: s.closeInsurancePlanner,
+      showVehiclePlanner: s.showVehiclePlanner,
+      closeVehiclePlanner: s.closeVehiclePlanner,
       showPropertyPlanner: s.showPropertyPlanner,
       propertyScenarioToEdit: s.propertyScenarioToEdit,
       openPropertyPlanner: s.openPropertyPlanner,
@@ -367,6 +376,23 @@ gap-6 p-6`}>
                   <InsurancePlannerView onClose={closeInsurancePlanner} />
                 </div>
               </>
+            ) : showVehiclePlanner ? (
+              /* Vehicle Planner View - shows header + vehicle planner */
+              <>
+                <div className="shrink-0">
+                  <FinancialWorkspace headerOnly />
+                </div>
+                <div
+                  className={clsx(
+                    'flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors duration-300',
+                    isMonet
+                      ? 'border-[var(--monet-lavender)]/20 bg-white/60 backdrop-blur-xl'
+                      : 'border-white/[0.06] bg-[#0a0a0a]/80'
+                  )}
+                >
+                  <VehiclePlannerView onClose={closeVehiclePlanner} />
+                </div>
+              </>
             ) : isSideBySide ? (
               /* Side-by-side layout: chart-left or chart-right */
               <>
@@ -423,7 +449,7 @@ gap-6 p-6`}>
       </div>
 
       {/* Picture-in-Picture mini chart - disabled in side-by-side layouts */}
-      {showPiP && !showCPFView && !showInsurancePlanner && !isSideBySide && (
+      {showPiP && !showCPFView && !showInsurancePlanner && !showVehiclePlanner && !isSideBySide && (
         <MiniChart
           timelineYears={timeline.chartYears}
           timelineMonths={timeline.chartMonths}
