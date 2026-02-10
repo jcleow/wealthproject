@@ -366,7 +366,7 @@ export function VehicleFinancingTab({ scenario, result }: VehicleFinancingTabPro
               )}
             >
               <span className={clsx(
-                'absolute top-[2px] h-[18px] w-[18px] rounded-full bg-white transition-transform duration-200 shadow-sm',
+                'absolute left-0 top-[2px] h-[18px] w-[18px] rounded-full bg-white transition-transform duration-200 shadow-sm',
                 inputs.useFinancing ? 'translate-x-[20px]' : 'translate-x-[2px]'
               )} />
             </button>

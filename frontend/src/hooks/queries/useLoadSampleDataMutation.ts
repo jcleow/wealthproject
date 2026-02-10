@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { financialApi, propertyPlannerV2Api, personsApi, cashAccountsApi, fundFlowRulesApi, settingsApi } from '@/api/financial'
+import { financialApi, propertyPlannerV2Api, personsApi, cashAccountsApi, fundFlowRulesApi, settingsApi, insuranceApi } from '@/api/financial'
 import type { CashAccount } from '@/types/financial'
 import type { CPFAccount } from '@/types/cpf'
 import type { ScenarioEvent } from '@/types/scenario'
@@ -11,6 +11,7 @@ import { QUERY_KEYS } from '@/lib/queryKeys'
 import { CPF_QUERY_KEY } from './useCpfQuery'
 import { propertyPlannerV2Keys } from './usePropertyPlannerV2Query'
 import { PERSONS_QUERY_KEY } from './usePersonsQuery'
+import { INSURANCE_POLICIES_QUERY_KEY } from './useInsurancePoliciesQuery'
 import { getProfileGenerator } from '@/components/modals/ProfileSelectionModal/profileGenerators'
 import { useFeatureModulesStore } from '@/stores/featureModulesStore'
 
@@ -336,6 +337,22 @@ export function useLoadSampleDataMutation() {
         }
       }
 
+      // Create insurance policies linked to persons
+      const createdInsurancePolicies = []
+      for (const policyConfig of profileData.insurancePolicies ?? []) {
+        const { personIndex, ...policyPayload } = policyConfig
+        const linkedPerson = createdPersons[personIndex]
+        try {
+          const createdPolicy = await insuranceApi.createInsurancePolicy({
+            ...policyPayload,
+            personId: linkedPerson?.id,
+          })
+          createdInsurancePolicies.push(createdPolicy)
+        } catch (error) {
+          console.error('[loadProfile] Failed to create insurance policy:', policyConfig.name, error)
+        }
+      }
+
       return {
         assets,
         investments,
@@ -346,6 +363,7 @@ export function useLoadSampleDataMutation() {
         cpfAccount: createdCpfAccounts[0] ?? null,
         propertyScenario,
         persons: createdPersons,
+        insurancePolicies: createdInsurancePolicies,
       }
     },
     onSuccess: async (data) => {
@@ -401,6 +419,11 @@ export function useLoadSampleDataMutation() {
         )
       }
 
+      // Update insurance cache
+      if (data.insurancePolicies && data.insurancePolicies.length > 0) {
+        queryClient.setQueryData(INSURANCE_POLICIES_QUERY_KEY, data.insurancePolicies)
+      }
+
       // Invalidate derived queries
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timelineV2 })
@@ -408,6 +431,7 @@ export function useLoadSampleDataMutation() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
       queryClient.invalidateQueries({ queryKey: CPF_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: propertyPlannerV2Keys.all })
+      queryClient.invalidateQueries({ queryKey: INSURANCE_POLICIES_QUERY_KEY })
     },
   })
 }

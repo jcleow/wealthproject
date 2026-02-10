@@ -57,24 +57,9 @@ export interface FinancialChatSystemBackendInternalFinancialV2RepositoryExpense 
   updatedAt?: string;
 }
 
-export interface FinancialChatSystemBackendInternalFinancialV2RepositoryInsurancePremiumExpense {
-  policyId?: string;
-  name?: string;
-  amount?: number;
-  frequency?: string;
-  startDate?: string;
-  endDate?: string;
-  category?: string;
-  personName?: string;
-  governmentScheme?: string;
-  /** Always true — edits go through the insurance modal */
-  readOnly?: boolean;
-}
-
 export interface FinancialChatSystemBackendInternalFinancialV2RepositoryGroupedExpenses {
   count?: number;
   debtRepayments?: FinancialChatSystemBackendInternalFinancialV2RepositoryExpense[];
-  insurancePremiums?: FinancialChatSystemBackendInternalFinancialV2RepositoryInsurancePremiumExpense[];
   limit?: number;
   offset?: number;
   regularExpenses?: FinancialChatSystemBackendInternalFinancialV2RepositoryExpense[];
