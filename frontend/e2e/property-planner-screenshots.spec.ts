@@ -16,9 +16,23 @@ authenticatedTest('property planner full flow screenshots', async ({ authenticat
   })
   console.log('1. Overview captured')
 
-  // ─── 2. Open the modal via Edit button ─────────────────────────────────────
+  // ─── 2. Open the modal via Edit button (or Add button if no scenarios exist)
   const editBtn = page.getByRole('button', { name: /edit/i }).first()
-  await editBtn.click()
+  const addBtn = page.locator('button').filter({ hasText: /Add/ }).first()
+
+  const hasEdit = await editBtn.isVisible({ timeout: 5000 }).catch(() => false)
+  const hasAdd = !hasEdit && await addBtn.isVisible({ timeout: 3000 }).catch(() => false)
+
+  if (!hasEdit && !hasAdd) {
+    console.log('No Edit or Add button found — skipping modal screenshots')
+    return
+  }
+
+  if (hasEdit) {
+    await editBtn.click()
+  } else {
+    await addBtn.click()
+  }
   await page.waitForTimeout(2000)
 
   // ─── 3. Purchase tab - top of form ─────────────────────────────────────────

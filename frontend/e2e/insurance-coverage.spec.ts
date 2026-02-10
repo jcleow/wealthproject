@@ -7,9 +7,39 @@
  * - Step 3: Summary review
  *
  * Uses serial mode since wizard state carries between tests.
+ *
+ * Note: The GuidelinesTab wizard is rendered inside a modal, opened via
+ * the "Edit Targets" option in a category card's "•••" menu on MyCoverageTab.
  */
 import { authenticatedTest } from './fixtures/auth'
-import { expect } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+
+/**
+ * Opens the GuidelinesTab wizard modal from the insurance planner page.
+ * Clicks the first category card's "•••" menu → "Edit Targets".
+ */
+async function openGuidelinesWizard(page: Page) {
+  await page.goto('/insurance-planner')
+  await page.waitForLoadState('networkidle')
+
+  // Wait for MyCoverageTab to load (coverage cards should be visible)
+  await expect(page.getByText('Insurance Planner').first()).toBeVisible({ timeout: 10000 })
+  await page.waitForTimeout(1000)
+
+  // Click the first "•••" (MoreHorizontal) menu trigger on a category card
+  const menuTrigger = page.locator('button').filter({ has: page.locator('svg.lucide-more-horizontal') }).first()
+  await expect(menuTrigger).toBeVisible({ timeout: 5000 })
+  await menuTrigger.click()
+  await page.waitForTimeout(300)
+
+  // Click "Edit Targets" from the dropdown
+  const editTargetsButton = page.getByText('Edit Targets', { exact: true })
+  await expect(editTargetsButton).toBeVisible({ timeout: 3000 })
+  await editTargetsButton.click()
+
+  // Wait for the wizard modal to open
+  await expect(page.getByText('Step 1 of 3')).toBeVisible({ timeout: 10000 })
+}
 
 authenticatedTest.describe('Insurance Coverage Guidelines', () => {
   authenticatedTest.describe.configure({ mode: 'serial' })
@@ -24,14 +54,15 @@ authenticatedTest.describe('Insurance Coverage Guidelines', () => {
     // Verify we're on the insurance planner page
     await expect(page.getByText('Insurance Planner').first()).toBeVisible({ timeout: 10000 })
 
-    // The default tab should be "My Coverage" which shows the GuidelinesTab
-    await expect(page.getByText('My Coverage').first()).toBeVisible({ timeout: 5000 })
+    // The default tab should be "Coverage" which shows MyCoverageTab
+    await expect(page.getByText('Coverage').first()).toBeVisible({ timeout: 5000 })
   })
 
   authenticatedTest('Step 1: should show person selector and income', async ({ authenticatedPage }) => {
     const page = authenticatedPage
-    await page.goto('/insurance-planner')
-    await page.waitForLoadState('networkidle')
+
+    // Open the guidelines wizard modal
+    await openGuidelinesWizard(page)
 
     // Verify Step 1 heading
     await expect(page.getByText('Step 1 of 3')).toBeVisible({ timeout: 10000 })
@@ -51,11 +82,9 @@ authenticatedTest.describe('Insurance Coverage Guidelines', () => {
 
   authenticatedTest('Step 1: should allow changing person selection', async ({ authenticatedPage }) => {
     const page = authenticatedPage
-    await page.goto('/insurance-planner')
-    await page.waitForLoadState('networkidle')
 
-    // Wait for step 1 to load
-    await expect(page.getByText('Step 1 of 3')).toBeVisible({ timeout: 10000 })
+    // Open the guidelines wizard modal
+    await openGuidelinesWizard(page)
 
     // Click the person selector dropdown to open it
     const personSelector = page.locator('.relative').filter({ hasText: /select person/i }).first()
@@ -79,11 +108,9 @@ authenticatedTest.describe('Insurance Coverage Guidelines', () => {
 
   authenticatedTest('Step 1: should navigate to Step 2 on Continue', async ({ authenticatedPage }) => {
     const page = authenticatedPage
-    await page.goto('/insurance-planner')
-    await page.waitForLoadState('networkidle')
 
-    // Wait for step 1
-    await expect(page.getByText('Step 1 of 3')).toBeVisible({ timeout: 10000 })
+    // Open the guidelines wizard modal
+    await openGuidelinesWizard(page)
 
     // Click continue to go to Step 2
     const continueBtn = page.getByRole('button', { name: /continue/i })
@@ -101,11 +128,9 @@ authenticatedTest.describe('Insurance Coverage Guidelines', () => {
 
   authenticatedTest('Step 2 - Hospitalization: should show coverage options', async ({ authenticatedPage }) => {
     const page = authenticatedPage
-    await page.goto('/insurance-planner')
-    await page.waitForLoadState('networkidle')
 
-    // Navigate to Step 2
-    await expect(page.getByText('Step 1 of 3')).toBeVisible({ timeout: 10000 })
+    // Open the guidelines wizard modal
+    await openGuidelinesWizard(page)
     const continueBtn = page.getByRole('button', { name: /continue/i })
     await expect(continueBtn).toBeVisible({ timeout: 5000 })
     const isDisabled = await continueBtn.getAttribute('disabled')
@@ -142,11 +167,9 @@ authenticatedTest.describe('Insurance Coverage Guidelines', () => {
 
   authenticatedTest('Step 2 - Life/TPD: should show dependent selection and financial obligations', async ({ authenticatedPage }) => {
     const page = authenticatedPage
-    await page.goto('/insurance-planner')
-    await page.waitForLoadState('networkidle')
 
-    // Navigate through Step 1 → Step 2
-    await expect(page.getByText('Step 1 of 3')).toBeVisible({ timeout: 10000 })
+    // Open the guidelines wizard modal
+    await openGuidelinesWizard(page)
     const step1Continue = page.getByRole('button', { name: /continue/i })
     await expect(step1Continue).toBeVisible({ timeout: 5000 })
     if ((await step1Continue.getAttribute('disabled')) !== null) return
@@ -245,11 +268,9 @@ authenticatedTest.describe('Insurance Coverage Guidelines', () => {
 
   authenticatedTest('Step 2 - Critical Illness: should show emergency fund options', async ({ authenticatedPage }) => {
     const page = authenticatedPage
-    await page.goto('/insurance-planner')
-    await page.waitForLoadState('networkidle')
 
-    // Fast-track through Step 1
-    await expect(page.getByText('Step 1 of 3')).toBeVisible({ timeout: 10000 })
+    // Open the guidelines wizard modal
+    await openGuidelinesWizard(page)
     const step1Continue = page.getByRole('button', { name: /continue/i })
     if ((await step1Continue.getAttribute('disabled')) !== null) return
     await step1Continue.click()
@@ -287,11 +308,9 @@ authenticatedTest.describe('Insurance Coverage Guidelines', () => {
 
   authenticatedTest('Full wizard flow: should complete all steps', async ({ authenticatedPage }) => {
     const page = authenticatedPage
-    await page.goto('/insurance-planner')
-    await page.waitForLoadState('networkidle')
 
-    // Step 1: Verify and proceed
-    await expect(page.getByText('Step 1 of 3')).toBeVisible({ timeout: 10000 })
+    // Open the guidelines wizard modal
+    await openGuidelinesWizard(page)
     let continueBtn = page.getByRole('button', { name: /continue/i })
     await expect(continueBtn).toBeVisible({ timeout: 5000 })
     if ((await continueBtn.getAttribute('disabled')) !== null) {
@@ -367,11 +386,9 @@ authenticatedTest.describe('Insurance Coverage Guidelines', () => {
 
   authenticatedTest('PersonSelector: should show relationship labels', async ({ authenticatedPage }) => {
     const page = authenticatedPage
-    await page.goto('/insurance-planner')
-    await page.waitForLoadState('networkidle')
 
-    // Wait for step 1
-    await expect(page.getByText('Step 1 of 3')).toBeVisible({ timeout: 10000 })
+    // Open the guidelines wizard modal
+    await openGuidelinesWizard(page)
 
     // Open the PersonSelector dropdown
     // Find the selector near "Select person" label

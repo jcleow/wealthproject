@@ -1,4 +1,5 @@
 import { authenticatedTest } from './fixtures/auth'
+import { expect } from '@playwright/test'
 
 authenticatedTest('full page screenshot of insurance planner', async ({ authenticatedPage: page }) => {
   authenticatedTest.setTimeout(60000)
@@ -7,8 +8,23 @@ authenticatedTest('full page screenshot of insurance planner', async ({ authenti
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(1000)
 
-  // Step 1: Person selection → Continue
-  await page.getByRole('button', { name: /continue/i }).click()
+  // The GuidelinesTab wizard is now inside a modal — open it via the "•••" menu
+  await expect(page.getByText('Insurance Planner').first()).toBeVisible({ timeout: 10000 })
+
+  const menuTrigger = page.locator('button').filter({ has: page.locator('svg.lucide-more-horizontal') }).first()
+  await expect(menuTrigger).toBeVisible({ timeout: 5000 })
+  await menuTrigger.click()
+  await page.waitForTimeout(300)
+
+  const editTargetsButton = page.getByText('Edit Targets', { exact: true })
+  await expect(editTargetsButton).toBeVisible({ timeout: 3000 })
+  await editTargetsButton.click()
+
+  // Step 1: Person selection → Continue (wait for button to be enabled)
+  const continueBtn = page.getByRole('button', { name: /continue/i })
+  await expect(continueBtn).toBeVisible({ timeout: 10000 })
+  await expect(continueBtn).toBeEnabled({ timeout: 5000 })
+  await continueBtn.click()
   await page.waitForTimeout(1000)
 
   async function selectOptionAndContinue(optionText: string) {
@@ -39,7 +55,7 @@ authenticatedTest('full page screenshot of insurance planner', async ({ authenti
   await applyBtn.click()
   await page.waitForTimeout(3000)
 
-  // Now capture the resulting view
+  // Now capture the resulting view (MyCoverageTab after guidelines applied)
   const scrollable = page.locator('main').first()
   await scrollable.evaluate(el => el.scrollTo(0, el.scrollHeight))
   await page.waitForTimeout(1000)

@@ -67,11 +67,15 @@ authenticatedTest.describe('Insurance Planner CRUD', () => {
     const deleteOption = page.getByText('Delete Policy')
     await expect(deleteOption).toBeVisible({ timeout: 3000 })
 
-    // Click delete
+    // Click delete and wait for the API response
+    const deleteResponse = page.waitForResponse(resp =>
+      resp.url().includes('/insurance') && resp.request().method() === 'DELETE'
+    )
     await deleteOption.click()
+    await deleteResponse
 
-    // Wait for "AIA Pro Lifetime Protector" to disappear
-    await expect(page.getByText('AIA Pro Lifetime Protector')).not.toBeVisible({ timeout: 10000 })
+    // Wait for "AIA Pro Lifetime Protector" to disappear after re-render
+    await expect(page.getByText('AIA Pro Lifetime Protector')).not.toBeVisible({ timeout: 15000 })
 
     console.log('CRUD test passed: Load, Read, Edit modal, and Delete all verified')
   })

@@ -35,7 +35,7 @@ authenticatedTest.describe('CPF Simulation View', () => {
       await expect(page.getByText('CPF Simulation')).toBeVisible({ timeout: 10000 })
 
       // Should see the Property tab is active
-      const propertyTab = page.locator('button').filter({ hasText: 'Property' })
+      const propertyTab = page.getByRole('button', { name: 'Property', exact: true })
       await expect(propertyTab).toBeVisible()
     })
 
@@ -62,7 +62,7 @@ authenticatedTest.describe('CPF Simulation View', () => {
         await expect(modal).toBeVisible({ timeout: 5000 })
 
         // Verify it's the Property Scenarios modal (list mode header)
-        await expect(page.getByText('Property Scenarios')).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Property Scenarios', exact: true })).toBeVisible()
 
         // Should show "Add Property Scenario" button in the list
         const addScenarioButton = page.getByText('Add Property Scenario')
@@ -80,7 +80,7 @@ authenticatedTest.describe('CPF Simulation View', () => {
 
           const modal = page.getByRole('dialog')
           await expect(modal).toBeVisible({ timeout: 5000 })
-          await expect(page.getByText('Property Scenarios')).toBeVisible()
+          await expect(page.getByRole('heading', { name: 'Property Scenarios', exact: true })).toBeVisible()
 
           await page.keyboard.press('Escape')
         }
