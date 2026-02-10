@@ -13,17 +13,22 @@ import {
   type ChartData,
 } from 'chart.js'
 import { Line } from 'react-chartjs-2'
-import { Shield, HeartPulse, Zap, AlertCircle, Check, CheckCircle2, Calendar, GraduationCap, Home, Sunset, ChevronDown, ChevronRight, Baby, ShieldAlert, Accessibility } from 'lucide-react'
+import { Shield, HeartPulse, Zap, AlertCircle, Check, CheckCircle2, ChevronDown, ChevronRight, ShieldAlert, Accessibility } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { useQuestionnaireAutoPopulate } from '@/hooks/useQuestionnaireAutoPopulate'
 import { usePersonFilter } from '@/contexts/PersonFilterContext'
+import { usePersonFilterLocal } from '@/hooks/usePersonFilter'
 import { useColorScheme } from '@/stores'
 import { PersonSelector } from '@/components/ui/PersonSelector'
 import { PersonViewDropdown } from '@/components/insurance/shared/PersonViewDropdown'
 import { getInsuranceTheme } from '@/lib/insurance-theme'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
 import { type CheckboxPillOption } from '@/components/insurance/shared/CheckboxPill'
+import { INSURANCE_DARK_THEME } from '@/components/insurance/shared/insurance-dark-theme'
+import { JOURNEY_CATEGORY_CONFIG } from '@/config/insurance-categories'
+import { getMilestoneIcon as getMilestoneIconFromConfig, getMilestoneColors as getMilestoneColorsFromConfig } from '@/lib/milestone-config'
+import { buildCoverageDatasets, buildCoverageChartOptions, type CoverageChartColorConfig } from '@/lib/insurance-chart-config'
 import {
   generateCoverageProjection,
   calculateMilestones,
@@ -66,21 +71,23 @@ const DARK_PALETTE = {
   cardBorder: 'rgba(255, 255, 255, 0.08)',
   milestoneInnerBg: 'rgba(255, 255, 255, 0.04)',
   contentAreaBg: 'rgba(255, 255, 255, 0.02)',
-  textPrimary: '#F0F0F0',
-  textMuted: '#71717A',
-  textSecondaryMuted: '#9CA3AF',
+  // Derive overlapping tokens from the shared theme
+  textPrimary: INSURANCE_DARK_THEME.textPrimary,
+  textMuted: INSURANCE_DARK_THEME.textMuted,
+  textSecondaryMuted: INSURANCE_DARK_THEME.textSecondary,
   red: '#D97706',
-  green: '#22C55E',
-  blueLifeTpd: '#3D5A80',
+  green: INSURANCE_DARK_THEME.statusGreen,
+  // Category colors derived from shared config
+  blueLifeTpd: JOURNEY_CATEGORY_CONFIG.lifeTpd.color,
   blueLightAccent: '#7CB3D8',
-  grayCriticalIllness: '#6B7280',
+  grayCriticalIllness: JOURNEY_CATEGORY_CONFIG.criticalIllness.color,
   grayCriticalIllnessChip: '#A1A1AA',
-  goldPersonalAccident: '#E5A100',
-  tealEarlyCi: '#14B8A6',
-  purpleDisability: '#A78BFA',
+  goldPersonalAccident: JOURNEY_CATEGORY_CONFIG.personalAccident.color,
+  tealEarlyCi: JOURNEY_CATEGORY_CONFIG.earlyCi.color,
+  purpleDisability: JOURNEY_CATEGORY_CONFIG.disability.color,
   gapCardBg: 'rgba(217, 119, 6, 0.08)',
   gapCardBorder: 'rgba(217, 119, 6, 0.20)',
-  chipActiveBg: '#F0F0F0',
+  chipActiveBg: INSURANCE_DARK_THEME.textPrimary,
   chipActiveText: '#111113',
   chipInactiveBg: 'rgba(255, 255, 255, 0.02)',
 } as const
@@ -96,8 +103,8 @@ const DARK_CATEGORY_CONFIG = {
     chipCheckColor: DARK_PALETTE.blueLifeTpd,
     legendDotFill: '#3D5A8060',
     legendDotStroke: DARK_PALETTE.blueLifeTpd,
-    icon: Shield,
-    label: 'Life/TPD',
+    icon: JOURNEY_CATEGORY_CONFIG.lifeTpd.icon,
+    label: JOURNEY_CATEGORY_CONFIG.lifeTpd.label,
   },
   criticalIllness: {
     chartLine: DARK_PALETTE.grayCriticalIllness,
@@ -105,8 +112,8 @@ const DARK_CATEGORY_CONFIG = {
     chipCheckColor: DARK_PALETTE.grayCriticalIllnessChip,
     legendDotFill: '#6B728060',
     legendDotStroke: DARK_PALETTE.grayCriticalIllness,
-    icon: HeartPulse,
-    label: 'Critical Illness',
+    icon: JOURNEY_CATEGORY_CONFIG.criticalIllness.icon,
+    label: JOURNEY_CATEGORY_CONFIG.criticalIllness.label,
   },
   earlyCi: {
     chartLine: DARK_PALETTE.tealEarlyCi,
@@ -114,8 +121,8 @@ const DARK_CATEGORY_CONFIG = {
     chipCheckColor: DARK_PALETTE.tealEarlyCi,
     legendDotFill: '#14B8A640',
     legendDotStroke: DARK_PALETTE.tealEarlyCi,
-    icon: ShieldAlert,
-    label: 'Early CI',
+    icon: JOURNEY_CATEGORY_CONFIG.earlyCi.icon,
+    label: JOURNEY_CATEGORY_CONFIG.earlyCi.label,
   },
   disability: {
     chartLine: DARK_PALETTE.purpleDisability,
@@ -123,8 +130,8 @@ const DARK_CATEGORY_CONFIG = {
     chipCheckColor: DARK_PALETTE.purpleDisability,
     legendDotFill: '#A78BFA40',
     legendDotStroke: DARK_PALETTE.purpleDisability,
-    icon: Accessibility,
-    label: 'Disability',
+    icon: JOURNEY_CATEGORY_CONFIG.disability.icon,
+    label: JOURNEY_CATEGORY_CONFIG.disability.label,
   },
   personalAccident: {
     chartLine: DARK_PALETTE.goldPersonalAccident,
@@ -132,8 +139,8 @@ const DARK_CATEGORY_CONFIG = {
     chipCheckColor: DARK_PALETTE.goldPersonalAccident,
     legendDotFill: '#E5A10060',
     legendDotStroke: DARK_PALETTE.goldPersonalAccident,
-    icon: Zap,
-    label: 'Personal Accident',
+    icon: JOURNEY_CATEGORY_CONFIG.personalAccident.icon,
+    label: JOURNEY_CATEGORY_CONFIG.personalAccident.label,
   },
 } as const
 
@@ -366,97 +373,23 @@ function DarkCoverageChart({
   const showDisability = activeCategories.has('disability')
   const showPersonalAccident = activeCategories.has('personalAccident')
 
+  const darkChartColorConfig: CoverageChartColorConfig = useMemo(() => ({
+    lifeTpd: { chartLine: DARK_CATEGORY_CONFIG.lifeTpd.chartLine, chartFill: DARK_CATEGORY_CONFIG.lifeTpd.chartFill },
+    criticalIllness: { chartLine: DARK_CATEGORY_CONFIG.criticalIllness.chartLine, chartFill: DARK_CATEGORY_CONFIG.criticalIllness.chartFill },
+    earlyCi: { chartLine: DARK_CATEGORY_CONFIG.earlyCi.chartLine, chartFill: DARK_CATEGORY_CONFIG.earlyCi.chartFill },
+    disability: { chartLine: DARK_CATEGORY_CONFIG.disability.chartLine, chartFill: DARK_CATEGORY_CONFIG.disability.chartFill },
+    personalAccident: { chartLine: DARK_CATEGORY_CONFIG.personalAccident.chartLine, chartFill: DARK_CATEGORY_CONFIG.personalAccident.chartFill },
+    pointHoverBorderColor: DARK_PALETTE.textPrimary,
+    gridColor: DARK_PALETTE.cardBorder,
+    axisColor: DARK_PALETTE.textMuted,
+  }), [])
+
   const chartData: ChartData<'line'> = useMemo(() => {
-    const labels = projections.map(p => isMultiPerson ? ageToYear(p.age).toString() : p.age.toString())
-    const datasets = []
-
-    if (showLifeTpd) {
-      datasets.push({
-        label: 'Life/TPD',
-        data: projections.map(p => p.recommendedLifeTpd),
-        borderColor: DARK_CATEGORY_CONFIG.lifeTpd.chartLine,
-        backgroundColor: DARK_CATEGORY_CONFIG.lifeTpd.chartFill,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 6,
-        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.lifeTpd.chartLine,
-        pointHoverBorderColor: DARK_PALETTE.textPrimary,
-        pointHoverBorderWidth: 2,
-        borderWidth: 2,
-      })
-    }
-
-    if (showCriticalIllness) {
-      datasets.push({
-        label: 'Critical Illness',
-        data: projections.map(p => p.recommendedCriticalIllness),
-        borderColor: DARK_CATEGORY_CONFIG.criticalIllness.chartLine,
-        backgroundColor: DARK_CATEGORY_CONFIG.criticalIllness.chartFill,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.criticalIllness.chartLine,
-        pointHoverBorderColor: DARK_PALETTE.textPrimary,
-        pointHoverBorderWidth: 2,
-        borderWidth: 1.5,
-      })
-    }
-
-    if (showEarlyCi) {
-      datasets.push({
-        label: 'Early CI',
-        data: projections.map(p => p.recommendedEarlyCi),
-        borderColor: DARK_CATEGORY_CONFIG.earlyCi.chartLine,
-        backgroundColor: DARK_CATEGORY_CONFIG.earlyCi.chartFill,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.earlyCi.chartLine,
-        pointHoverBorderColor: DARK_PALETTE.textPrimary,
-        pointHoverBorderWidth: 2,
-        borderWidth: 1.5,
-      })
-    }
-
-    if (showDisability) {
-      datasets.push({
-        label: 'Disability',
-        data: projections.map(p => p.recommendedDisability),
-        borderColor: DARK_CATEGORY_CONFIG.disability.chartLine,
-        backgroundColor: DARK_CATEGORY_CONFIG.disability.chartFill,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.disability.chartLine,
-        pointHoverBorderColor: DARK_PALETTE.textPrimary,
-        pointHoverBorderWidth: 2,
-        borderWidth: 1.5,
-      })
-    }
-
-    if (showPersonalAccident) {
-      datasets.push({
-        label: 'Personal Accident',
-        data: projections.map(p => p.recommendedPersonalAccident),
-        borderColor: DARK_CATEGORY_CONFIG.personalAccident.chartLine,
-        backgroundColor: DARK_CATEGORY_CONFIG.personalAccident.chartFill,
-        fill: true,
-        tension: 0.4,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-        pointHoverBackgroundColor: DARK_CATEGORY_CONFIG.personalAccident.chartLine,
-        pointHoverBorderColor: DARK_PALETTE.textPrimary,
-        pointHoverBorderWidth: 2,
-        borderWidth: 1,
-      })
-    }
-
-    return { labels, datasets }
-  }, [projections, showLifeTpd, showCriticalIllness, showEarlyCi, showDisability, showPersonalAccident, isMultiPerson, ageToYear])
+    const labelMapper = isMultiPerson
+      ? (p: CoverageProjectionYear) => ageToYear(p.age).toString()
+      : undefined
+    return buildCoverageDatasets(projections, darkChartColorConfig, activeCategories, labelMapper)
+  }, [projections, activeCategories, isMultiPerson, ageToYear, darkChartColorConfig])
 
   const handleMarkerMouseDown = useCallback((event: React.MouseEvent) => {
     event.preventDefault()
@@ -580,71 +513,38 @@ function DarkCoverageChart({
     []
   )
 
-  const chartOptions: ChartOptions<'line'> = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: {
-      onComplete: () => {
+  const chartOptions: ChartOptions<'line'> = useMemo(() =>
+    buildCoverageChartOptions(darkChartColorConfig, {
+      onAnimationComplete: () => {
         if (!chartScalesReadyRef.current) {
           setChartScalesReady(true)
         }
       },
-    },
-    interaction: { mode: 'index', intersect: false },
-    plugins: {
-      legend: { display: false },
-      tooltip: {
-        enabled: false,
-        external: externalTooltipHandler,
-        callbacks: {
-          title: (items) => {
-            if (items.length > 0) {
-              const age = projections[items[0].dataIndex]?.age
-              const isCurrent = age === currentAge
-              if (isMultiPerson) {
-                return `${ageToYear(age)}${isCurrent ? ' (Current)' : ''}`
-              }
-              return `Age ${age}${isCurrent ? ' (Current)' : ''}`
-            }
-            return ''
-          },
-        },
+      externalTooltipHandler,
+      tooltipTitleCallback: (items) => {
+        if (items.length > 0) {
+          const age = projections[items[0].dataIndex]?.age
+          const isCurrent = age === currentAge
+          if (isMultiPerson) {
+            return `${ageToYear(age)}${isCurrent ? ' (Current)' : ''}`
+          }
+          return `Age ${age}${isCurrent ? ' (Current)' : ''}`
+        }
+        return ''
       },
-    },
-    scales: {
-      x: {
-        grid: { color: DARK_PALETTE.cardBorder, drawTicks: false },
-        ticks: {
-          color: DARK_PALETTE.textMuted,
-          font: { size: 11 },
-          maxRotation: 0,
-          callback: function (_value, index) {
-            const age = projections[index]?.age
-            if (age === undefined) return ''
-            if (isMultiPerson) {
-              const year = ageToYear(age)
-              if (year % 5 === 0) return year
-              return ''
-            }
-            if (age % 5 === 0) return age
-            return ''
-          },
-        },
-        border: { display: false },
+      xTickCallback: (_value, index) => {
+        const age = projections[index]?.age
+        if (age === undefined) return ''
+        if (isMultiPerson) {
+          const year = ageToYear(age)
+          if (year % 5 === 0) return year
+          return ''
+        }
+        if (age % 5 === 0) return age
+        return ''
       },
-      y: {
-        grid: { color: DARK_PALETTE.cardBorder, drawTicks: false },
-        ticks: {
-          color: DARK_PALETTE.textMuted,
-          font: { size: 11 },
-          callback: (value) => formatCoverageAmount(value as number),
-          maxTicksLimit: 5,
-        },
-        border: { display: false },
-        beginAtZero: true,
-      },
-    },
-  }), [projections, currentAge, externalTooltipHandler, isMultiPerson, ageToYear])
+    }),
+  [projections, currentAge, externalTooltipHandler, isMultiPerson, ageToYear, darkChartColorConfig])
 
   return (
     <div
@@ -981,38 +881,15 @@ function DarkCoverageBreakdownCard({
 // =============================================================================
 
 function getDarkMilestoneIcon(category: CoverageMilestone['category']) {
-  switch (category) {
-    case 'dependent':
-      return Baby
-    case 'debt':
-      return Home
-    case 'retirement':
-      return Sunset
-    default:
-      return Calendar
-  }
+  return getMilestoneIconFromConfig(category, 'dark')
 }
 
 function getDarkMilestoneIconBg(category: CoverageMilestone['category']): string {
-  switch (category) {
-    case 'debt':
-      return DARK_PALETTE.red
-    case 'dependent':
-    case 'retirement':
-    default:
-      return DARK_PALETTE.blueLifeTpd
-  }
+  return getMilestoneColorsFromConfig(category, 'dark').bg
 }
 
 function getDarkMilestoneYearColor(category: CoverageMilestone['category']): string {
-  switch (category) {
-    case 'debt':
-      return DARK_PALETTE.red
-    case 'dependent':
-    case 'retirement':
-    default:
-      return DARK_PALETTE.blueLightAccent
-  }
+  return getMilestoneColorsFromConfig(category, 'dark').yearColor
 }
 
 function DarkMilestonesCard({
@@ -1244,44 +1121,15 @@ function CoverageComparisonLight({
 // =============================================================================
 
 function getMilestoneIcon(category: CoverageMilestone['category']) {
-  switch (category) {
-    case 'dependent':
-      return GraduationCap
-    case 'debt':
-      return Home
-    case 'retirement':
-      return Sunset
-    default:
-      return Calendar
-  }
+  return getMilestoneIconFromConfig(category, 'light')
 }
 
 function getMilestoneColor(category: CoverageMilestone['category'], theme: ReturnType<typeof getInsuranceTheme>, isMonet: boolean) {
-  switch (category) {
-    case 'dependent':
-      return {
-        bg: isMonet ? 'rgba(59, 130, 246, 0.12)' : 'rgba(59, 130, 246, 0.15)',
-        border: 'rgba(59, 130, 246, 0.25)',
-        text: '#3B82F6',
-      }
-    case 'debt':
-      return {
-        bg: isMonet ? `${theme.sage}18` : `${theme.sage}20`,
-        border: `${theme.sage}35`,
-        text: theme.sage,
-      }
-    case 'retirement':
-      return {
-        bg: isMonet ? `${theme.sunlightGold}25` : `${theme.amber}20`,
-        border: isMonet ? `${theme.sunlightGold}40` : `${theme.amber}35`,
-        text: isMonet ? '#8A7A5A' : theme.amber,
-      }
-    default:
-      return {
-        bg: `${theme.lavender}15`,
-        border: `${theme.lavender}25`,
-        text: theme.lavender,
-      }
+  const colors = getMilestoneColorsFromConfig(category, 'light', theme, isMonet)
+  return {
+    bg: colors.bg,
+    border: colors.border ?? '',
+    text: colors.text ?? '',
   }
 }
 
@@ -1902,10 +1750,12 @@ export function JourneyTab({ className }: JourneyTabProps) {
   const { includedPersons } = usePersonFilter()
   const { data: persons, isLoading: personsLoading } = usePersonsQuery()
 
-  // Person selection state
-  // Dark mode: multi-select (matching Pencil "Viewing for N persons" design)
-  // Monet mode: single-select via PersonSelector
-  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string> | null>(null)
+  // Person selection state -- dark mode uses multi-select hook, monet uses single-select
+  const {
+    selectedPersonIds,
+    togglePerson: handleTogglePerson,
+    toggleSelectAll: handleToggleSelectAllPersons,
+  } = usePersonFilterLocal(includedPersons)
   const [monetSelectedPersonId, setMonetSelectedPersonId] = useState<string | null>(null)
 
   // Category filter state (dark mode only) — multi-select via Set
@@ -1925,26 +1775,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
     })
   }, [])
 
-  const handleTogglePerson = (personId: string) => {
-    setSelectedPersonIds((prev) => {
-      // null = "all selected" (no filter applied).
-      // Clicking a person in this state deselects them (show all except clicked).
-      if (prev === null) {
-        return new Set(includedPersons.filter((p) => p.id !== personId).map((p) => p.id))
-      }
-      const next = new Set(prev)
-      if (next.has(personId)) {
-        next.delete(personId)
-      } else {
-        next.add(personId)
-      }
-      // If all persons are now selected, collapse back to null
-      if (next.size === includedPersons.length) {
-        return null
-      }
-      return next
-    })
-  }
+
 
   // Derive effective person for projections:
   // - Dark mode: first selected person (or first included if none selected)
@@ -2069,7 +1900,7 @@ export function JourneyTab({ className }: JourneyTabProps) {
                 persons={includedPersons}
                 selectedIds={selectedPersonIds}
                 onToggle={handleTogglePerson}
-                onSelectAll={() => setSelectedPersonIds((prev) => prev === null ? new Set() : null)}
+                onSelectAll={handleToggleSelectAllPersons}
               />
             )}
           </div>

@@ -85,34 +85,26 @@ func (s *Store) ListInsurancePolicies(
 	pagination PaginationParams,
 	sort SortParams,
 ) (PaginatedResult[InsurancePolicy], error) {
-	// ── Build shared WHERE clause ──
-	whereClause := `ip.user_id = $1`
-	args := []any{userID}
-	argIdx := 2
+	// ── Build shared WHERE clause using QueryBuilder ──
+	queryBuilder := NewQueryBuilder(`ip.user_id = $1`, userID)
 
 	if len(filter.PersonIDs) > 0 {
-		whereClause += fmt.Sprintf(` AND ip.person_id = ANY($%d)`, argIdx)
-		args = append(args, filter.PersonIDs)
-		argIdx++
+		queryBuilder.Where(`ip.person_id = ANY(%s)`, filter.PersonIDs)
 	}
 
 	if len(filter.Categories) > 0 {
-		whereClause += fmt.Sprintf(` AND ip.category = ANY($%d)`, argIdx)
-		args = append(args, filter.Categories)
-		argIdx++
+		queryBuilder.Where(`ip.category = ANY(%s)`, filter.Categories)
 	}
 
 	if filter.StartDateFrom != nil {
-		whereClause += fmt.Sprintf(` AND ip.start_date >= $%d`, argIdx)
-		args = append(args, *filter.StartDateFrom)
-		argIdx++
+		queryBuilder.Where(`ip.start_date >= %s`, *filter.StartDateFrom)
 	}
 
 	if filter.StartDateTo != nil {
-		whereClause += fmt.Sprintf(` AND ip.start_date <= $%d`, argIdx)
-		args = append(args, *filter.StartDateTo)
-		argIdx++
+		queryBuilder.Where(`ip.start_date <= %s`, *filter.StartDateTo)
 	}
+
+	whereClause, args := queryBuilder.Build()
 
 	// ── Total count query (same WHERE, no LIMIT/OFFSET) ──
 	countQuery := `SELECT COUNT(*) FROM insurance_policies ip WHERE ` + whereClause
@@ -131,7 +123,7 @@ func (s *Store) ListInsurancePolicies(
 
 	query += ` ORDER BY ` + buildInsurancePolicyOrderBy(sort)
 
-	paginationSubQuery, _ := addPaginationQuery(pagination, argIdx)
+	paginationSubQuery, _ := addPaginationQuery(pagination, queryBuilder.ArgIdx())
 	if paginationSubQuery != "" {
 		query += " " + paginationSubQuery
 		if pagination.Limit != nil {
@@ -283,27 +275,10 @@ func (s *Store) UpdateInsurancePolicy(ctx context.Context, userID, id string, po
 
 // DeleteInsurancePolicy deletes a single insurance policy.
 func (s *Store) DeleteInsurancePolicy(ctx context.Context, userID, id string) error {
-	query := `DELETE FROM insurance_policies WHERE user_id = $1 AND id = $2`
-	logQuery(query, []any{userID, id})
-
-	result, err := s.pool.Exec(ctx, query, userID, id)
-	if err != nil {
-		return fmt.Errorf("failed to delete insurance policy: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return s.deleteByID(ctx, "insurance_policies", userID, id)
 }
 
 // DeleteAllInsurancePolicies deletes all insurance policies for a user (bulk delete).
 func (s *Store) DeleteAllInsurancePolicies(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM insurance_policies WHERE user_id = $1`
-	logQuery(query, []any{userID})
-
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all insurance policies: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "insurance_policies", userID)
 }

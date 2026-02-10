@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import {
-  X, Shield, Heart, HeartHandshake, Link, Zap,
+  X, Shield,
   Check, Plus, ArrowLeft, Landmark, Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -12,19 +12,20 @@ import { CustomDropdown } from '@/components/ui/CustomDropdown'
 import { DatePicker } from '@/components/ui/DatePicker'
 
 // =============================================================================
-// Dark Theme Tokens (matches Pencil designs exactly)
+// Dark Theme Tokens (shared across insurance module)
 // =============================================================================
 
+import { INSURANCE_DARK_THEME } from '../shared/insurance-dark-theme'
+import { ADD_POLICY_CATEGORIES } from '@/config/insurance-categories'
+
+// Alias to keep downstream references unchanged. cardBg maps to inputBg for
+// this modal's specific card styling (slightly lighter than the shared cardBg).
 const darkTokens = {
-  modalBg: '#1A1A1D',
-  inputBg: '#242428',
-  cardBg: '#242428',
-  border: '#2D2D33',
-  closeBg: '#333338',
-  textPrimary: '#E8E6E1',
-  textSecondary: '#9CA3AF',
-  textLabel: '#6B7280',
-  textMuted: '#4B5563',
+  ...INSURANCE_DARK_THEME,
+  // Override cardBg to match AddPolicyModal's original lighter card shade
+  cardBg: INSURANCE_DARK_THEME.inputBg,
+  // textSecondary in this modal was originally #9CA3AF (slightly different)
+  // but we now use the unified #A1A1AA from the shared theme for consistency
 }
 
 // =============================================================================
@@ -45,63 +46,7 @@ interface CategoryConfig {
   amountLabel: string
 }
 
-const categoryConfigs: CategoryConfig[] = [
-  {
-    id: 'life',
-    label: 'Life Insurance',
-    subtitle: 'Term life, whole life, endowment',
-    icon: Shield,
-    accentColor: '#3B82F6',
-    formTitle: 'Add Life Insurance Policy',
-    formSubtitle: 'Term life, whole life, and endowment',
-    coverageLabel: 'Coverage Benefits',
-    amountLabel: 'Sum Assured',
-  },
-  {
-    id: 'health',
-    label: 'Health',
-    subtitle: 'MediShield, ISP, health riders',
-    icon: Heart,
-    accentColor: '#3B82F6',
-    formTitle: 'Add Health Insurance Policy',
-    formSubtitle: 'MediShield, ISP, and health riders',
-    coverageLabel: 'Health Coverage Settings',
-    amountLabel: 'Coverage Amount',
-  },
-  {
-    id: 'critical_illness',
-    label: 'Critical Illness',
-    subtitle: 'Early & multi-pay CI coverage',
-    icon: HeartHandshake,
-    accentColor: '#3B82F6',
-    formTitle: 'Add Critical Illness Policy',
-    formSubtitle: 'Early & multi-pay CI coverage',
-    coverageLabel: 'CI Coverage Settings',
-    amountLabel: 'Sum Assured',
-  },
-  {
-    id: 'long_term_care',
-    label: 'Long Term Care',
-    subtitle: 'ElderShield, CareShield supplements',
-    icon: Link,
-    accentColor: '#3B82F6',
-    formTitle: 'Add Long Term Care Policy',
-    formSubtitle: 'ElderShield & CareShield supplements',
-    coverageLabel: 'LTC Payout Settings',
-    amountLabel: 'Coverage Amount',
-  },
-  {
-    id: 'personal_accident',
-    label: 'Personal Accident',
-    subtitle: 'Accident injury & death coverage',
-    icon: Zap,
-    accentColor: '#3B82F6',
-    formTitle: 'Add Personal Accident Policy',
-    formSubtitle: 'Accident injury & death coverage',
-    coverageLabel: 'Accident Coverage',
-    amountLabel: 'Coverage Amount',
-  },
-]
+const categoryConfigs: CategoryConfig[] = ADD_POLICY_CATEGORIES
 
 // =============================================================================
 // Provider Options

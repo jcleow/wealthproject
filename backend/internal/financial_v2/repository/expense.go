@@ -221,16 +221,7 @@ func (s *Store) FindExpenseByParentAndStartDate(
 
 // DeleteAllExpenses deletes all expenses for a user (bulk delete).
 func (s *Store) DeleteAllExpenses(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM finance_expenses WHERE user_id = $1`
-
-	logQuery(query, []any{userID})
-
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all expenses: %w", err)
-	}
-
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "finance_expenses", userID)
 }
 
 // StopExpense sets the end_date on an expense (soft delete).

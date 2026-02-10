@@ -1140,13 +1140,7 @@ func nullIfEmpty(s string) *string {
 
 // DeleteAllNonCashAssets deletes all non-cash assets for a user (bulk delete).
 func (s *Store) DeleteAllNonCashAssets(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM finance_assets WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all non-cash assets: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "finance_assets", userID)
 }
 
 // DeleteAllCashAssets resets all cash accounts for a user (bulk delete).
@@ -1173,47 +1167,23 @@ func (s *Store) DeleteAllCashAssets(ctx context.Context, userID string) (int64, 
 
 // DeleteAllLiabilities deletes all liabilities for a user (bulk delete).
 func (s *Store) DeleteAllLiabilities(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM finance_liabilities WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all liabilities: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "finance_liabilities", userID)
 }
 
 // DeleteAllIncomes deletes all incomes for a user (bulk delete).
 // Also cascades to delete income_allocations via FK constraint.
 func (s *Store) DeleteAllIncomes(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM finance_incomes WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all incomes: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "finance_incomes", userID)
 }
 
 // DeleteAllInvestments deletes all investments for a user (bulk delete).
 func (s *Store) DeleteAllInvestments(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM finance_investments WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all investments: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "finance_investments", userID)
 }
 
 // DeleteAllCPFAccounts deletes all CPF accounts for a user (bulk delete).
 func (s *Store) DeleteAllCPFAccounts(ctx context.Context, userID string) (int64, error) {
-	query := `DELETE FROM cpf_accounts WHERE user_id = $1`
-	logQuery(query, []any{userID})
-	tag, err := s.pool.Exec(ctx, query, userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete all CPF accounts: %w", err)
-	}
-	return tag.RowsAffected(), nil
+	return s.deleteAllByUser(ctx, "cpf_accounts", userID)
 }
 
 // ResetAllUserData deletes all financial data for a user in a single transaction.

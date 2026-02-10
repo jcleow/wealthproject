@@ -247,20 +247,7 @@ func (s *Store) UpdatePerson(ctx context.Context, userID, id string, p Person) (
 
 // DeletePerson deletes a person. Linked incomes/CPF accounts will have person_id set to NULL.
 func (s *Store) DeletePerson(ctx context.Context, userID, id string) error {
-	query := `DELETE FROM persons WHERE user_id = $1 AND id = $2`
-
-	logQuery(query, []any{userID, id})
-
-	result, err := s.pool.Exec(ctx, query, userID, id)
-	if err != nil {
-		return fmt.Errorf("failed to delete person: %w", err)
-	}
-
-	if result.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-
-	return nil
+	return s.deleteByID(ctx, "persons", userID, id)
 }
 
 // TogglePersonIncluded toggles the is_included flag for a person.

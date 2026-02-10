@@ -140,20 +140,7 @@ func (s *Store) UpdateCashAccount(ctx context.Context, userID string, ca CashAss
 // DeleteCashAccount deletes a cash account.
 // Note: Cannot delete if is_accumulator is true (must be handled by caller).
 func (s *Store) DeleteCashAccount(ctx context.Context, userID, id string) error {
-	query := `DELETE FROM finance_cash_accounts WHERE user_id = $1 AND id = $2`
-
-	logQuery(query, []any{userID, id})
-
-	tag, err := s.pool.Exec(ctx, query, userID, id)
-	if err != nil {
-		return fmt.Errorf("failed to delete cash account: %w", err)
-	}
-
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-
-	return nil
+	return s.deleteByID(ctx, "finance_cash_accounts", userID, id)
 }
 
 // StopCashAccount sets the end_date on a cash account (soft delete).

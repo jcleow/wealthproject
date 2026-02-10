@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"financial-chat-system/backend/internal/decimal"
 	"financial-chat-system/backend/internal/financial/repository"
 	repoV2 "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/middleware"
@@ -110,6 +112,53 @@ func requireUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
 		return "", false
 	}
 	return userID, true
+}
+
+
+// =============================================================================
+// Shared Parsing Helpers
+// =============================================================================
+
+// parseOptionalDecimal parses a nullable string into an optional Decimal.
+func parseOptionalDecimal(s *string) (*decimal.Decimal, error) {
+	if s == nil || *s == "" {
+		return nil, nil
+	}
+	d, err := decimal.NewFromString(*s)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
+}
+
+// parseOptionalDate parses a nullable string into an optional time.Time.
+func parseOptionalDate(s *string) (*time.Time, error) {
+	if s == nil || *s == "" {
+		return nil, nil
+	}
+	t, err := time.Parse("2006-01-02", *s)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+// validatePersonOwnership checks that the given personId belongs to the authenticated user.
+// Returns true if valid (or nil), false and writes error response if invalid.
+func validatePersonOwnership(w http.ResponseWriter, r *http.Request, store *repoV2.Store, userID string, personID *string) bool {
+	if personID == nil || *personID == "" {
+		return true
+	}
+	_, err := store.GetPerson(r.Context(), userID, *personID)
+	if err == repoV2.ErrNotFound {
+		badRequest(w, errors.New("person not found or does not belong to user"))
+		return false
+	}
+	if err != nil {
+		internalError(w, err)
+		return false
+	}
+	return true
 }
 
 // =============================================================================

@@ -24,7 +24,9 @@ import { PersonViewDropdown } from '@/components/insurance/shared/PersonViewDrop
 import { useGuidelineTargets, useQuestionnaireAnswers, useCoverageGuidelinesStore } from '@/stores/coverageGuidelinesStore'
 import type { CoverageQuestionnaireAnswers } from '@/stores/coverageGuidelinesStore'
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
+import { usePersonFilterLocal } from '@/hooks/usePersonFilter'
 import { PolicyDetailModal } from '@/components/insurance/modals/PolicyDetailModal'
+import { annualizePremium as sharedAnnualizePremium, toFiniteNumber } from '@/lib/insurance-formatters'
 
 // ============================================================================
 // CATEGORY DEFINITIONS
@@ -121,22 +123,12 @@ const cardActionMenuStyle: React.CSSProperties = {
 
 /** Safely coerce any value to a finite number (guards against string/NaN from API) */
 function toNum(value: unknown): number {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : 0
+  return toFiniteNumber(value)
 }
 
 function getAnnualPremium(policy: InsurancePolicyRecord): number {
   const amount = toNum(policy.premiumAmount)
-  switch (policy.premiumFrequency) {
-    case 'monthly':
-      return amount * 12
-    case 'quarterly':
-      return amount * 4
-    case 'annually':
-      return amount
-    default:
-      return amount
-  }
+  return sharedAnnualizePremium(amount, policy.premiumFrequency)
 }
 
 function getCategoryPolicies(
@@ -199,7 +191,11 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
   const { data: policies = [] } = useInsurancePoliciesQuery()
   const { data: personsData } = usePersonsQuery()
   const persons = useMemo(() => personsData ?? [], [personsData])
-  const [selectedPersonIds, setSelectedPersonIds] = useState<Set<string> | null>(null)
+  const {
+    selectedPersonIds,
+    togglePerson: handleTogglePerson,
+    toggleSelectAll: handleToggleSelectAllPersons,
+  } = usePersonFilterLocal(persons)
   const [targetDisplayModes, setTargetDisplayModes] = useState<Record<string, TargetDisplayMode>>({})
 
   const getTargetDisplayMode = (categoryId: string): TargetDisplayMode =>
@@ -214,27 +210,6 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
   const questionnaireAnswers = useQuestionnaireAnswers()
   const monthlyIncome = annualIncome / 12
   const monthlyExpenses = questionnaireAnswers.criticalIllness.monthlyExpenses || annualIncome / 12
-
-  const handleTogglePerson = (personId: string) => {
-    setSelectedPersonIds((prev) => {
-      // null = "all selected" (no filter applied).
-      // Clicking a person in this state deselects them (show all except clicked).
-      if (prev === null) {
-        return new Set(persons.filter((p) => p.id !== personId).map((p) => p.id))
-      }
-      const next = new Set(prev)
-      if (next.has(personId)) {
-        next.delete(personId)
-      } else {
-        next.add(personId)
-      }
-      // If all persons are now selected, collapse back to null (all selected)
-      if (next.size === persons.length) {
-        return null
-      }
-      return next
-    })
-  }
 
   // Filter active policies by selected persons (null = show all)
   const activePolicies = useMemo(() => {
@@ -339,7 +314,7 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
               persons={persons}
               selectedIds={selectedPersonIds}
               onToggle={handleTogglePerson}
-              onSelectAll={() => setSelectedPersonIds((prev) => prev === null ? new Set() : null)}
+              onSelectAll={handleToggleSelectAllPersons}
             />
           )}
         </div>

@@ -18,6 +18,10 @@ import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insuran
 import { usePersonsQuery } from '@/hooks/queries/usePersonsQuery'
 import { getMediSavePayability } from '@/lib/medisave-utils'
 import type { Person } from '@/types/person'
+import {
+  annualizePremium as sharedAnnualizePremium,
+  formatCategoryLabel as sharedFormatCategoryLabel,
+} from '@/lib/insurance-formatters'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & Helpers
@@ -73,36 +77,11 @@ function formatPremiumWithFrequency(amount: number, frequency: string): string {
 }
 
 function annualizePremium(amount: number, frequency: string): number {
-  if (frequency === 'monthly') return amount * 12
-  if (frequency === 'quarterly') return amount * 4
-  return amount
+  return sharedAnnualizePremium(amount, frequency)
 }
 
 function formatCategoryLabel(category: string, subcategory: string | null): string {
-  const labels: Record<string, string> = {
-    life: 'Life/TPD',
-    health: 'Hospitalization',
-    critical_illness: 'Critical Illness',
-    long_term_care: 'Disability',
-    personal_accident: 'Personal Accident',
-  }
-  if (subcategory) {
-    const subLabels: Record<string, string> = {
-      term_life: 'Life/TPD',
-      whole_life: 'Life/TPD',
-      ilp: 'Life/ILP',
-      isp: 'Hospitalization',
-      medishield: 'Hospitalization',
-      early_ci: 'Critical Illness',
-      late_ci: 'Critical Illness',
-      multi_pay: 'Critical Illness',
-      careshield: 'Disability',
-      ltc_supplement: 'Disability',
-      pa: 'Personal Accident',
-    }
-    if (subLabels[subcategory]) return subLabels[subcategory]
-  }
-  return labels[category] ?? category
+  return sharedFormatCategoryLabel(category, subcategory)
 }
 
 function formatRenewalDate(startDate: string, endDate: string | null, renewalDate: string | null): string {

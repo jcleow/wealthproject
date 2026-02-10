@@ -1,42 +1,23 @@
 'use client'
 
-import { Heart, Shield, Activity, Building2, X, Trash2, Pencil, Calendar, Landmark, Info } from 'lucide-react'
+import { X, Trash2, Pencil, Calendar, Landmark, Info } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { formatCurrency } from '@/lib/format'
 import type { InsurancePolicyRecord } from '@/api/financial/insurance'
 import { getMediSavePayability, getCpfAccountLabel } from '@/lib/medisave-utils'
-
-// ============================================================================
-// DARK PALETTE (matches Pencil design KZCh7)
-// ============================================================================
-
-const D = {
-  modalBg: '#1A1A1D',
-  cardBg: '#222226',
-  border: '#2D2D33',
-  textPrimary: '#F0F0F0',
-  textSecondary: '#A1A1AA',
-  textMuted: '#71717A',
-  textDim: '#52525B',
-  statusGreen: '#22C55E',
-  deleteRed: '#C53D43',
-  categoryBlue: '#3D5A80',
-  linkedPurple: '#A78BFA',
-} as const
+import { INSURANCE_DARK_THEME as D } from '../shared/insurance-dark-theme'
+import { INSURANCE_CATEGORIES } from '@/config/insurance-categories'
+import { annualizePremium as sharedAnnualizePremium } from '@/lib/insurance-formatters'
 
 // ============================================================================
 // CATEGORY → ICON / COLOR MAPPING
 // ============================================================================
 
-const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string }> = {
-  life: { icon: Heart, color: '#3D5A80' },
-  critical_illness: { icon: Shield, color: '#6B7280' },
-  accident: { icon: Activity, color: '#E5A100' },
-  hospitalization: { icon: Building2, color: '#3D5A80' },
-}
+const CATEGORY_CONFIG: Record<string, { icon: React.ElementType; color: string }> = INSURANCE_CATEGORIES
 
 function getCategoryConfig(category: string) {
-  return CATEGORY_CONFIG[category] ?? CATEGORY_CONFIG.life
+  const defaultConfig = INSURANCE_CATEGORIES.life
+  return CATEGORY_CONFIG[category] ?? defaultConfig
 }
 
 // ============================================================================
@@ -51,12 +32,7 @@ function formatDate(dateStr: string | null): string {
 }
 
 function computeAnnualPremium(amount: number, frequency: string): number {
-  switch (frequency) {
-    case 'monthly': return amount * 12
-    case 'quarterly': return amount * 4
-    case 'annually': return amount
-    default: return amount
-  }
+  return sharedAnnualizePremium(amount, frequency)
 }
 
 function computeDurationLabel(startDate: string, endDate: string | null): string | null {

@@ -26,20 +26,15 @@ func scanCoverageControlPoint(row pgx.Row) (*CoverageControlPoint, error) {
 
 // ListCoverageControlPoints retrieves all coverage control points for a user with optional person filter.
 func (s *Store) ListCoverageControlPoints(ctx context.Context, userID string, personID *string) ([]CoverageControlPoint, error) {
+	queryBuilder := NewQueryBuilder(`cp.user_id = $1`, userID)
+	queryBuilder.WhereOptional(`cp.person_id = %s`, personID)
+
+	whereClause, args := queryBuilder.Build()
+
 	query := `SELECT ` + coverageControlPointColumns + `
 	FROM coverage_control_points cp
 	LEFT JOIN persons p ON cp.person_id = p.id
-	WHERE cp.user_id = $1`
-
-	args := []any{userID}
-	argIdx := 2
-
-	if personID != nil {
-		query += fmt.Sprintf(` AND cp.person_id = $%d`, argIdx)
-		args = append(args, *personID)
-	}
-
-	query += ` ORDER BY cp.person_id, cp.age ASC`
+	WHERE ` + whereClause + ` ORDER BY cp.person_id, cp.age ASC`
 
 	logQuery(query, args)
 
@@ -119,17 +114,7 @@ func (s *Store) UpdateCoverageControlPoint(ctx context.Context, userID, id strin
 
 // DeleteCoverageControlPoint deletes a single coverage control point.
 func (s *Store) DeleteCoverageControlPoint(ctx context.Context, userID, id string) error {
-	query := `DELETE FROM coverage_control_points WHERE user_id = $1 AND id = $2`
-	logQuery(query, []any{userID, id})
-
-	result, err := s.pool.Exec(ctx, query, userID, id)
-	if err != nil {
-		return fmt.Errorf("failed to delete coverage control point: %w", err)
-	}
-	if result.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return s.deleteByID(ctx, "coverage_control_points", userID, id)
 }
 
 // DeleteCoverageControlPointsByPerson deletes all coverage control points for a specific person.

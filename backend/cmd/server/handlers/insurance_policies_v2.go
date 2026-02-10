@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -36,30 +35,6 @@ type insurancePolicyInput struct {
 	LinkedExpenseID        *string `json:"linkedExpenseId"`
 	IsActive               *bool   `json:"isActive"`
 	Notes                  *string `json:"notes"`
-}
-
-// parseOptionalDecimal parses a nullable string into an optional Decimal.
-func parseOptionalDecimal(s *string) (*decimal.Decimal, error) {
-	if s == nil || *s == "" {
-		return nil, nil
-	}
-	d, err := decimal.NewFromString(*s)
-	if err != nil {
-		return nil, err
-	}
-	return d, nil
-}
-
-// parseOptionalDate parses a nullable string into an optional time.Time.
-func parseOptionalDate(s *string) (*time.Time, error) {
-	if s == nil || *s == "" {
-		return nil, nil
-	}
-	t, err := time.Parse("2006-01-02", *s)
-	if err != nil {
-		return nil, err
-	}
-	return &t, nil
 }
 
 // toInsurancePolicy converts input to a repository InsurancePolicy struct.
@@ -149,24 +124,6 @@ func (input *insurancePolicyInput) toInsurancePolicy() (repo.InsurancePolicy, er
 		IsActive:               isActive,
 		Notes:                  input.Notes,
 	}, nil
-}
-
-// validatePersonOwnership checks that the given personId belongs to the authenticated user.
-// Returns true if valid (or nil), false and writes error response if invalid.
-func validatePersonOwnership(w http.ResponseWriter, r *http.Request, store *repo.Store, userID string, personID *string) bool {
-	if personID == nil || *personID == "" {
-		return true
-	}
-	_, err := store.GetPerson(r.Context(), userID, *personID)
-	if err == repo.ErrNotFound {
-		badRequest(w, errors.New("person not found or does not belong to user"))
-		return false
-	}
-	if err != nil {
-		internalError(w, err)
-		return false
-	}
-	return true
 }
 
 // InsurancePolicyV2Handler serves insurance policy v2 endpoints.
