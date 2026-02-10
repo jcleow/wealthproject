@@ -78,6 +78,8 @@ type Store interface {
 	ListIncludedPropertyScenarios(context.Context, string) ([]repository.PropertyScenarioFull, error)
 	// ListFundFlowRules returns all fund flow rules for a user
 	ListFundFlowRules(context.Context, repository.ListFundFlowRulesQuery) ([]repository.FundFlowRule, error)
+	// ListInsurancePoliciesForTimeline returns active policies with premiums > 0 for projection
+	ListInsurancePoliciesForTimeline(context.Context, string) ([]repository.InsurancePolicy, error)
 }
 
 // ScenarioStore provides scenario-specific operations

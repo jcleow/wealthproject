@@ -6,23 +6,29 @@ import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 import type {
   GroupedExpenses,
   Expense as ApiExpense,
+  InsurancePremiumExpense,
   ExpenseCreateInput,
   ExpenseV2Input,
   StopInput,
 } from '@/types/api.aliases'
 
-export async function listExpenses(params?: PaginationParams): Promise<PaginatedResponse<Expense>> {
+export interface ExpenseListResult extends PaginatedResponse<Expense> {
+  insurancePremiums: InsurancePremiumExpense[]
+}
+
+export async function listExpenses(params?: PaginationParams): Promise<ExpenseListResult> {
   const path = buildPaginatedPath('/cashflow/expenses', params)
   // Use v2 API for full expense management
   const raw = await apiClient.get<GroupedExpenses>(path, undefined, { baseUrl: '/api/v2' })
 
-  // Backend returns GroupedExpenses with regularExpenses and debtRepayments
+  // Backend returns GroupedExpenses with regularExpenses, debtRepayments, and insurancePremiums
   const regularExpenses = raw?.regularExpenses ?? []
   const debtRepayments = raw?.debtRepayments ?? []
   const items = [...regularExpenses, ...debtRepayments]
 
   return {
     data: items.map(toExpense),
+    insurancePremiums: raw?.insurancePremiums ?? [],
     total: raw?.count ?? items.length,
     limit: raw?.limit ?? params?.limit ?? 20,
     offset: raw?.offset ?? params?.offset ?? 0,

@@ -76,6 +76,10 @@ func (m *mockStore) ListFundFlowRules(ctx context.Context, q repo.ListFundFlowRu
 	return m.fundFlowRules, nil
 }
 
+func (m *mockStore) ListInsurancePoliciesForTimeline(ctx context.Context, userID string) ([]repo.InsurancePolicy, error) {
+	return nil, nil
+}
+
 func TestComputeFinancialSnapshot_SingleMonth_NoGrowth(t *testing.T) {
 	// Test that month 1 has no growth (arrears)
 	startDate := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)

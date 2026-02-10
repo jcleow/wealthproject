@@ -75,6 +75,10 @@ func (m *fullMockStore) ListFundFlowRules(ctx context.Context, q repo.ListFundFl
 	return nil, nil
 }
 
+func (m *fullMockStore) ListInsurancePoliciesForTimeline(ctx context.Context, userID string) ([]repo.InsurancePolicy, error) {
+	return nil, nil
+}
+
 // TestSnapshotContract_AllItemTypesReturned verifies that all financial item types
 // are correctly included in the snapshot response when present in the store.
 // This is a critical contract test to prevent regressions when modifying the service/store layer.

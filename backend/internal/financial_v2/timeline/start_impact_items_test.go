@@ -96,6 +96,10 @@ func (m *startImpactTestStore) ListFundFlowRules(ctx context.Context, q repo.Lis
 	return nil, nil
 }
 
+func (m *startImpactTestStore) ListInsurancePoliciesForTimeline(ctx context.Context, userID string) ([]repo.InsurancePolicy, error) {
+	return nil, nil
+}
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
