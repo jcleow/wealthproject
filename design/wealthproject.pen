@@ -5,7 +5,7 @@
       "type": "frame",
       "id": "94xbb",
       "x": 0,
-      "y": 0,
+      "y": 370,
       "name": "Dashboard - Main",
       "width": 1440,
       "height": 900,
@@ -117,6 +117,7 @@
                       "content": "Overview",
                       "fontFamily": "Sora",
                       "fontSize": 32,
+                      "fontWeight": "normal",
                       "letterSpacing": -0.5
                     }
                   ]
@@ -2196,8 +2197,8 @@
     {
       "type": "frame",
       "id": "u9fBt",
-      "x": 0,
-      "y": 1050,
+      "x": 1590,
+      "y": 370,
       "name": "Chat - Conversation",
       "width": 1440,
       "height": 900,
@@ -3022,6 +3023,7 @@
                       "content": "Overview",
                       "fontFamily": "Sora",
                       "fontSize": 32,
+                      "fontWeight": "normal",
                       "letterSpacing": -0.5
                     }
                   ]
@@ -3264,6 +3266,1089 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "8BWX0",
+      "x": 0,
+      "y": 90,
+      "name": "Component/PrimaryButton",
+      "reusable": true,
+      "height": 44,
+      "fill": "$navy-primary",
+      "cornerRadius": 8,
+      "gap": 8,
+      "padding": [
+        0,
+        24
+      ],
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "ZQH0i",
+          "name": "btnIcon",
+          "enabled": false,
+          "width": 16,
+          "height": 16,
+          "iconFontName": "log-in",
+          "iconFontFamily": "lucide",
+          "fill": "#FFFFFF"
+        },
+        {
+          "type": "text",
+          "id": "PJ1hi",
+          "name": "btnLabel",
+          "fill": "#FFFFFF",
+          "content": "Button",
+          "fontFamily": "Sora",
+          "fontSize": 14,
+          "fontWeight": "600"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "eIXvk",
+      "x": 180,
+      "y": 90,
+      "name": "Component/InputField",
+      "reusable": true,
+      "layout": "vertical",
+      "gap": 6,
+      "children": [
+        {
+          "type": "text",
+          "id": "YPPuj",
+          "name": "label",
+          "fill": "$black-soft",
+          "content": "Label",
+          "fontFamily": "Sora",
+          "fontSize": 13,
+          "fontWeight": "500"
+        },
+        {
+          "type": "frame",
+          "id": "gsLvi",
+          "name": "inputBox",
+          "width": "fill_container",
+          "height": 44,
+          "fill": "#FFFFFF",
+          "cornerRadius": 8,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "$border"
+          },
+          "padding": [
+            0,
+            14
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "H26Xq",
+              "name": "placeholder",
+              "fill": "$gray-muted",
+              "content": "Enter value...",
+              "fontFamily": "Sora",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "1b0Dx",
+      "x": 380,
+      "y": 90,
+      "name": "Component/ErrorBanner",
+      "reusable": true,
+      "fill": "#FEF2F2",
+      "cornerRadius": 8,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "#FECACA"
+      },
+      "gap": 10,
+      "padding": [
+        12,
+        16
+      ],
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "icon_font",
+          "id": "G73xR",
+          "name": "errIcon",
+          "width": 16,
+          "height": 16,
+          "iconFontName": "circle-alert",
+          "iconFontFamily": "lucide",
+          "fill": "$vermillion"
+        },
+        {
+          "type": "text",
+          "id": "cWejz",
+          "name": "errText",
+          "fill": "$vermillion",
+          "content": "An error occurred.",
+          "fontFamily": "Sora",
+          "fontSize": 13,
+          "fontWeight": "normal"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "RSuHY",
+      "x": 640,
+      "y": 105,
+      "name": "Component/TextLink",
+      "reusable": true,
+      "gap": 4,
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "text",
+          "id": "VSvog",
+          "name": "prefix",
+          "fill": "$gray-blue",
+          "content": "Don't have an account?",
+          "fontFamily": "Sora",
+          "fontSize": 13,
+          "fontWeight": "normal"
+        },
+        {
+          "type": "text",
+          "id": "W6o4C",
+          "name": "action",
+          "fill": "$navy-primary",
+          "content": "Sign up",
+          "fontFamily": "Sora",
+          "fontSize": 13,
+          "fontWeight": "600"
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "u0ayg",
+      "x": 0,
+      "y": 1616,
+      "name": "Login",
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "ZRvAk",
+          "name": "loginCard",
+          "width": 400,
+          "fill": "#FFFFFF",
+          "cornerRadius": 16,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "$border"
+          },
+          "layout": "vertical",
+          "gap": 28,
+          "padding": [
+            40,
+            36
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "9FWst",
+              "name": "logoRow",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "h59Et",
+                  "name": "logoIcon",
+                  "width": 24,
+                  "height": 24,
+                  "iconFontName": "sparkles",
+                  "iconFontFamily": "lucide",
+                  "fill": "$navy-primary"
+                },
+                {
+                  "type": "text",
+                  "id": "lTOYq",
+                  "name": "logoText",
+                  "fill": "$black-soft",
+                  "content": "Assetra",
+                  "fontFamily": "Sora",
+                  "fontSize": 22,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "sBfsL",
+              "name": "headings",
+              "layout": "vertical",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "0oGqW",
+                  "name": "heading",
+                  "fill": "$black-soft",
+                  "content": "Welcome back",
+                  "fontFamily": "Sora",
+                  "fontSize": 24,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "hXegp",
+                  "name": "subheading",
+                  "fill": "$gray-muted",
+                  "content": "Sign in to your account",
+                  "fontFamily": "Sora",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "UuUjc",
+              "type": "ref",
+              "ref": "1b0Dx",
+              "name": "errorBanner",
+              "width": "fill_container",
+              "enabled": false,
+              "descendants": {
+                "cWejz": {
+                  "content": "Invalid email or password"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "FnSZa",
+              "name": "formFields",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 18,
+              "children": [
+                {
+                  "id": "XcdTi",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "emailField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Email"
+                    },
+                    "H26Xq": {
+                      "content": "you@example.com"
+                    }
+                  }
+                },
+                {
+                  "id": "sttAC",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "passField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Password"
+                    },
+                    "H26Xq": {
+                      "content": "Enter your password"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "SG7tP",
+              "type": "ref",
+              "ref": "8BWX0",
+              "name": "signInBtn",
+              "width": "fill_container",
+              "descendants": {
+                "ZQH0i": {
+                  "enabled": true,
+                  "iconFontName": "log-in"
+                },
+                "PJ1hi": {
+                  "content": "Sign In"
+                }
+              }
+            },
+            {
+              "id": "Nsyuc",
+              "type": "ref",
+              "ref": "RSuHY",
+              "name": "signUpLink",
+              "descendants": {
+                "VSvog": {
+                  "content": "Don't have an account?"
+                },
+                "W6o4C": {
+                  "content": "Sign up"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "1tfee",
+      "x": 0,
+      "y": 2692,
+      "name": "Signup",
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "232Pd",
+          "name": "signupCard",
+          "width": 400,
+          "fill": "#FFFFFF",
+          "cornerRadius": 16,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "$border"
+          },
+          "layout": "vertical",
+          "gap": 28,
+          "padding": [
+            40,
+            36
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "0Ys7I",
+              "name": "logoRow",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "sNd5M",
+                  "name": "logoIcon",
+                  "width": 24,
+                  "height": 24,
+                  "iconFontName": "sparkles",
+                  "iconFontFamily": "lucide",
+                  "fill": "$navy-primary"
+                },
+                {
+                  "type": "text",
+                  "id": "04Mby",
+                  "name": "logoText",
+                  "fill": "$black-soft",
+                  "content": "Assetra",
+                  "fontFamily": "Sora",
+                  "fontSize": 22,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "Wq4GB",
+              "name": "headings",
+              "layout": "vertical",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "Sf4YP",
+                  "name": "heading",
+                  "fill": "$black-soft",
+                  "content": "Create your account",
+                  "fontFamily": "Sora",
+                  "fontSize": 24,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "X2Liy",
+                  "name": "subheading",
+                  "fill": "$gray-muted",
+                  "content": "Get started with Assetra",
+                  "fontFamily": "Sora",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "1xNQq",
+              "type": "ref",
+              "ref": "1b0Dx",
+              "name": "errorBanner",
+              "width": "fill_container",
+              "enabled": false,
+              "descendants": {
+                "cWejz": {
+                  "content": "An account with this email already exists"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "iYeRX",
+              "name": "formFields",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 18,
+              "children": [
+                {
+                  "id": "ntkoL",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "nameField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Full Name"
+                    },
+                    "H26Xq": {
+                      "content": "John Doe"
+                    }
+                  }
+                },
+                {
+                  "id": "NhAKn",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "emailField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Email"
+                    },
+                    "H26Xq": {
+                      "content": "you@example.com"
+                    }
+                  }
+                },
+                {
+                  "id": "3G5pN",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "passField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Password"
+                    },
+                    "H26Xq": {
+                      "content": "Min 8 characters"
+                    }
+                  }
+                },
+                {
+                  "id": "AO54j",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "confirmField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Confirm Password"
+                    },
+                    "H26Xq": {
+                      "content": "Re-enter your password"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "JwcdE",
+              "type": "ref",
+              "ref": "8BWX0",
+              "name": "createBtn",
+              "width": "fill_container",
+              "descendants": {
+                "ZQH0i": {
+                  "enabled": false
+                },
+                "PJ1hi": {
+                  "content": "Create Account"
+                }
+              }
+            },
+            {
+              "id": "pkeeb",
+              "type": "ref",
+              "ref": "RSuHY",
+              "name": "signInLink",
+              "descendants": {
+                "VSvog": {
+                  "content": "Already have an account?"
+                },
+                "W6o4C": {
+                  "content": "Sign in"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "jTMp8",
+      "x": 1590,
+      "y": 1616,
+      "name": "Login - Error State",
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "C9LZo",
+          "name": "loginCard",
+          "width": 400,
+          "fill": "#FFFFFF",
+          "cornerRadius": 16,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "$border"
+          },
+          "layout": "vertical",
+          "gap": 28,
+          "padding": [
+            40,
+            36
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "2ELT9",
+              "name": "logoRow",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "PFqc7",
+                  "name": "logoIcon",
+                  "width": 24,
+                  "height": 24,
+                  "iconFontName": "sparkles",
+                  "iconFontFamily": "lucide",
+                  "fill": "$navy-primary"
+                },
+                {
+                  "type": "text",
+                  "id": "N7LCy",
+                  "name": "logoText",
+                  "fill": "$black-soft",
+                  "content": "Assetra",
+                  "fontFamily": "Sora",
+                  "fontSize": 22,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "lTCHq",
+              "name": "headings",
+              "layout": "vertical",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "TbDZI",
+                  "name": "heading",
+                  "fill": "$black-soft",
+                  "content": "Welcome back",
+                  "fontFamily": "Sora",
+                  "fontSize": 24,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "ENeVG",
+                  "name": "subheading",
+                  "fill": "$gray-muted",
+                  "content": "Sign in to your account",
+                  "fontFamily": "Sora",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "xQJqC",
+              "type": "ref",
+              "ref": "1b0Dx",
+              "enabled": true,
+              "name": "errorBanner",
+              "width": "fill_container",
+              "descendants": {
+                "cWejz": {
+                  "content": "Invalid email or password"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "UBqyH",
+              "name": "formFields",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 18,
+              "children": [
+                {
+                  "id": "tE7hT",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "emailField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Email"
+                    },
+                    "H26Xq": {
+                      "content": "you@example.com"
+                    }
+                  }
+                },
+                {
+                  "id": "sIgFx",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "passField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Password"
+                    },
+                    "H26Xq": {
+                      "content": "Enter your password"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "B1tlT",
+              "type": "ref",
+              "ref": "8BWX0",
+              "name": "signInBtn",
+              "width": "fill_container",
+              "descendants": {
+                "ZQH0i": {
+                  "enabled": true,
+                  "iconFontName": "log-in"
+                },
+                "PJ1hi": {
+                  "content": "Sign In"
+                }
+              }
+            },
+            {
+              "id": "WLRK6",
+              "type": "ref",
+              "ref": "RSuHY",
+              "name": "signUpLink",
+              "descendants": {
+                "VSvog": {
+                  "content": "Don't have an account?"
+                },
+                "W6o4C": {
+                  "content": "Sign up"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "ogR5a",
+      "x": 1590,
+      "y": 2692,
+      "name": "Signup - Error State",
+      "width": 1440,
+      "height": 900,
+      "fill": "$bg-page",
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "tZsar",
+          "name": "signupCard",
+          "width": 400,
+          "fill": "#FFFFFF",
+          "cornerRadius": 16,
+          "stroke": {
+            "align": "inside",
+            "thickness": 1,
+            "fill": "$border"
+          },
+          "layout": "vertical",
+          "gap": 28,
+          "padding": [
+            40,
+            36
+          ],
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "hSBla",
+              "name": "logoRow",
+              "gap": 10,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "IFszH",
+                  "name": "logoIcon",
+                  "width": 24,
+                  "height": 24,
+                  "iconFontName": "sparkles",
+                  "iconFontFamily": "lucide",
+                  "fill": "$navy-primary"
+                },
+                {
+                  "type": "text",
+                  "id": "Azd5E",
+                  "name": "logoText",
+                  "fill": "$black-soft",
+                  "content": "Assetra",
+                  "fontFamily": "Sora",
+                  "fontSize": 22,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "C6qsl",
+              "name": "headings",
+              "layout": "vertical",
+              "gap": 6,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "TmvXe",
+                  "name": "heading",
+                  "fill": "$black-soft",
+                  "content": "Create your account",
+                  "fontFamily": "Sora",
+                  "fontSize": 24,
+                  "fontWeight": "600"
+                },
+                {
+                  "type": "text",
+                  "id": "qHp62",
+                  "name": "subheading",
+                  "fill": "$gray-muted",
+                  "content": "Get started with Assetra",
+                  "fontFamily": "Sora",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "id": "Gedbw",
+              "type": "ref",
+              "ref": "1b0Dx",
+              "enabled": true,
+              "name": "errorBanner",
+              "width": "fill_container",
+              "descendants": {
+                "cWejz": {
+                  "content": "An account with this email already exists"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "kaJu0",
+              "name": "formFields",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 18,
+              "children": [
+                {
+                  "id": "VGpBF",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "nameField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Full Name"
+                    },
+                    "H26Xq": {
+                      "content": "John Doe"
+                    }
+                  }
+                },
+                {
+                  "id": "KA3UI",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "emailField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Email"
+                    },
+                    "H26Xq": {
+                      "content": "you@example.com"
+                    }
+                  }
+                },
+                {
+                  "id": "9mJnx",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "passField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Password"
+                    },
+                    "H26Xq": {
+                      "content": "Min 8 characters"
+                    }
+                  }
+                },
+                {
+                  "id": "r58pP",
+                  "type": "ref",
+                  "ref": "eIXvk",
+                  "width": "fill_container",
+                  "name": "confirmField",
+                  "descendants": {
+                    "YPPuj": {
+                      "content": "Confirm Password"
+                    },
+                    "H26Xq": {
+                      "content": "Re-enter your password"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "id": "LyshU",
+              "type": "ref",
+              "ref": "8BWX0",
+              "name": "createBtn",
+              "width": "fill_container",
+              "descendants": {
+                "ZQH0i": {
+                  "enabled": false
+                },
+                "PJ1hi": {
+                  "content": "Create Account"
+                }
+              }
+            },
+            {
+              "id": "y2Wd1",
+              "type": "ref",
+              "ref": "RSuHY",
+              "name": "signInLink",
+              "descendants": {
+                "VSvog": {
+                  "content": "Already have an account?"
+                },
+                "W6o4C": {
+                  "content": "Sign in"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "Zf5AM",
+      "x": 0,
+      "y": 0,
+      "name": "Section/Components",
+      "fill": "$black-soft",
+      "content": "Components",
+      "fontFamily": "Sora",
+      "fontSize": 36,
+      "fontWeight": "700"
+    },
+    {
+      "type": "text",
+      "id": "b8zbY",
+      "x": 0,
+      "y": 48,
+      "name": "Section/ComponentsSub",
+      "fill": "$gray-muted",
+      "content": "Reusable building blocks for all screens",
+      "fontFamily": "Sora",
+      "fontSize": 14,
+      "fontWeight": "normal"
+    },
+    {
+      "type": "text",
+      "id": "4T4FK",
+      "x": 0,
+      "y": 280,
+      "name": "Section/Dashboard",
+      "fill": "$black-soft",
+      "content": "Dashboard",
+      "fontFamily": "Sora",
+      "fontSize": 36,
+      "fontWeight": "700"
+    },
+    {
+      "type": "text",
+      "id": "LUnk8",
+      "x": 0,
+      "y": 328,
+      "name": "Section/DashboardSub",
+      "fill": "$gray-muted",
+      "content": "Main workspace and chat views",
+      "fontFamily": "Sora",
+      "fontSize": 14,
+      "fontWeight": "normal"
+    },
+    {
+      "type": "text",
+      "id": "K75i7",
+      "x": 0,
+      "y": 1470,
+      "name": "Section/Authentication",
+      "fill": "$black-soft",
+      "content": "Authentication",
+      "fontFamily": "Sora",
+      "fontSize": 36,
+      "fontWeight": "700"
+    },
+    {
+      "type": "text",
+      "id": "tfe68",
+      "x": 0,
+      "y": 1518,
+      "name": "Section/AuthSub",
+      "fill": "$gray-muted",
+      "content": "Login and signup flows with error states",
+      "fontFamily": "Sora",
+      "fontSize": 14,
+      "fontWeight": "normal"
+    },
+    {
+      "type": "text",
+      "id": "a9PZG",
+      "x": 0,
+      "y": 1560,
+      "name": "Label/Default",
+      "fill": "$gray-blue",
+      "content": "Default",
+      "fontFamily": "Sora",
+      "fontSize": 16,
+      "fontWeight": "600"
+    },
+    {
+      "type": "text",
+      "id": "1TjvL",
+      "x": 1590,
+      "y": 1560,
+      "name": "Label/ErrorState",
+      "fill": "$vermillion",
+      "content": "Error State",
+      "fontFamily": "Sora",
+      "fontSize": 16,
+      "fontWeight": "600"
+    },
+    {
+      "type": "text",
+      "id": "mea1k",
+      "x": 0,
+      "y": 1590,
+      "name": "Label/Login",
+      "fill": "$gray-muted",
+      "content": "Login",
+      "fontFamily": "Sora",
+      "fontSize": 13,
+      "fontWeight": "500"
+    },
+    {
+      "type": "text",
+      "id": "da0BE",
+      "x": 0,
+      "y": 2666,
+      "name": "Label/Signup",
+      "fill": "$gray-muted",
+      "content": "Signup",
+      "fontFamily": "Sora",
+      "fontSize": 13,
+      "fontWeight": "500"
+    },
+    {
+      "type": "text",
+      "id": "l949D",
+      "x": 0,
+      "y": 350,
+      "name": "Label/DashMain",
+      "fill": "$gray-muted",
+      "content": "Main Workspace",
+      "fontFamily": "Sora",
+      "fontSize": 13,
+      "fontWeight": "500"
+    },
+    {
+      "type": "text",
+      "id": "rX0eZ",
+      "x": 1590,
+      "y": 350,
+      "name": "Label/ChatConvo",
+      "fill": "$gray-muted",
+      "content": "Chat Conversation",
+      "fontFamily": "Sora",
+      "fontSize": 13,
+      "fontWeight": "500"
     }
   ],
   "variables": {
