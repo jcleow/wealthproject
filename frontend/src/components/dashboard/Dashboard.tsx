@@ -358,34 +358,29 @@ gap-6 p-6`}>
                 <CPFSimulationView onClose={closeCPFView} />
               </div>
             ) : showInsurancePlanner ? (
-              /* Insurance Planner View - shows header + insurance planner */
-              <>
-                {/* Header bar only - no chart */}
-                <div className="shrink-0">
-                  <FinancialWorkspace headerOnly />
-                </div>
-                {/* Insurance Planner content */}
-                <div
-                  className={clsx(
-                    'flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors duration-300',
-                    isMonet
-                      ? 'border-[var(--monet-lavender)]/20 bg-white/60 backdrop-blur-xl'
-                      : 'border-white/[0.06] bg-[#0a0a0a]/80'
-                  )}
-                >
-                  <InsurancePlannerView onClose={closeInsurancePlanner} />
-                </div>
-              </>
+              /* Insurance Planner View - takes over entire area */
+              <div
+                className={clsx(
+                  'flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors duration-300',
+                  isMonet
+                    ? 'border-[var(--monet-lavender)]/20 bg-white/60 backdrop-blur-xl'
+                    : 'border-white/[0.06] bg-[#0a0a0a]/80'
+                )}
+              >
+                <InsurancePlannerView onClose={closeInsurancePlanner} />
+              </div>
             ) : showVehiclePlanner ? (
-              /* Vehicle Planner View - full-screen takeover */
-              <>
-                <div className="shrink-0">
-                  <FinancialWorkspace headerOnly />
-                </div>
-                <div className="flex flex-1 flex-col overflow-hidden min-h-0 rounded-sm">
-                  <VehiclePlannerView onClose={closeVehiclePlanner} />
-                </div>
-              </>
+              /* Vehicle Planner View - takes over entire area */
+              <div
+                className={clsx(
+                  'flex flex-1 flex-col overflow-hidden min-h-0 rounded-2xl border transition-colors duration-300',
+                  isMonet
+                    ? 'border-[var(--monet-lavender)]/20 bg-white/60 backdrop-blur-xl'
+                    : 'border-white/[0.06] bg-[#0a0a0a]/80'
+                )}
+              >
+                <VehiclePlannerView onClose={closeVehiclePlanner} />
+              </div>
             ) : isSideBySide ? (
               /* Side-by-side layout: chart-left or chart-right */
               <>
