@@ -295,7 +295,7 @@ export function FinancialWorkspace({
                   className={clsx(classes.menuItem.base, classes.menuItem.withBorder, classes.menuItem.hover)}
                   type="button"
                 >
-                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.purple)}>
+                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.rose)}>
                     <Shield className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
