@@ -1400,14 +1400,14 @@
                   "id": "ATVmn",
                   "name": "Cards Grid",
                   "width": "fill_container",
+                  "layout": "vertical",
                   "gap": 16,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "NsPuq",
-                      "name": "leftCol",
+                      "id": "X6iI8",
+                      "name": "Top Row",
                       "width": "fill_container",
-                      "layout": "vertical",
                       "gap": 16,
                       "children": [
                         {
@@ -1693,240 +1693,10 @@
                         },
                         {
                           "type": "frame",
-                          "id": "5wsO8",
-                          "name": "Liabilities Card",
-                          "width": "fill_container",
-                          "cornerRadius": 2,
-                          "stroke": {
-                            "align": "inside",
-                            "thickness": 1,
-                            "fill": "$border"
-                          },
-                          "layout": "vertical",
-                          "children": [
-                            {
-                              "type": "frame",
-                              "id": "kT2Ri",
-                              "name": "lHdr",
-                              "width": "fill_container",
-                              "stroke": {
-                                "align": "inside",
-                                "thickness": {
-                                  "bottom": 1
-                                },
-                                "fill": "$border"
-                              },
-                              "padding": [
-                                12,
-                                16
-                              ],
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "1QRIO",
-                                  "name": "lHdrL",
-                                  "gap": 8,
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "U2Vwc",
-                                      "name": "lInd",
-                                      "width": 3,
-                                      "height": 14,
-                                      "fill": "$vermillion",
-                                      "cornerRadius": 2
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "fY42H",
-                                      "name": "lTitle",
-                                      "fill": "$black-soft",
-                                      "content": "Liabilities",
-                                      "fontFamily": "Sora",
-                                      "fontSize": 13,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "6Zv8Q",
-                                      "name": "lTotal",
-                                      "fill": "$gray-blue",
-                                      "content": "($124,800)",
-                                      "fontFamily": "IBM Plex Mono",
-                                      "fontSize": 12,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "pqmXa",
-                                  "name": "lAdd",
-                                  "cornerRadius": 2,
-                                  "gap": 4,
-                                  "padding": [
-                                    4,
-                                    8
-                                  ],
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon_font",
-                                      "id": "fejjo",
-                                      "name": "lAddI",
-                                      "width": 12,
-                                      "height": 12,
-                                      "iconFontName": "plus",
-                                      "iconFontFamily": "lucide",
-                                      "fill": "$navy-primary"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "REueX",
-                                      "name": "lAddT",
-                                      "fill": "$navy-primary",
-                                      "content": "Add",
-                                      "fontFamily": "Sora",
-                                      "fontSize": 11,
-                                      "fontWeight": "500"
-                                    }
-                                  ]
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "M3aii",
-                              "name": "lR1",
-                              "width": "fill_container",
-                              "stroke": {
-                                "align": "inside",
-                                "thickness": {
-                                  "bottom": 1
-                                },
-                                "fill": "$border"
-                              },
-                              "padding": [
-                                10,
-                                16
-                              ],
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "7UZhG",
-                                  "name": "lR1L",
-                                  "layout": "vertical",
-                                  "gap": 2,
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "0gIAC",
-                                      "name": "lR1N",
-                                      "fill": "$black-soft",
-                                      "content": "HDB Mortgage",
-                                      "fontFamily": "Sora",
-                                      "fontSize": 13,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "dWQOg",
-                                      "name": "lR1C",
-                                      "fill": "$gray-blue",
-                                      "content": "Mortgage · 2.6% APR",
-                                      "fontFamily": "IBM Plex Mono",
-                                      "fontSize": 11,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "vs8jz",
-                                  "name": "lR1V",
-                                  "fill": "$vermillion",
-                                  "content": "($112,000)",
-                                  "fontFamily": "IBM Plex Mono",
-                                  "fontSize": 13,
-                                  "fontWeight": "500"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "IrHTK",
-                              "name": "lR2",
-                              "width": "fill_container",
-                              "padding": [
-                                10,
-                                16
-                              ],
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "SyleX",
-                                  "name": "lR2L",
-                                  "layout": "vertical",
-                                  "gap": 2,
-                                  "children": [
-                                    {
-                                      "type": "text",
-                                      "id": "ln8cD",
-                                      "name": "lR2N",
-                                      "fill": "$black-soft",
-                                      "content": "Car Loan",
-                                      "fontFamily": "Sora",
-                                      "fontSize": 13,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "RQarb",
-                                      "name": "lR2C",
-                                      "fill": "$gray-blue",
-                                      "content": "Vehicle · 3.8% APR",
-                                      "fontFamily": "IBM Plex Mono",
-                                      "fontSize": 11,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "NIRQY",
-                                  "name": "lR2V",
-                                  "fill": "$vermillion",
-                                  "content": "($12,800)",
-                                  "fontFamily": "IBM Plex Mono",
-                                  "fontSize": 13,
-                                  "fontWeight": "500"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "fBH6o",
-                      "name": "rightCol",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 16,
-                      "children": [
-                        {
-                          "type": "frame",
                           "id": "9eXti",
                           "name": "Income Card",
                           "width": "fill_container",
+                          "height": 202,
                           "cornerRadius": 2,
                           "stroke": {
                             "align": "inside",
@@ -2135,6 +1905,237 @@
                                   "name": "iR2V",
                                   "fill": "$black-soft",
                                   "content": "$24,000",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "0WSyN",
+                      "name": "Bottom Row",
+                      "width": "fill_container",
+                      "gap": 16,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "5wsO8",
+                          "name": "Liabilities Card",
+                          "width": "fill_container",
+                          "height": 202,
+                          "cornerRadius": 2,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "$border"
+                          },
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "kT2Ri",
+                              "name": "lHdr",
+                              "width": "fill_container",
+                              "stroke": {
+                                "align": "inside",
+                                "thickness": {
+                                  "bottom": 1
+                                },
+                                "fill": "$border"
+                              },
+                              "padding": [
+                                12,
+                                16
+                              ],
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "1QRIO",
+                                  "name": "lHdrL",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "U2Vwc",
+                                      "name": "lInd",
+                                      "width": 3,
+                                      "height": 14,
+                                      "fill": "$vermillion",
+                                      "cornerRadius": 2
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "fY42H",
+                                      "name": "lTitle",
+                                      "fill": "$black-soft",
+                                      "content": "Liabilities",
+                                      "fontFamily": "Sora",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "6Zv8Q",
+                                      "name": "lTotal",
+                                      "fill": "$gray-blue",
+                                      "content": "($124,800)",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "pqmXa",
+                                  "name": "lAdd",
+                                  "cornerRadius": 2,
+                                  "gap": 4,
+                                  "padding": [
+                                    4,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon_font",
+                                      "id": "fejjo",
+                                      "name": "lAddI",
+                                      "width": 12,
+                                      "height": 12,
+                                      "iconFontName": "plus",
+                                      "iconFontFamily": "lucide",
+                                      "fill": "$navy-primary"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "REueX",
+                                      "name": "lAddT",
+                                      "fill": "$navy-primary",
+                                      "content": "Add",
+                                      "fontFamily": "Sora",
+                                      "fontSize": 11,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "M3aii",
+                              "name": "lR1",
+                              "width": "fill_container",
+                              "stroke": {
+                                "align": "inside",
+                                "thickness": {
+                                  "bottom": 1
+                                },
+                                "fill": "$border"
+                              },
+                              "padding": [
+                                10,
+                                16
+                              ],
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "7UZhG",
+                                  "name": "lR1L",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "0gIAC",
+                                      "name": "lR1N",
+                                      "fill": "$black-soft",
+                                      "content": "HDB Mortgage",
+                                      "fontFamily": "Sora",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "dWQOg",
+                                      "name": "lR1C",
+                                      "fill": "$gray-blue",
+                                      "content": "Mortgage · 2.6% APR",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 11,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "vs8jz",
+                                  "name": "lR1V",
+                                  "fill": "$vermillion",
+                                  "content": "($112,000)",
+                                  "fontFamily": "IBM Plex Mono",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "IrHTK",
+                              "name": "lR2",
+                              "width": "fill_container",
+                              "padding": [
+                                10,
+                                16
+                              ],
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "SyleX",
+                                  "name": "lR2L",
+                                  "layout": "vertical",
+                                  "gap": 2,
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "ln8cD",
+                                      "name": "lR2N",
+                                      "fill": "$black-soft",
+                                      "content": "Car Loan",
+                                      "fontFamily": "Sora",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "RQarb",
+                                      "name": "lR2C",
+                                      "fill": "$gray-blue",
+                                      "content": "Vehicle · 3.8% APR",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 11,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "NIRQY",
+                                  "name": "lR2V",
+                                  "fill": "$vermillion",
+                                  "content": "($12,800)",
                                   "fontFamily": "IBM Plex Mono",
                                   "fontSize": 13,
                                   "fontWeight": "500"
@@ -9538,7 +9539,7 @@
                           "width": 16,
                           "height": 16,
                           "fill": "$navy-primary",
-                          "cornerRadius": 2,
+                          "cornerRadius": 8,
                           "stroke": {
                             "align": "inside",
                             "thickness": 2,
@@ -9643,14 +9644,14 @@
                   "id": "FCL65",
                   "name": "Cards Grid",
                   "width": "fill_container",
+                  "layout": "vertical",
                   "gap": 16,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "fQ4kZ",
-                      "name": "leftCol",
+                      "id": "Am8RX",
+                      "name": "Top Row",
                       "width": "fill_container",
-                      "layout": "vertical",
                       "gap": 16,
                       "children": [
                         {
@@ -9801,162 +9802,6 @@
                         },
                         {
                           "type": "frame",
-                          "id": "ZeMGj",
-                          "name": "Liabilities Card",
-                          "width": "fill_container",
-                          "cornerRadius": 2,
-                          "stroke": {
-                            "align": "inside",
-                            "thickness": 1,
-                            "fill": "$border"
-                          },
-                          "layout": "vertical",
-                          "children": [
-                            {
-                              "type": "frame",
-                              "id": "cPHOy",
-                              "name": "lHdr",
-                              "width": "fill_container",
-                              "stroke": {
-                                "align": "inside",
-                                "thickness": {
-                                  "bottom": 1
-                                },
-                                "fill": "$border"
-                              },
-                              "padding": [
-                                12,
-                                16
-                              ],
-                              "justifyContent": "space_between",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "sDTC5",
-                                  "name": "lHdrL",
-                                  "gap": 8,
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "Y4lcs",
-                                      "name": "lInd",
-                                      "width": 3,
-                                      "height": 14,
-                                      "fill": "$vermillion",
-                                      "cornerRadius": 2
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "VQtKV",
-                                      "name": "lTitle",
-                                      "fill": "$black-soft",
-                                      "content": "Liabilities",
-                                      "fontFamily": "Sora",
-                                      "fontSize": 13,
-                                      "fontWeight": "500"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "DzNWy",
-                                      "name": "lTotal",
-                                      "fill": "$gray-blue",
-                                      "content": "$0",
-                                      "fontFamily": "IBM Plex Mono",
-                                      "fontSize": 12,
-                                      "fontWeight": "normal"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "31gwv",
-                                  "name": "lAdd",
-                                  "cornerRadius": 2,
-                                  "gap": 4,
-                                  "padding": [
-                                    4,
-                                    8
-                                  ],
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "icon_font",
-                                      "id": "Hqhlo",
-                                      "name": "lAddI",
-                                      "width": 12,
-                                      "height": 12,
-                                      "iconFontName": "plus",
-                                      "iconFontFamily": "lucide",
-                                      "fill": "$navy-primary"
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "buFth",
-                                      "name": "lAddT",
-                                      "fill": "$navy-primary",
-                                      "content": "Add",
-                                      "fontFamily": "Sora",
-                                      "fontSize": 11,
-                                      "fontWeight": "500"
-                                    }
-                                  ]
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "X238A",
-                              "name": "lEmpty",
-                              "width": "fill_container",
-                              "layout": "vertical",
-                              "gap": 4,
-                              "padding": [
-                                24,
-                                16
-                              ],
-                              "justifyContent": "center",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "dr6ry",
-                                  "name": "lEmTxt",
-                                  "fill": "#9CA3AF",
-                                  "content": "No liabilities yet",
-                                  "textAlign": "center",
-                                  "fontFamily": "Sora",
-                                  "fontSize": 13,
-                                  "fontWeight": "normal"
-                                },
-                                {
-                                  "type": "text",
-                                  "id": "nnnmp",
-                                  "name": "lEmSub",
-                                  "fill": "#D1D5DB",
-                                  "content": "Click + Add to get started",
-                                  "textAlign": "center",
-                                  "fontFamily": "Sora",
-                                  "fontSize": 11,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "8EqKc",
-                      "name": "rightCol",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 16,
-                      "children": [
-                        {
-                          "type": "frame",
                           "id": "ypKVq",
                           "name": "Income Card",
                           "width": "fill_container",
@@ -10090,6 +9935,161 @@
                                   "type": "text",
                                   "id": "BcERt",
                                   "name": "iEmSub",
+                                  "fill": "#D1D5DB",
+                                  "content": "Click + Add to get started",
+                                  "textAlign": "center",
+                                  "fontFamily": "Sora",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "j0cVO",
+                      "name": "Bottom Row",
+                      "width": "fill_container",
+                      "gap": 16,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "ZeMGj",
+                          "name": "Liabilities Card",
+                          "width": "fill_container",
+                          "cornerRadius": 2,
+                          "stroke": {
+                            "align": "inside",
+                            "thickness": 1,
+                            "fill": "$border"
+                          },
+                          "layout": "vertical",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "cPHOy",
+                              "name": "lHdr",
+                              "width": "fill_container",
+                              "stroke": {
+                                "align": "inside",
+                                "thickness": {
+                                  "bottom": 1
+                                },
+                                "fill": "$border"
+                              },
+                              "padding": [
+                                12,
+                                16
+                              ],
+                              "justifyContent": "space_between",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "sDTC5",
+                                  "name": "lHdrL",
+                                  "gap": 8,
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "Y4lcs",
+                                      "name": "lInd",
+                                      "width": 3,
+                                      "height": 14,
+                                      "fill": "$vermillion",
+                                      "cornerRadius": 2
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "VQtKV",
+                                      "name": "lTitle",
+                                      "fill": "$black-soft",
+                                      "content": "Liabilities",
+                                      "fontFamily": "Sora",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "DzNWy",
+                                      "name": "lTotal",
+                                      "fill": "$gray-blue",
+                                      "content": "$0",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 12,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "31gwv",
+                                  "name": "lAdd",
+                                  "cornerRadius": 2,
+                                  "gap": 4,
+                                  "padding": [
+                                    4,
+                                    8
+                                  ],
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon_font",
+                                      "id": "Hqhlo",
+                                      "name": "lAddI",
+                                      "width": 12,
+                                      "height": 12,
+                                      "iconFontName": "plus",
+                                      "iconFontFamily": "lucide",
+                                      "fill": "$navy-primary"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "buFth",
+                                      "name": "lAddT",
+                                      "fill": "$navy-primary",
+                                      "content": "Add",
+                                      "fontFamily": "Sora",
+                                      "fontSize": 11,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "X238A",
+                              "name": "lEmpty",
+                              "width": "fill_container",
+                              "layout": "vertical",
+                              "gap": 4,
+                              "padding": [
+                                24,
+                                16
+                              ],
+                              "justifyContent": "center",
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "dr6ry",
+                                  "name": "lEmTxt",
+                                  "fill": "#9CA3AF",
+                                  "content": "No liabilities yet",
+                                  "textAlign": "center",
+                                  "fontFamily": "Sora",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "nnnmp",
+                                  "name": "lEmSub",
                                   "fill": "#D1D5DB",
                                   "content": "Click + Add to get started",
                                   "textAlign": "center",
@@ -11265,7 +11265,7 @@
                               "width": 16,
                               "height": 16,
                               "fill": "$navy-primary",
-                              "cornerRadius": 2,
+                              "cornerRadius": 8,
                               "stroke": {
                                 "align": "inside",
                                 "thickness": 2,
@@ -11370,14 +11370,14 @@
                       "id": "oLe4J",
                       "name": "Cards Grid",
                       "width": "fill_container",
+                      "layout": "vertical",
                       "gap": 16,
                       "children": [
                         {
                           "type": "frame",
-                          "id": "C8AYk",
-                          "name": "leftCol",
+                          "id": "GCFXI",
+                          "name": "Top Row",
                           "width": "fill_container",
-                          "layout": "vertical",
                           "gap": 16,
                           "children": [
                             {
@@ -11663,240 +11663,10 @@
                             },
                             {
                               "type": "frame",
-                              "id": "Q5pRI",
-                              "name": "Liabilities Card",
-                              "width": "fill_container",
-                              "cornerRadius": 2,
-                              "stroke": {
-                                "align": "inside",
-                                "thickness": 1,
-                                "fill": "$border"
-                              },
-                              "layout": "vertical",
-                              "children": [
-                                {
-                                  "type": "frame",
-                                  "id": "m67dG",
-                                  "name": "lHdr",
-                                  "width": "fill_container",
-                                  "stroke": {
-                                    "align": "inside",
-                                    "thickness": {
-                                      "bottom": 1
-                                    },
-                                    "fill": "$border"
-                                  },
-                                  "padding": [
-                                    12,
-                                    16
-                                  ],
-                                  "justifyContent": "space_between",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "gP7jF",
-                                      "name": "lHdrL",
-                                      "gap": 8,
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "frame",
-                                          "id": "N82tb",
-                                          "name": "lInd",
-                                          "width": 3,
-                                          "height": 14,
-                                          "fill": "$vermillion",
-                                          "cornerRadius": 2
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "XGJZJ",
-                                          "name": "lTitle",
-                                          "fill": "$black-soft",
-                                          "content": "Liabilities",
-                                          "fontFamily": "Sora",
-                                          "fontSize": 13,
-                                          "fontWeight": "500"
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "Xicym",
-                                          "name": "lTotal",
-                                          "fill": "$gray-blue",
-                                          "content": "($124,800)",
-                                          "fontFamily": "IBM Plex Mono",
-                                          "fontSize": 12,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "frame",
-                                      "id": "tzXfQ",
-                                      "name": "lAdd",
-                                      "cornerRadius": 2,
-                                      "gap": 4,
-                                      "padding": [
-                                        4,
-                                        8
-                                      ],
-                                      "alignItems": "center",
-                                      "children": [
-                                        {
-                                          "type": "icon_font",
-                                          "id": "nxL1T",
-                                          "name": "lAddI",
-                                          "width": 12,
-                                          "height": 12,
-                                          "iconFontName": "plus",
-                                          "iconFontFamily": "lucide",
-                                          "fill": "$navy-primary"
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "Eb45K",
-                                          "name": "lAddT",
-                                          "fill": "$navy-primary",
-                                          "content": "Add",
-                                          "fontFamily": "Sora",
-                                          "fontSize": 11,
-                                          "fontWeight": "500"
-                                        }
-                                      ]
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "KqLdu",
-                                  "name": "lR1",
-                                  "width": "fill_container",
-                                  "stroke": {
-                                    "align": "inside",
-                                    "thickness": {
-                                      "bottom": 1
-                                    },
-                                    "fill": "$border"
-                                  },
-                                  "padding": [
-                                    10,
-                                    16
-                                  ],
-                                  "justifyContent": "space_between",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "3XQ28",
-                                      "name": "lR1L",
-                                      "layout": "vertical",
-                                      "gap": 2,
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "0FQEg",
-                                          "name": "lR1N",
-                                          "fill": "$black-soft",
-                                          "content": "HDB Mortgage",
-                                          "fontFamily": "Sora",
-                                          "fontSize": 13,
-                                          "fontWeight": "500"
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "2AHA0",
-                                          "name": "lR1C",
-                                          "fill": "$gray-blue",
-                                          "content": "Mortgage · 2.6% APR",
-                                          "fontFamily": "IBM Plex Mono",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "XNlPf",
-                                      "name": "lR1V",
-                                      "fill": "$vermillion",
-                                      "content": "($112,000)",
-                                      "fontFamily": "IBM Plex Mono",
-                                      "fontSize": 13,
-                                      "fontWeight": "500"
-                                    }
-                                  ]
-                                },
-                                {
-                                  "type": "frame",
-                                  "id": "geU7w",
-                                  "name": "lR2",
-                                  "width": "fill_container",
-                                  "padding": [
-                                    10,
-                                    16
-                                  ],
-                                  "justifyContent": "space_between",
-                                  "alignItems": "center",
-                                  "children": [
-                                    {
-                                      "type": "frame",
-                                      "id": "LUvJD",
-                                      "name": "lR2L",
-                                      "layout": "vertical",
-                                      "gap": 2,
-                                      "children": [
-                                        {
-                                          "type": "text",
-                                          "id": "t9R8l",
-                                          "name": "lR2N",
-                                          "fill": "$black-soft",
-                                          "content": "Car Loan",
-                                          "fontFamily": "Sora",
-                                          "fontSize": 13,
-                                          "fontWeight": "500"
-                                        },
-                                        {
-                                          "type": "text",
-                                          "id": "0o3Na",
-                                          "name": "lR2C",
-                                          "fill": "$gray-blue",
-                                          "content": "Vehicle · 3.8% APR",
-                                          "fontFamily": "IBM Plex Mono",
-                                          "fontSize": 11,
-                                          "fontWeight": "normal"
-                                        }
-                                      ]
-                                    },
-                                    {
-                                      "type": "text",
-                                      "id": "jme26",
-                                      "name": "lR2V",
-                                      "fill": "$vermillion",
-                                      "content": "($12,800)",
-                                      "fontFamily": "IBM Plex Mono",
-                                      "fontSize": 13,
-                                      "fontWeight": "500"
-                                    }
-                                  ]
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "fNyvv",
-                          "name": "rightCol",
-                          "width": "fill_container",
-                          "layout": "vertical",
-                          "gap": 16,
-                          "children": [
-                            {
-                              "type": "frame",
                               "id": "dCwEy",
                               "name": "Income Card",
                               "width": "fill_container",
+                              "height": 202,
                               "cornerRadius": 2,
                               "stroke": {
                                 "align": "inside",
@@ -12105,6 +11875,237 @@
                                       "name": "iR2V",
                                       "fill": "$black-soft",
                                       "content": "$24,000",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Pjxu5",
+                          "name": "Bottom Row",
+                          "width": "fill_container",
+                          "gap": 16,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Q5pRI",
+                              "name": "Liabilities Card",
+                              "width": "fill_container",
+                              "height": 202,
+                              "cornerRadius": 2,
+                              "stroke": {
+                                "align": "inside",
+                                "thickness": 1,
+                                "fill": "$border"
+                              },
+                              "layout": "vertical",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "m67dG",
+                                  "name": "lHdr",
+                                  "width": "fill_container",
+                                  "stroke": {
+                                    "align": "inside",
+                                    "thickness": {
+                                      "bottom": 1
+                                    },
+                                    "fill": "$border"
+                                  },
+                                  "padding": [
+                                    12,
+                                    16
+                                  ],
+                                  "justifyContent": "space_between",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "gP7jF",
+                                      "name": "lHdrL",
+                                      "gap": 8,
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "frame",
+                                          "id": "N82tb",
+                                          "name": "lInd",
+                                          "width": 3,
+                                          "height": 14,
+                                          "fill": "$vermillion",
+                                          "cornerRadius": 2
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "XGJZJ",
+                                          "name": "lTitle",
+                                          "fill": "$black-soft",
+                                          "content": "Liabilities",
+                                          "fontFamily": "Sora",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "Xicym",
+                                          "name": "lTotal",
+                                          "fill": "$gray-blue",
+                                          "content": "($124,800)",
+                                          "fontFamily": "IBM Plex Mono",
+                                          "fontSize": 12,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "tzXfQ",
+                                      "name": "lAdd",
+                                      "cornerRadius": 2,
+                                      "gap": 4,
+                                      "padding": [
+                                        4,
+                                        8
+                                      ],
+                                      "alignItems": "center",
+                                      "children": [
+                                        {
+                                          "type": "icon_font",
+                                          "id": "nxL1T",
+                                          "name": "lAddI",
+                                          "width": 12,
+                                          "height": 12,
+                                          "iconFontName": "plus",
+                                          "iconFontFamily": "lucide",
+                                          "fill": "$navy-primary"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "Eb45K",
+                                          "name": "lAddT",
+                                          "fill": "$navy-primary",
+                                          "content": "Add",
+                                          "fontFamily": "Sora",
+                                          "fontSize": 11,
+                                          "fontWeight": "500"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "KqLdu",
+                                  "name": "lR1",
+                                  "width": "fill_container",
+                                  "stroke": {
+                                    "align": "inside",
+                                    "thickness": {
+                                      "bottom": 1
+                                    },
+                                    "fill": "$border"
+                                  },
+                                  "padding": [
+                                    10,
+                                    16
+                                  ],
+                                  "justifyContent": "space_between",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "3XQ28",
+                                      "name": "lR1L",
+                                      "layout": "vertical",
+                                      "gap": 2,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "0FQEg",
+                                          "name": "lR1N",
+                                          "fill": "$black-soft",
+                                          "content": "HDB Mortgage",
+                                          "fontFamily": "Sora",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "2AHA0",
+                                          "name": "lR1C",
+                                          "fill": "$gray-blue",
+                                          "content": "Mortgage · 2.6% APR",
+                                          "fontFamily": "IBM Plex Mono",
+                                          "fontSize": 11,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "XNlPf",
+                                      "name": "lR1V",
+                                      "fill": "$vermillion",
+                                      "content": "($112,000)",
+                                      "fontFamily": "IBM Plex Mono",
+                                      "fontSize": 13,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "geU7w",
+                                  "name": "lR2",
+                                  "width": "fill_container",
+                                  "padding": [
+                                    10,
+                                    16
+                                  ],
+                                  "justifyContent": "space_between",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "frame",
+                                      "id": "LUvJD",
+                                      "name": "lR2L",
+                                      "layout": "vertical",
+                                      "gap": 2,
+                                      "children": [
+                                        {
+                                          "type": "text",
+                                          "id": "t9R8l",
+                                          "name": "lR2N",
+                                          "fill": "$black-soft",
+                                          "content": "Car Loan",
+                                          "fontFamily": "Sora",
+                                          "fontSize": 13,
+                                          "fontWeight": "500"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "id": "0o3Na",
+                                          "name": "lR2C",
+                                          "fill": "$gray-blue",
+                                          "content": "Vehicle · 3.8% APR",
+                                          "fontFamily": "IBM Plex Mono",
+                                          "fontSize": 11,
+                                          "fontWeight": "normal"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "text",
+                                      "id": "jme26",
+                                      "name": "lR2V",
+                                      "fill": "$vermillion",
+                                      "content": "($12,800)",
                                       "fontFamily": "IBM Plex Mono",
                                       "fontSize": 13,
                                       "fontWeight": "500"
@@ -13153,7 +13154,7 @@
                               "width": 16,
                               "height": 16,
                               "fill": "$navy-primary",
-                              "cornerRadius": 2,
+                              "cornerRadius": 8,
                               "stroke": {
                                 "align": "inside",
                                 "thickness": 2,
@@ -14910,19 +14911,90 @@
                           "type": "frame",
                           "id": "HxpDD",
                           "name": "opt1chart",
+                          "clip": true,
                           "width": "fill_container",
                           "height": 36,
                           "fill": "#3D5A8020",
-                          "cornerRadius": 2
+                          "cornerRadius": 2,
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "path",
+                              "id": "NdxqR",
+                              "x": 4,
+                              "y": 0,
+                              "name": "line1",
+                              "geometry": "M0 28c10-2 20-6 30-10 10-4 20 2 30-2 10-4 20-8 30-6 10 2 20-4 30-6l0 32-120 0z",
+                              "fill": "#3D5A8030",
+                              "width": 120,
+                              "height": 36
+                            },
+                            {
+                              "type": "path",
+                              "id": "gRgyX",
+                              "x": 4,
+                              "y": 0,
+                              "name": "line1top",
+                              "geometry": "M0 28c10-2 20-6 30-10 10-4 20 2 30-2 10-4 20-8 30-6 10 2 20-4 30-6",
+                              "width": 120,
+                              "height": 36,
+                              "stroke": {
+                                "thickness": 1.5,
+                                "fill": "#3D5A80"
+                              }
+                            }
+                          ]
                         },
                         {
                           "type": "frame",
                           "id": "Jzj7v",
                           "name": "opt1data",
+                          "clip": true,
                           "width": "fill_container",
                           "height": "fill_container",
                           "fill": "#E8E6E1",
-                          "cornerRadius": 2
+                          "cornerRadius": 2,
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 6,
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "RPrAO",
+                              "name": "bar1a",
+                              "fill": "#D1D0CC",
+                              "width": "fill_container",
+                              "height": 4
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "SdESw",
+                              "name": "bar1b",
+                              "fill": "#D1D0CC",
+                              "width": 40,
+                              "height": 4
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "VQPPi",
+                              "name": "bar1c",
+                              "fill": "#D1D0CC",
+                              "width": "fill_container",
+                              "height": 4
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "Ws2KG",
+                              "name": "bar1d",
+                              "fill": "#D1D0CC",
+                              "width": 30,
+                              "height": 4
+                            }
+                          ]
                         }
                       ]
                     },
@@ -14977,19 +15049,90 @@
                           "type": "frame",
                           "id": "y5N1N",
                           "name": "opt2chart",
+                          "clip": true,
                           "width": "fill_container",
                           "height": "fill_container",
                           "fill": "#3D5A8020",
-                          "cornerRadius": 2
+                          "cornerRadius": 2,
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "path",
+                              "id": "FUWBF",
+                              "x": 0,
+                              "y": 0,
+                              "name": "line2",
+                              "geometry": "M0 30c8-2 16-8 24-12 8-4 16 2 24-2 8-4 16-8 24-6l0 28-72 0z",
+                              "fill": "#3D5A8030",
+                              "width": 72,
+                              "height": 38
+                            },
+                            {
+                              "type": "path",
+                              "id": "FXA3E",
+                              "x": 0,
+                              "y": 0,
+                              "name": "line2top",
+                              "geometry": "M0 30c8-2 16-8 24-12 8-4 16 2 24-2 8-4 16-8 24-6",
+                              "width": 72,
+                              "height": 38,
+                              "stroke": {
+                                "thickness": 1.5,
+                                "fill": "#3D5A80"
+                              }
+                            }
+                          ]
                         },
                         {
                           "type": "frame",
                           "id": "9lKja",
                           "name": "opt2data",
+                          "clip": true,
                           "width": "fill_container",
                           "height": "fill_container",
                           "fill": "#E8E6E1",
-                          "cornerRadius": 2
+                          "cornerRadius": 2,
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 6,
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "xB9GL",
+                              "name": "bar2a",
+                              "fill": "#D1D0CC",
+                              "width": "fill_container",
+                              "height": 4
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "UmEGK",
+                              "name": "bar2b",
+                              "fill": "#D1D0CC",
+                              "width": 30,
+                              "height": 4
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "a26cA",
+                              "name": "bar2c",
+                              "fill": "#D1D0CC",
+                              "width": "fill_container",
+                              "height": 4
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "fpZim",
+                              "name": "bar2d",
+                              "fill": "#D1D0CC",
+                              "width": 20,
+                              "height": 4
+                            }
+                          ]
                         }
                       ]
                     },
@@ -15034,19 +15177,90 @@
                           "type": "frame",
                           "id": "QhnzQ",
                           "name": "opt3data",
+                          "clip": true,
                           "width": "fill_container",
                           "height": "fill_container",
                           "fill": "#E8E6E1",
-                          "cornerRadius": 2
+                          "cornerRadius": 2,
+                          "layout": "vertical",
+                          "gap": 4,
+                          "padding": 6,
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "Flmyu",
+                              "name": "bar3a",
+                              "fill": "#D1D0CC",
+                              "width": "fill_container",
+                              "height": 4
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "g3sKB",
+                              "name": "bar3b",
+                              "fill": "#D1D0CC",
+                              "width": 30,
+                              "height": 4
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "hWNSb",
+                              "name": "bar3c",
+                              "fill": "#D1D0CC",
+                              "width": "fill_container",
+                              "height": 4
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 1,
+                              "id": "yLRUn",
+                              "name": "bar3d",
+                              "fill": "#D1D0CC",
+                              "width": 20,
+                              "height": 4
+                            }
+                          ]
                         },
                         {
                           "type": "frame",
                           "id": "UYcCz",
                           "name": "opt3chart",
+                          "clip": true,
                           "width": "fill_container",
                           "height": "fill_container",
                           "fill": "#3D5A8020",
-                          "cornerRadius": 2
+                          "cornerRadius": 2,
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "path",
+                              "id": "d65YX",
+                              "x": 0,
+                              "y": 0,
+                              "name": "line3",
+                              "geometry": "M0 30c8-2 16-8 24-12 8-4 16 2 24-2 8-4 16-8 24-6l0 28-72 0z",
+                              "fill": "#3D5A8030",
+                              "width": 72,
+                              "height": 38
+                            },
+                            {
+                              "type": "path",
+                              "id": "AaYXu",
+                              "x": 0,
+                              "y": 0,
+                              "name": "line3top",
+                              "geometry": "M0 30c8-2 16-8 24-12 8-4 16 2 24-2 8-4 16-8 24-6",
+                              "width": 72,
+                              "height": 38,
+                              "stroke": {
+                                "thickness": 1.5,
+                                "fill": "#3D5A80"
+                              }
+                            }
+                          ]
                         }
                       ]
                     },
@@ -18263,7 +18477,7 @@
                       "width": 16,
                       "height": 16,
                       "fill": "#3D5A80",
-                      "cornerRadius": 2,
+                      "cornerRadius": 8,
                       "stroke": {
                         "align": "inside",
                         "thickness": 2,
@@ -19359,7 +19573,7 @@
                           "width": 18,
                           "height": 18,
                           "fill": "#3D5A80",
-                          "cornerRadius": 2,
+                          "cornerRadius": 9,
                           "stroke": {
                             "align": "inside",
                             "thickness": 2,
@@ -19474,7 +19688,7 @@
                           "width": 18,
                           "height": 18,
                           "fill": "#3D5A80",
-                          "cornerRadius": 2,
+                          "cornerRadius": 9,
                           "stroke": {
                             "align": "inside",
                             "thickness": 2,
@@ -19589,7 +19803,7 @@
                           "width": 18,
                           "height": 18,
                           "fill": "#3D5A80",
-                          "cornerRadius": 2,
+                          "cornerRadius": 9,
                           "stroke": {
                             "align": "inside",
                             "thickness": 2,
