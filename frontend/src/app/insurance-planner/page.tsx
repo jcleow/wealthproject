@@ -408,7 +408,7 @@ export default function InsurancePlannerPage() {
         <div className="mx-auto max-w-7xl">
           {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} onEditPolicy={handleEditPolicy} />}
           {activeTab === 'journey' && <JourneyTab />}
-          {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} editPolicyRecord={editPolicyRecord} />}
+          {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} editPolicyRecord={editPolicyRecord} onEditPolicyConsumed={() => setEditPolicyRecord(null)} />}
         </div>
       </main>
 
