@@ -131,12 +131,26 @@ func parseOptionalDecimal(s *string) (*decimal.Decimal, error) {
 	return d, nil
 }
 
+// parseDateFlexible parses a date string that may be either "2006-01-02" or RFC3339 format.
+// Returns only the date portion (time set to midnight UTC).
+func parseDateFlexible(s string) (time.Time, error) {
+	t, err := time.Parse("2006-01-02", s)
+	if err == nil {
+		return t, nil
+	}
+	t, err = time.Parse(time.RFC3339, s)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC), nil
+}
+
 // parseOptionalDate parses a nullable string into an optional time.Time.
 func parseOptionalDate(s *string) (*time.Time, error) {
 	if s == nil || *s == "" {
 		return nil, nil
 	}
-	t, err := time.Parse("2006-01-02", *s)
+	t, err := parseDateFlexible(*s)
 	if err != nil {
 		return nil, err
 	}

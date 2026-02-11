@@ -916,7 +916,7 @@ const SORT_FIELD_MAP: Record<SortField, string> = {
   status: 'isActive',
 }
 
-export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: number }) {
+export function PoliciesTab({ addPolicyTrigger = 0, editPolicyRecord, onEditPolicyConsumed }: { addPolicyTrigger?: number; editPolicyRecord?: InsurancePolicyRecord | null; onEditPolicyConsumed?: () => void }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Open modal when parent triggers "Add Policy" from the header
@@ -924,6 +924,17 @@ export function PoliciesTab({ addPolicyTrigger = 0 }: { addPolicyTrigger?: numbe
     if (addPolicyTrigger > 0) setIsModalOpen(true)
   }, [addPolicyTrigger])
   const [editingPolicy, setEditingPolicy] = useState<InsurancePolicyRecord | null>(null)
+
+  // Open edit modal when parent passes a policy to edit (e.g. from Coverage tab)
+  const onEditPolicyConsumedRef = useRef(onEditPolicyConsumed)
+  onEditPolicyConsumedRef.current = onEditPolicyConsumed
+  useEffect(() => {
+    if (editPolicyRecord) {
+      setEditingPolicy(editPolicyRecord)
+      setIsModalOpen(true)
+      onEditPolicyConsumedRef.current?.()
+    }
+  }, [editPolicyRecord])
   const [viewingPolicy, setViewingPolicy] = useState<InsurancePolicyRecord | null>(null)
   const [currentPage, setCurrentPage] = useState(0)
   const [sortState, setSortState] = useState<SortState>({ field: null, direction: 'asc' })

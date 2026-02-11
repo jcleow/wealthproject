@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"time"
 
 	"financial-chat-system/backend/internal/decimal"
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
@@ -39,7 +38,7 @@ type insurancePolicyInput struct {
 
 // toInsurancePolicy converts input to a repository InsurancePolicy struct.
 func (input *insurancePolicyInput) toInsurancePolicy() (repo.InsurancePolicy, error) {
-	startDate, err := time.Parse("2006-01-02", input.StartDate)
+	startDate, err := parseDateFlexible(input.StartDate)
 	if err != nil {
 		return repo.InsurancePolicy{}, err
 	}

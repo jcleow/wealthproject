@@ -100,6 +100,7 @@ const canvasTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmln
 export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
   const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
+  const [editPolicyRecord, setEditPolicyRecord] = useState<import('@/api/financial/insurance').InsurancePolicyRecord | null>(null)
   const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
@@ -114,6 +115,11 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
   const handleAddPolicy = () => {
     setActiveTab('policies')
     setAddPolicyTrigger((prev) => prev + 1)
+  }
+
+  const handleEditPolicy = (policy: import('@/api/financial/insurance').InsurancePolicyRecord) => {
+    setEditPolicyRecord(policy)
+    setActiveTab('policies')
   }
 
   const handleResetTargets = () => {
@@ -221,9 +227,9 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
 
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
-        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} />}
+        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} onEditPolicy={handleEditPolicy} />}
         {activeTab === 'journey' && <JourneyTab />}
-        {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
+        {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} editPolicyRecord={editPolicyRecord} onEditPolicyConsumed={() => setEditPolicyRecord(null)} />}
       </main>
 
       {/* Guidelines Modal */}
@@ -249,6 +255,7 @@ export default function InsurancePlannerPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
   const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
+  const [editPolicyRecord, setEditPolicyRecord] = useState<import('@/api/financial/insurance').InsurancePolicyRecord | null>(null)
   const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
@@ -267,6 +274,11 @@ export default function InsurancePlannerPage() {
   const handleAddPolicy = () => {
     setActiveTab('policies')
     setAddPolicyTrigger((prev) => prev + 1)
+  }
+
+  const handleEditPolicy = (policy: import('@/api/financial/insurance').InsurancePolicyRecord) => {
+    setEditPolicyRecord(policy)
+    setActiveTab('policies')
   }
 
   const handleResetTargets = () => {
@@ -394,9 +406,9 @@ export default function InsurancePlannerPage() {
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
         <div className="mx-auto max-w-7xl">
-          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} />}
+          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} onEditPolicy={handleEditPolicy} />}
           {activeTab === 'journey' && <JourneyTab />}
-          {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
+          {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} editPolicyRecord={editPolicyRecord} />}
         </div>
       </main>
 
