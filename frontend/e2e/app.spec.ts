@@ -9,14 +9,14 @@ test.describe('Landing Page', () => {
     await page.goto('/');
 
     // Wait for the page to be loaded
-    await expect(page).toHaveTitle(/Assetra|Financial/i);
+    await expect(page).toHaveTitle(/Assetra|Financial|WealthProject/i);
   });
 
   test('should display hero content', async ({ page }) => {
     await page.goto('/');
 
     // Check that the landing page has loaded with content
-    const heroSection = page.locator('.landing-content');
+    const heroSection = page.locator('.linear-landing');
     await expect(heroSection).toBeVisible();
   });
 

@@ -35,14 +35,18 @@ async function clickAddButton(
   page: ReturnType<typeof authenticatedTest>['authenticatedPage'] extends Promise<infer T> ? T : never,
   category: 'Assets' | 'Liabilities' | 'Monthly Income' | 'Annual Income' | 'Monthly Expenses' | 'Annual Expenses'
 ) {
-  // Find the category card by its header text
-  const categorySection = page.locator('h4', { hasText: category }).first()
-  await expect(categorySection).toBeVisible({ timeout: 10000 })
+  // Find the category card's toggle button and expand it if collapsed
+  const categoryToggle = page.getByRole('button', { name: new RegExp(category) }).first()
+  await expect(categoryToggle).toBeVisible({ timeout: 10000 })
 
-  // Find the parent card container and then the add button within it
-  const cardContainer = categorySection.locator('xpath=ancestor::div[contains(@class, "border-white")]').first()
+  // Expand the card (Add Item button only renders when expanded)
+  await categoryToggle.click()
+  await page.waitForTimeout(500)
+
+  // Re-query the add button after expansion settles
+  const cardContainer = categoryToggle.locator('xpath=ancestor::div[contains(@class, "border")]').first()
   const addButton = cardContainer.locator('button[title="Add Item"]')
-
+  await expect(addButton).toBeVisible({ timeout: 5000 })
   await addButton.click()
 }
 
@@ -86,12 +90,16 @@ authenticatedTest.describe('Income CRUD', () => {
     const incomeButtons = page.locator('button', { hasText: /Employment/i })
     const initialCount = await incomeButtons.count()
 
-    // Click add button for income
-    const incomeHeader = page.locator('h4', { hasText: /Monthly Income|Annual Income/ }).first()
-    await expect(incomeHeader).toBeVisible()
+    // Click the category card's expand toggle to reveal the Add Item button.
+    // In compact mode, cards start collapsed; the Add Item button only renders when expanded.
+    const incomeToggle = page.getByRole('button', { name: /Monthly Income|Annual Income/ }).first()
+    await expect(incomeToggle).toBeVisible()
+    await incomeToggle.click()
+    await page.waitForTimeout(500)
 
-    // Get the container and find the add button
-    const addButton = incomeHeader.locator('xpath=ancestor::div[contains(@class, "border")]//button[@title="Add Item"]')
+    // Now the Add Item button should appear in the expanded header
+    const addButton = page.locator('button[title="Add Item"]').first()
+    await expect(addButton).toBeVisible({ timeout: 5000 })
     await addButton.click()
 
     // Wait for modal to open

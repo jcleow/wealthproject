@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, RotateCcw, X, Database, Loader2, Trash2 } from 'lucide-react'
+import { Plus, RotateCcw, X } from 'lucide-react'
 import clsx from 'clsx'
 import {
   InsuranceTabs,
@@ -15,8 +15,6 @@ import { GuidelinesTab } from '@/components/insurance/tabs/GuidelinesTab'
 import { Modal } from '@/components/ui/Modal'
 import { useColorScheme } from '@/stores'
 import { useCoverageGuidelinesStore } from '@/stores/coverageGuidelinesStore'
-import { useLoadSampleInsuranceData } from '@/hooks/queries/useLoadSampleInsuranceData'
-import { useDeleteAllInsurancePoliciesMutation } from '@/hooks/queries/useInsurancePoliciesQuery'
 
 // ============================================================================
 // THEME-AWARE DESIGN SYSTEM
@@ -102,14 +100,13 @@ const canvasTexture = `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmln
 export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
   const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
+  const [editPolicyRecord, setEditPolicyRecord] = useState<import('@/api/financial/insurance').InsurancePolicyRecord | null>(null)
   const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
   const colors = isMonet ? monetColors : darkColors
 
   const resetToDefaults = useCoverageGuidelinesStore((s) => s.resetToDefaults)
-  const loadSampleMutation = useLoadSampleInsuranceData()
-  const deleteAllMutation = useDeleteAllInsurancePoliciesMutation()
 
   const handleNavigateToPolicy = () => {
     setActiveTab('policies')
@@ -118,6 +115,11 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
   const handleAddPolicy = () => {
     setActiveTab('policies')
     setAddPolicyTrigger((prev) => prev + 1)
+  }
+
+  const handleEditPolicy = (policy: import('@/api/financial/insurance').InsurancePolicyRecord) => {
+    setEditPolicyRecord(policy)
+    setActiveTab('policies')
   }
 
   const handleResetTargets = () => {
@@ -171,40 +173,6 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
             Insurance Planner
           </h1>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => loadSampleMutation.mutate()}
-              disabled={loadSampleMutation.isPending}
-              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
-                color: isMonet ? '#9B9B9B' : '#64748b',
-              }}
-              title="Load sample data"
-            >
-              {loadSampleMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Database className="h-4 w-4" />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => { if (window.confirm('Delete all insurance policies? This cannot be undone.')) deleteAllMutation.mutate() }}
-              disabled={deleteAllMutation.isPending}
-              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
-                color: isMonet ? '#9B9B9B' : '#64748b',
-              }}
-              title="Clear all policies"
-            >
-              {deleteAllMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-            </button>
             {/* Action button slot — grid overlay keeps width stable across tabs */}
             <div className="grid">
               <button
@@ -259,9 +227,9 @@ export function InsurancePlannerView({ onClose }: { onClose?: () => void }) {
 
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
-        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} />}
+        {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} onEditPolicy={handleEditPolicy} />}
         {activeTab === 'journey' && <JourneyTab />}
-        {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
+        {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} editPolicyRecord={editPolicyRecord} onEditPolicyConsumed={() => setEditPolicyRecord(null)} />}
       </main>
 
       {/* Guidelines Modal */}
@@ -287,14 +255,13 @@ export default function InsurancePlannerPage() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<InsuranceTabId>('overview')
   const [addPolicyTrigger, setAddPolicyTrigger] = useState(0)
+  const [editPolicyRecord, setEditPolicyRecord] = useState<import('@/api/financial/insurance').InsurancePolicyRecord | null>(null)
   const [isGuidelinesModalOpen, setIsGuidelinesModalOpen] = useState(false)
   const colorScheme = useColorScheme()
   const isMonet = colorScheme === 'monet'
   const colors = isMonet ? monetColors : darkColors
 
   const resetToDefaults = useCoverageGuidelinesStore((s) => s.resetToDefaults)
-  const loadSampleMutation = useLoadSampleInsuranceData()
-  const deleteAllMutation = useDeleteAllInsurancePoliciesMutation()
 
   const handleClose = () => {
     router.push('/dashboard')
@@ -307,6 +274,11 @@ export default function InsurancePlannerPage() {
   const handleAddPolicy = () => {
     setActiveTab('policies')
     setAddPolicyTrigger((prev) => prev + 1)
+  }
+
+  const handleEditPolicy = (policy: import('@/api/financial/insurance').InsurancePolicyRecord) => {
+    setEditPolicyRecord(policy)
+    setActiveTab('policies')
   }
 
   const handleResetTargets = () => {
@@ -380,40 +352,6 @@ export default function InsurancePlannerPage() {
             Insurance Planner
           </h1>
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => loadSampleMutation.mutate()}
-              disabled={loadSampleMutation.isPending}
-              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
-                color: isMonet ? '#9B9B9B' : '#64748b',
-              }}
-              title="Load sample data"
-            >
-              {loadSampleMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Database className="h-4 w-4" />
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => { if (window.confirm('Delete all insurance policies? This cannot be undone.')) deleteAllMutation.mutate() }}
-              disabled={deleteAllMutation.isPending}
-              className="flex h-9 w-9 items-center justify-center rounded-lg transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{
-                background: isMonet ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)',
-                color: isMonet ? '#9B9B9B' : '#64748b',
-              }}
-              title="Clear all policies"
-            >
-              {deleteAllMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-            </button>
             {/* Action button slot — grid overlay keeps width stable across tabs */}
             <div className="grid">
               <button
@@ -468,9 +406,9 @@ export default function InsurancePlannerPage() {
       {/* Main Content - scrollable */}
       <main className="flex-1 overflow-y-auto relative z-10">
         <div className="mx-auto max-w-7xl">
-          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} />}
+          {activeTab === 'overview' && <MyCoverageTab onNavigateToPolicy={handleNavigateToPolicy} onEditTargets={() => setIsGuidelinesModalOpen(true)} onEditPolicy={handleEditPolicy} />}
           {activeTab === 'journey' && <JourneyTab />}
-          {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} />}
+          {activeTab === 'policies' && <PoliciesTab addPolicyTrigger={addPolicyTrigger} editPolicyRecord={editPolicyRecord} onEditPolicyConsumed={() => setEditPolicyRecord(null)} />}
         </div>
       </main>
 

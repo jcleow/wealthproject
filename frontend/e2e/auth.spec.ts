@@ -348,15 +348,15 @@ test.describe('Authentication State', () => {
     await page.getByLabel(/password/i).fill(TEST_ACCOUNT.password)
     await page.getByRole('button', { name: /sign in/i }).click()
 
-    // Wait for dashboard
-    await page.waitForURL(/dashboard/, { timeout: 10000 })
-    await expect(page.getByRole('heading', { name: /net worth/i }).first()).toBeVisible()
+    // Wait for dashboard (allow extra time for Turbopack cold compilation)
+    await page.waitForURL(/dashboard/, { timeout: 20000 })
+    await expect(page.getByRole('heading', { name: /net worth/i }).first()).toBeVisible({ timeout: 15000 })
 
     // Reload page
     await page.reload()
 
     // Should still be on dashboard
     await expect(page).toHaveURL(/dashboard/)
-    await expect(page.getByRole('heading', { name: /net worth/i }).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('heading', { name: /net worth/i }).first()).toBeVisible({ timeout: 15000 })
   })
 })

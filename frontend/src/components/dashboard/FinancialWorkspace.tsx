@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Sparkles, Trash2, Bell, Wallet, Shield, LibraryBig } from 'lucide-react'
+import { Building2, Car, ChevronDown, LayoutGrid, Loader2, Receipt, Blocks, Trash2, Bell, Wallet, Shield, LibraryBig } from 'lucide-react'
 import { ColorSchemeToggle } from '@/components/ui/ColorSchemeToggle'
 
 import { useFinancialData } from '@/hooks/useFinancialData'
@@ -46,18 +46,20 @@ export function FinancialWorkspace({
     openCPFView,
     openPropertyPlanner,
     openInsurancePlanner,
+    openVehiclePlanner,
     openLayoutModal,
   } = useFeatureModulesStore(
     useShallow((s) => ({
       openCPFView: s.openCPFView,
       openPropertyPlanner: s.openPropertyPlanner,
       openInsurancePlanner: s.openInsurancePlanner,
+      openVehiclePlanner: s.openVehiclePlanner,
       openLayoutModal: s.openLayoutModal,
     }))
   )
 
   // Get theme classes for consistent styling
-  const { classes } = useThemeClasses()
+  const { classes, isMonet } = useThemeClasses()
 
   // Get timeline data from hook (React Query)
   const timeline = useTimeline({ resolution: 'monthly' })
@@ -235,7 +237,7 @@ export function FinancialWorkspace({
               )}
               type="button"
             >
-              <Sparkles className={clsx("h-3 w-3", classes.icon.primary)} />
+              <Blocks className={clsx("h-3 w-3", classes.icon.primary)} />
               <span className="text-[13px] hidden md:inline">Modules</span>
               <ChevronDown className={`h-2.5 w-2.5 transition ${isModuleMenuOpen ? 'rotate-180' : ''}`} />
             </button>
@@ -263,7 +265,7 @@ export function FinancialWorkspace({
                     <Building2 className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
-                    <div className="font-medium">Property Planner</div>
+                    <div className="font-medium">Property</div>
                     <p className={classes.menuText.secondary}>Create and compare property purchase scenarios.</p>
                   </div>
                 </button>
@@ -293,26 +295,31 @@ export function FinancialWorkspace({
                   className={clsx(classes.menuItem.base, classes.menuItem.withBorder, classes.menuItem.hover)}
                   type="button"
                 >
-                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.purple)}>
+                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.rose)}>
                     <Shield className="h-4 w-4" />
                   </span>
                   <div className="space-y-0.5">
-                    <div className="font-medium">Insurance Planner</div>
+                    <div className="font-medium">Insurance</div>
                     <p className={classes.menuText.secondary}>Analyze coverage gaps and plan your protection.</p>
                   </div>
                 </button>
-                {/* Coming Soon Modules */}
-                <div className={classes.menuItem.disabled}>
-                  <div className="flex items-start w-full gap-3 px-4 py-3 text-left text-sm">
-                    <span className={clsx(classes.iconBadge.base, classes.iconBadge.disabled)}>
-                      <Car className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-0.5">
-                      <div className={clsx("font-medium", classes.menuText.disabled)}>Vehicle Purchase</div>
-                      <p className={classes.menuText.disabledSecondary}>Coming soon</p>
-                    </div>
+                {/* Vehicle */}
+                <button
+                  onClick={() => {
+                    setIsModuleMenuOpen(false)
+                    openVehiclePlanner()
+                  }}
+                  className={clsx(classes.menuItem.base, classes.menuItem.withBorder, classes.menuItem.hover)}
+                  type="button"
+                >
+                  <span className={clsx(classes.iconBadge.base, classes.iconBadge.amber)}>
+                    <Car className="h-4 w-4" />
+                  </span>
+                  <div className="space-y-0.5">
+                    <div className="font-medium">Vehicle <span className={clsx('text-[10px] font-normal', isMonet ? 'text-[var(--monet-text-muted)]' : 'text-slate-500')}>(Preview)</span></div>
+                    <p className={classes.menuText.secondary}>Calculate total cost of vehicle ownership in SG.</p>
                   </div>
-                </div>
+                </button>
                 <div className={classes.menuItem.disabled}>
                   <div className="flex items-start w-full gap-3 px-4 py-3 text-left text-sm">
                     <span className={clsx(classes.iconBadge.base, classes.iconBadge.disabled)}>

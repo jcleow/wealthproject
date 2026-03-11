@@ -19,6 +19,7 @@ import type {
   RepositoryPropertyFee,
   FinancialChatSystemBackendInternalFinancialV2RepositoryExpense,
   FinancialChatSystemBackendInternalFinancialV2RepositoryGroupedExpenses,
+  FinancialChatSystemBackendInternalFinancialV2RepositoryInsurancePremiumExpense,
   FinancialChatSystemBackendInternalFinancialV2RepositoryIncome,
   FinancialChatSystemBackendInternalFinancialV2RepositoryInvestment,
   FinancialChatSystemBackendInternalFinancialV2RepositoryLiability,
@@ -90,6 +91,7 @@ export type PropertyFee = RepositoryPropertyFee
 // Long repository type names
 export type Expense = FinancialChatSystemBackendInternalFinancialV2RepositoryExpense
 export type GroupedExpenses = FinancialChatSystemBackendInternalFinancialV2RepositoryGroupedExpenses
+export type InsurancePremiumExpense = FinancialChatSystemBackendInternalFinancialV2RepositoryInsurancePremiumExpense
 export type Income = FinancialChatSystemBackendInternalFinancialV2RepositoryIncome
 export type Investment = FinancialChatSystemBackendInternalFinancialV2RepositoryInvestment
 export type Liability = FinancialChatSystemBackendInternalFinancialV2RepositoryLiability

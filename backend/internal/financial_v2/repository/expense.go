@@ -10,16 +10,37 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// GroupedExpenses returns expenses split into regular expenses and debt repayments.
-type GroupedExpenses struct {
-	RegularExpenses []Expense `json:"regularExpenses"`
-	DebtRepayments  []Expense `json:"debtRepayments"`
-	Count           int       `json:"count"`
-	Limit           *int      `json:"limit"`
-	Offset          *int      `json:"offset"`
+// InsurancePremiumExpense represents an insurance policy's premium surfaced as
+// a read-only expense. This avoids duplicating data in finance_expenses;
+// instead, premiums are queried from insurance_policies at read time and
+// merged into the expense API response (application-level merge).
+type InsurancePremiumExpense struct {
+	PolicyID         string          `json:"policyId"`
+	Name             string          `json:"name"`
+	Amount           decimal.Decimal `json:"amount"`
+	Frequency        string          `json:"frequency"`
+	StartDate        time.Time       `json:"startDate"`
+	EndDate          *time.Time      `json:"endDate,omitempty"`
+	Category         string          `json:"category"`
+	PersonName       string          `json:"personName,omitempty"`
+	GovernmentScheme *string         `json:"governmentScheme,omitempty"`
+	ReadOnly         bool            `json:"readOnly"` // Always true — edits go through insurance modal
 }
 
-// ListExpensesGrouped returns expenses split into regular expenses and debt repayments.
+// GroupedExpenses returns expenses split into regular expenses, debt repayments,
+// and insurance premiums (read-only, sourced from insurance_policies).
+type GroupedExpenses struct {
+	RegularExpenses   []Expense                `json:"regularExpenses"`
+	DebtRepayments    []Expense                `json:"debtRepayments"`
+	InsurancePremiums []InsurancePremiumExpense `json:"insurancePremiums"`
+	Count             int                      `json:"count"`
+	Limit             *int                     `json:"limit"`
+	Offset            *int                     `json:"offset"`
+}
+
+// ListExpensesGrouped returns expenses split into regular expenses, debt repayments,
+// and insurance premiums. Insurance premiums are sourced from insurance_policies
+// (application-level merge) rather than duplicated in finance_expenses.
 func (s *Store) ListExpensesGrouped(
 	ctx context.Context,
 	userID string,
@@ -43,6 +64,12 @@ func (s *Store) ListExpensesGrouped(
 		}
 	}
 
+	// Query insurance policies and convert to expense-like items
+	insurancePremiums, err := s.listInsurancePremiumsAsExpenses(ctx, userID)
+	if err != nil {
+		return GroupedExpenses{}, err
+	}
+
 	// Ensure empty slices instead of nil for JSON marshaling
 	if regularExpenses == nil {
 		regularExpenses = []Expense{}
@@ -52,12 +79,39 @@ func (s *Store) ListExpensesGrouped(
 	}
 
 	return GroupedExpenses{
-		RegularExpenses: regularExpenses,
-		DebtRepayments:  debtRepayments,
-		Count:           result.Count,
-		Limit:           result.Limit,
-		Offset:          result.Offset,
+		RegularExpenses:   regularExpenses,
+		DebtRepayments:    debtRepayments,
+		InsurancePremiums: insurancePremiums,
+		Count:             result.Count,
+		Limit:             result.Limit,
+		Offset:            result.Offset,
 	}, nil
+}
+
+// listInsurancePremiumsAsExpenses queries active insurance policies with premiums
+// and converts them into InsurancePremiumExpense items for the expense list.
+func (s *Store) listInsurancePremiumsAsExpenses(ctx context.Context, userID string) ([]InsurancePremiumExpense, error) {
+	policies, err := s.ListInsurancePoliciesForTimeline(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list insurance premiums: %w", err)
+	}
+
+	premiums := make([]InsurancePremiumExpense, 0, len(policies))
+	for _, p := range policies {
+		premiums = append(premiums, InsurancePremiumExpense{
+			PolicyID:         p.ID,
+			Name:             p.Name + " Premium",
+			Amount:           p.PremiumAmount,
+			Frequency:        p.PremiumFrequency,
+			StartDate:        p.StartDate,
+			EndDate:          p.EndDate,
+			Category:         p.Category,
+			PersonName:       p.PersonName,
+			GovernmentScheme: p.GovernmentScheme,
+			ReadOnly:         true,
+		})
+	}
+	return premiums, nil
 }
 
 // GetExpense retrieves a single expense by ID.

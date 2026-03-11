@@ -282,3 +282,46 @@ func (s *Store) DeleteInsurancePolicy(ctx context.Context, userID, id string) er
 func (s *Store) DeleteAllInsurancePolicies(ctx context.Context, userID string) (int64, error) {
 	return s.deleteAllByUser(ctx, "insurance_policies", userID)
 }
+
+// ListInsurancePoliciesForTimeline returns active policies with premiums > 0
+// for timeline projection. Uses the full InsurancePolicy struct but filters
+// to only policies that have a meaningful premium for the projection engine.
+func (s *Store) ListInsurancePoliciesForTimeline(ctx context.Context, userID string) ([]InsurancePolicy, error) {
+	query := `SELECT ` + insurancePolicyColumns + `
+	FROM insurance_policies ip
+	LEFT JOIN persons p ON ip.person_id = p.id
+	WHERE ip.user_id = $1
+	  AND ip.premium_amount > 0
+	  AND ip.is_active = true
+	ORDER BY ip.person_id, ip.category`
+
+	logQuery(query, []any{userID})
+	rows, err := s.pool.Query(ctx, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list insurance policies for timeline: %w", err)
+	}
+	defer rows.Close()
+
+	var policies []InsurancePolicy
+	for rows.Next() {
+		var policy InsurancePolicy
+		if err := rows.Scan(
+			&policy.ID, &policy.UserID, &policy.PersonID, &policy.PersonName,
+			&policy.Name, &policy.Category, &policy.Subcategory, &policy.GovernmentScheme,
+			&policy.CoverageAmount, &policy.DeathBenefit, &policy.CriticalIllnessBenefit,
+			&policy.TpdBenefit, &policy.DailyHospitalCash, &policy.PayoutAmount, &policy.PayoutFrequency,
+			&policy.PremiumAmount, &policy.PremiumFrequency, &policy.StartDate, &policy.EndDate,
+			&policy.RenewalDate, &policy.InsurerName, &policy.PolicyNumber, &policy.LinkedExpenseID,
+			&policy.IsActive, &policy.Notes, &policy.CreatedAt, &policy.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan insurance policy for timeline: %w", err)
+		}
+		policies = append(policies, policy)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration error: %w", err)
+	}
+
+	return policies, nil
+}

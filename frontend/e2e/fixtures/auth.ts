@@ -36,8 +36,8 @@ export const authenticatedTest = base.extend<{
     // Submit the form
     await page.getByRole('button', { name: /sign in|log in/i }).click()
 
-    // Wait for navigation to dashboard
-    await page.waitForURL(/dashboard/, { timeout: 10000 })
+    // Wait for navigation to dashboard (allow extra time for Turbopack cold compilation)
+    await page.waitForURL(/dashboard/, { timeout: 20000 })
 
     // Verify we're logged in - use first() to handle multiple "Net Worth" headings
     await expect(page.getByRole('heading', { name: /net worth/i }).first()).toBeVisible({ timeout: 10000 })
@@ -56,5 +56,5 @@ export async function loginAsTestUser(page: Parameters<Parameters<typeof base>[1
   await page.getByLabel(/email/i).fill(TEST_ACCOUNT.email)
   await page.getByLabel(/password/i).fill(TEST_ACCOUNT.password)
   await page.getByRole('button', { name: /sign in|log in/i }).click()
-  await page.waitForURL(/dashboard/, { timeout: 10000 })
+  await page.waitForURL(/dashboard/, { timeout: 20000 })
 }

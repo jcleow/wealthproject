@@ -20,6 +20,8 @@ import (
 	repo "financial-chat-system/backend/internal/financial_v2/repository"
 	"financial-chat-system/backend/internal/financial_v2/scenario"
 
+	"financial-chat-system/backend/internal/cpf/medisave"
+
 	"golang.org/x/sync/errgroup"
 )
 
@@ -81,6 +83,8 @@ type SGFinancialDataRows struct {
 	Properties []repo.PropertyScenarioFull
 	// FundFlowRules holds payment/allocation/transfer rules for internal money movements
 	FundFlowRules []repo.FundFlowRule
+	// InsurancePolicies holds active policies with premiums for CPF/cash deduction processing
+	InsurancePolicies []repo.InsurancePolicy
 }
 
 // ItemState tracks the current computed state of a financial item
@@ -127,6 +131,7 @@ func (s *Service) loadEffectiveRows(
 		scenarioEvents    []repo.ScenarioEvent
 		properties        []repo.PropertyScenarioFull
 		fundFlowRules     []repo.FundFlowRule
+		insurancePolicies []repo.InsurancePolicy
 	)
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -221,6 +226,13 @@ func (s *Service) loadEffectiveRows(
 		return err
 	})
 
+	// Load insurance policies for premium deduction processing (CPF + cash)
+	g.Go(func() error {
+		var err error
+		insurancePolicies, err = s.store.ListInsurancePoliciesForTimeline(gctx, userID)
+		return err
+	})
+
 	if err := g.Wait(); err != nil {
 		return SGFinancialDataRows{}, err
 	}
@@ -250,11 +262,12 @@ func (s *Service) loadEffectiveRows(
 	filteredCPFAccounts := filterCPFAccountsByExcludedPersons(cpfAccounts, excludedPersonIDs)
 
 	return SGFinancialDataRows{
-		Rows:            rows,
-		CPFAccounts:     mapToCPFAccounts(filteredCPFAccounts),
-		ScenarioImpacts: impactCtx,
-		Properties:      properties,
-		FundFlowRules:   fundFlowRules,
+		Rows:              rows,
+		CPFAccounts:       mapToCPFAccounts(filteredCPFAccounts),
+		ScenarioImpacts:   impactCtx,
+		Properties:        properties,
+		FundFlowRules:     fundFlowRules,
+		InsurancePolicies: insurancePolicies,
 	}, nil
 }
 
@@ -1233,14 +1246,102 @@ func processLiabilityMonth(
 	}
 }
 
+// processInsurancePremiums computes CPF and cash premium splits for all active
+// insurance policies, deducts CPF portions from MA/OA, and returns the total
+// cash portion to be subtracted from net savings.
+//
+// This implements the "single-track" approach: no linked expenses are created.
+// The cash portion is passed to calcCashAllocationWithRules as InsuranceCashPremiums.
+func processInsurancePremiums(
+	policies []repo.InsurancePolicy,
+	cpfContexts map[string]*CPFContext,
+	currentDate time.Time,
+) *decimal.Decimal {
+	totalCashPremiums := decimal.Zero()
+
+	// Group policies by personID
+	byPerson := make(map[string][]medisave.PolicyPremium)
+	for _, policy := range policies {
+		// Check if policy is active in this month
+		if !isPolicyActiveInMonth(policy, currentDate) {
+			continue
+		}
+
+		personID := ""
+		if policy.PersonID != nil {
+			personID = *policy.PersonID
+		}
+
+		byPerson[personID] = append(byPerson[personID], medisave.PolicyPremium{
+			ID:               policy.ID,
+			PersonID:         personID,
+			Category:         policy.Category,
+			GovernmentScheme: policy.GovernmentScheme,
+			PremiumAmount:    policy.PremiumAmount,
+			PremiumFrequency: policy.PremiumFrequency,
+			StartDate:        policy.StartDate,
+			EndDate:          policy.EndDate,
+		})
+	}
+
+	for personID, personPolicies := range byPerson {
+		// Determine age for AWL calculation
+		ageNextBirthday := 0
+		cpfCtx := cpfContexts[personID]
+		if cpfCtx != nil && cpfCtx.EngineState != nil {
+			ageNextBirthday = cpfCtx.EngineState.AgeAt(currentDate) + 1
+		}
+
+		split := medisave.CalculateMonthlySplit(personPolicies, ageNextBirthday)
+
+		// Apply CPF deductions to MA/OA
+		if cpfCtx != nil && cpfCtx.EngineState != nil {
+			for _, deduction := range split.CPFDeductions {
+				switch deduction.CPFAccount {
+				case "MA":
+					cpfCtx.EngineState.MA = cpfCtx.EngineState.MA.Sub(deduction.Amount)
+				case "OA":
+					cpfCtx.EngineState.OA = cpfCtx.EngineState.OA.Sub(deduction.Amount)
+				}
+			}
+		}
+
+		totalCashPremiums = totalCashPremiums.Add(split.TotalCash)
+	}
+
+	return totalCashPremiums
+}
+
+// isPolicyActiveInMonth checks if an insurance policy is active in the given month.
+func isPolicyActiveInMonth(policy repo.InsurancePolicy, date time.Time) bool {
+	checkYear, checkMonth, _ := date.Date()
+	startYear, startMonth, _ := policy.StartDate.Date()
+
+	// Policy hasn't started yet
+	if startYear > checkYear || (startYear == checkYear && startMonth > checkMonth) {
+		return false
+	}
+
+	// Policy has ended
+	if policy.EndDate != nil {
+		endYear, endMonth, _ := policy.EndDate.Date()
+		if endYear < checkYear || (endYear == checkYear && endMonth < checkMonth) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // CashAllocationParams holds parameters for cash allocation calculation.
 type CashAllocationParams struct {
-	Data             EffectiveRows
-	AccountBalances  map[string]*decimal.Decimal // Maps account/item ID to current balance
-	CurrentDate      time.Time
-	EmployeeCPF      *decimal.Decimal
-	FundFlowRules    []repo.FundFlowRule // Allocation rules from fund_flow_rules table
-	ApplyAllocations bool
+	Data                  EffectiveRows
+	AccountBalances       map[string]*decimal.Decimal // Maps account/item ID to current balance
+	CurrentDate           time.Time
+	EmployeeCPF           *decimal.Decimal
+	FundFlowRules         []repo.FundFlowRule // Allocation rules from fund_flow_rules table
+	ApplyAllocations      bool
+	InsuranceCashPremiums *decimal.Decimal // Cash portion of insurance premiums (after CPF split)
 }
 
 // calcCashAllocationWithRules computes net savings and net cash flow for active rows.
@@ -1282,6 +1383,11 @@ func calcCashAllocationWithRules(params CashAllocationParams) (netSavings *decim
 	}
 
 	netSavings = income.Sub(params.EmployeeCPF).Sub(expense)
+
+	// Subtract insurance cash premiums (portion not covered by CPF)
+	if params.InsuranceCashPremiums != nil && !params.InsuranceCashPremiums.IsZero() {
+		netSavings = netSavings.Sub(params.InsuranceCashPremiums)
+	}
 
 	// Use fund flow allocation rules
 	netInvestments = computeAllocationTotals(
@@ -2132,6 +2238,8 @@ type MonthlyContext struct {
 	Properties []repo.PropertyScenarioFull
 	// Fund flow rules for payment sequencing and allocations (replaces legacy income_allocations)
 	FundFlowRules []repo.FundFlowRule
+	// InsurancePolicies holds active insurance policies for premium deduction processing
+	InsurancePolicies []repo.InsurancePolicy
 	// PaymentExecutions tracks payment attribution for the current month (for response building)
 	PaymentExecutions FundFlowExecutionResult
 	// TransferExecutions tracks transfer attribution for the current month (Phase 3: account ↔ account)
@@ -2269,6 +2377,13 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	// This ensures CPF balances reflect interest growth and lifecycle events
 	mctx.applyAllEngineProcessing(currentDate, applyContributions)
 
+	// Process insurance premium CPF deductions (MediSave/OA) and compute cash portion.
+	// Must run after CPF engine processing so deductions apply to post-interest balances.
+	var insuranceCashPremiums *decimal.Decimal
+	if !isAnchorMonth && len(mctx.InsurancePolicies) > 0 {
+		insuranceCashPremiums = processInsurancePremiums(mctx.InsurancePolicies, mctx.CPFContexts, currentDate)
+	}
+
 	// Execute transfer rules (fund flow Phase 3)
 	// Transfer rules move money between accounts (CPF ↔ Cash ↔ Investment).
 	// Run early so that:
@@ -2301,12 +2416,13 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 	var netSavings, netCashFlow, netInvestments *decimal.Decimal
 	applyAllocations := !isAnchorMonth
 	netSavings, netCashFlow, netInvestments = calcCashAllocationWithRules(CashAllocationParams{
-		Data:             mctx.Data,
-		AccountBalances:  stateForCalcs,
-		CurrentDate:      currentDate,
-		EmployeeCPF:      employeeCPF,
-		FundFlowRules:    mctx.FundFlowRules,
-		ApplyAllocations: applyAllocations,
+		Data:                 mctx.Data,
+		AccountBalances:      stateForCalcs,
+		CurrentDate:          currentDate,
+		EmployeeCPF:          employeeCPF,
+		FundFlowRules:        mctx.FundFlowRules,
+		ApplyAllocations:     applyAllocations,
+		InsuranceCashPremiums: insuranceCashPremiums,
 	})
 
 	// If scenarios are active (EventAdjustedState != State), also apply allocations to base State
@@ -2370,6 +2486,7 @@ func (s *Service) computeSnapshotFromData(sgData SGFinancialDataRows, opts Timel
 		ScenarioImpacts:           sgData.ScenarioImpacts,
 		Properties:                sgData.Properties,
 		FundFlowRules:             sgData.FundFlowRules,
+		InsurancePolicies:         sgData.InsurancePolicies,
 	}
 	mctx.State = extractBalanceMap(mctx.ItemStates)
 

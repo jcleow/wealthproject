@@ -17,7 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
-import { useInsurancePoliciesQuery } from '@/hooks/queries/useInsurancePoliciesQuery'
+import { useInsurancePoliciesQuery, useDeleteInsurancePolicyMutation } from '@/hooks/queries/useInsurancePoliciesQuery'
 import type { InsurancePolicyRecord } from '@/api/financial/insurance'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
 import { PersonViewDropdown } from '@/components/insurance/shared/PersonViewDropdown'
@@ -185,9 +185,10 @@ function formatTargetAmount(
 interface MyCoverageTabProps {
   onNavigateToPolicy?: () => void
   onEditTargets?: () => void
+  onEditPolicy?: (policy: InsurancePolicyRecord) => void
 }
 
-export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageTabProps) {
+export function MyCoverageTab({ onNavigateToPolicy, onEditTargets, onEditPolicy }: MyCoverageTabProps) {
   const { data: policies = [] } = useInsurancePoliciesQuery()
   const { data: personsData } = usePersonsQuery()
   const persons = useMemo(() => personsData ?? [], [personsData])
@@ -205,6 +206,7 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
     setTargetDisplayModes((prev) => ({ ...prev, [categoryId]: mode }))
   }
   const [selectedPolicy, setSelectedPolicy] = useState<InsurancePolicyRecord | null>(null)
+  const deleteMutation = useDeleteInsurancePolicyMutation()
   const guidelineTargets = useGuidelineTargets()
   const annualIncome = useCoverageGuidelinesStore((s) => s.guidelines.annualIncome)
   const questionnaireAnswers = useQuestionnaireAnswers()
@@ -360,13 +362,13 @@ export function MyCoverageTab({ onNavigateToPolicy, onEditTargets }: MyCoverageT
         isOpen={selectedPolicy !== null}
         onClose={() => setSelectedPolicy(null)}
         policy={selectedPolicy}
-        onEdit={() => {
+        onEdit={(policy) => {
           setSelectedPolicy(null)
-          // TODO: open edit modal for this policy
+          onEditPolicy?.(policy)
         }}
-        onDelete={() => {
+        onDelete={(policy) => {
           setSelectedPolicy(null)
-          // TODO: delete this policy via API
+          deleteMutation.mutate(policy.id)
         }}
       />
     </div>

@@ -112,8 +112,8 @@ authenticatedTest.describe('Persons CRUD', () => {
       const page = authenticatedPage
       await openPersonsModal(page)
 
-      // Wait for the person we created to appear
-      await expect(page.getByText(newPersonName)).toBeVisible({ timeout: 5000 })
+      // Wait for the person we created to appear (DB persists across serial tests)
+      await expect(page.getByText(newPersonName)).toBeVisible({ timeout: 15000 })
 
       // Target the specific person card (direct child of the list container)
       const personRow = page.locator('.space-y-2 > div').filter({ hasText: newPersonName })
@@ -149,8 +149,8 @@ authenticatedTest.describe('Persons CRUD', () => {
       const page = authenticatedPage
       await openPersonsModal(page)
 
-      // Wait for our edited person to appear
-      await expect(page.getByText(editedPersonName)).toBeVisible({ timeout: 5000 })
+      // Wait for our edited person to appear (allow time for modal load and data fetch)
+      await expect(page.getByText(editedPersonName)).toBeVisible({ timeout: 10000 })
 
       // Target the specific person card
       const personRow = page.locator('.space-y-2 > div').filter({ hasText: editedPersonName })
