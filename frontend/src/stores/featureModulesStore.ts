@@ -13,6 +13,7 @@ export interface FeatureModulesState {
   showCPFView: boolean
   showTaxPlanner: boolean
   showInsurancePlanner: boolean
+  showVehiclePlanner: boolean
 
   // Modal visibility
   showPropertyPlanner: boolean
@@ -36,6 +37,8 @@ export interface FeatureModulesState {
   closeTaxPlanner: () => void
   openInsurancePlanner: () => void
   closeInsurancePlanner: () => void
+  openVehiclePlanner: () => void
+  closeVehiclePlanner: () => void
 
   // Actions - Property Planner Modal
   openPropertyPlanner: (scenarioId?: string) => void
@@ -71,6 +74,7 @@ const initialState = {
   showCPFView: false,
   showTaxPlanner: false,
   showInsurancePlanner: false,
+  showVehiclePlanner: false,
   showPropertyPlanner: false,
   propertyScenarioToEdit: null,
   showLayoutModal: false,
@@ -96,6 +100,9 @@ export const useFeatureModulesStore = create<FeatureModulesState>()(
 
       openInsurancePlanner: () => set({ showInsurancePlanner: true }),
       closeInsurancePlanner: () => set({ showInsurancePlanner: false }),
+
+      openVehiclePlanner: () => set({ showVehiclePlanner: true }),
+      closeVehiclePlanner: () => set({ showVehiclePlanner: false }),
 
       // Property Planner Modal
       openPropertyPlanner: (scenarioId) =>
@@ -153,6 +160,7 @@ export const useFeaturePanelVisibility = () =>
     showCPFView: state.showCPFView,
     showTaxPlanner: state.showTaxPlanner,
     showInsurancePlanner: state.showInsurancePlanner,
+    showVehiclePlanner: state.showVehiclePlanner,
   }))
 
 /**
@@ -163,6 +171,7 @@ export const useFeaturePanelActions = () =>
     openCPFView: state.openCPFView,
     openTaxPlanner: state.openTaxPlanner,
     openInsurancePlanner: state.openInsurancePlanner,
+    openVehiclePlanner: state.openVehiclePlanner,
     openPropertyPlanner: state.openPropertyPlanner,
     openLayoutModal: state.openLayoutModal,
   }))
