@@ -2986,7 +2986,8 @@ function ConfiguredGuidelinesView({ onAddPolicy }: ConfiguredGuidelinesViewProps
   const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   // Fetch expenses for "vs Expenses" mode
-  const { data: expenses = [] } = useExpensesQuery()
+  const { data: expensesData } = useExpensesQuery()
+  const expenses = expensesData?.expenses ?? []
   const annualExpenses = useMemo(() => calculateAnnualExpenses(expenses), [expenses])
 
   // Derived financials from existing data (liabilities, assets, incomes)

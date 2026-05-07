@@ -8,6 +8,7 @@
 ## Table of Contents
 
 1. [Application Architecture Overview](#1-application-architecture-overview)
+1b. [Standard Navigation Patterns](#1b-standard-navigation-patterns)
 2. [Authentication Flow](#2-authentication-flow)
 3. [Onboarding Wizard Flow](#3-onboarding-wizard-flow)
 4. [Dashboard Workspace](#4-dashboard-workspace)
@@ -124,6 +125,191 @@ stateDiagram-v2
 
 ---
 
+## 1b. Standard Navigation Patterns
+
+> **IMPORTANT:** All modules MUST use one of the two standard navigation patterns defined below. No custom sidebar navs, ad-hoc tab bars, or module-specific step indicators. This ensures a consistent, learnable UX across the entire app.
+
+### Pattern A: Module Top Bar (for view-switching tabs)
+
+Use this pattern when a module has **multiple parallel views** that the user can freely jump between (non-sequential). The top bar combines the back navigation, module title, tab bar, and close button into a single consistent header.
+
+**Applies to:** CPF Planner, Insurance Planner, Vehicle Planner (detail view)
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  ← Back   Module Title                Tab1 │ Tab2 │ Tab3 │ ...   ✕ │
+│─────────────────────────────────────────────────────────────────────-│
+│                                                                      │
+│                          [Content Area]                               │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Specifications:**
+| Element | Style |
+|---------|-------|
+| Back button | `← arrow-left` icon (20px) + Module name (fontSize 32, letterSpacing -0.5) |
+| Tab bar | Inline with header, right-aligned before close button |
+| Active tab | Bold navy text (`$navy-primary`, fontWeight 600) + 2px bottom border accent |
+| Inactive tab | Normal gray text (`$gray-muted`, fontWeight 400), no bottom border |
+| Tab padding | `padding: [10, 20]` per tab |
+| Close button | `✕` icon (20px, `$gray-muted`) — right-most element |
+| Header height | Auto (driven by content, ~56-64px) |
+| Header border | Bottom border: `$border`, 1px |
+| Header padding | `[16, 32]` |
+
+**Tab arrangement:** Tabs sit between the title and close button using `justifyContent: space_between` on the header. The back+title group is left-aligned, tabs are centered/inline, close is right-aligned.
+
+```mermaid
+flowchart LR
+    subgraph MODULE_TOP_BAR["Standard Module Top Bar"]
+        BACK["← Back + Title"]
+        TABS["Tab1 | Tab2 | Tab3 | Tab4 | Tab5"]
+        CLOSE["✕"]
+    end
+
+    BACK --- TABS --- CLOSE
+
+    style MODULE_TOP_BAR fill:#e3f2fd,stroke:#1565c0
+```
+
+**Usage matrix:**
+| Module | Tabs |
+|--------|------|
+| CPF Planner | Overview · Projection · Property · Strategies · Learn |
+| Insurance Planner | Coverage · Journey · Policies |
+| Vehicle Planner (detail) | Vehicle & Financing · Cost Breakdown · Depreciation · Total Cost · Scenarios |
+
+---
+
+### Pattern B: Wizard Step Bar (for sequential multi-step forms)
+
+Use this pattern when a form has **sequential steps** that the user progresses through (with back/next). Steps may be freely navigable (jump to any completed step) or strictly linear. The step bar sits in the header as a segmented control.
+
+**Applies to:** Property Planner (detail), Tax Planner (detail), Onboarding Wizard, Insurance AddPolicy Modal
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  ← Back to List   Scenario Title   [Step1│Step2│Step3│...]   Badge  │
+│─────────────────────────────────────────────────────────────────────-│
+│                                                                      │
+│                  [Form Content / Two-Panel Layout]                    │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+**Specifications:**
+| Element | Style |
+|---------|-------|
+| Back button | `← arrow-left` icon (20px) + "Back to [List]" or scenario title |
+| Step indicator | Segmented control (pill-style) — `fill: #F0EFEC`, `cornerRadius: 2`, `padding: 4`, `gap: 4` |
+| Active step | `fill: $bg-page`, bold text, subtle shadow — the "pressed" pill |
+| Inactive step | Transparent bg, normal weight gray text |
+| Completed step | Same as inactive but with a small checkmark icon (optional) |
+| Step padding | `padding: 8` per step pill |
+| Header padding | `[16, 32]` |
+| Header border | Bottom border: `$border`, 1px |
+
+**Step indicator anatomy:**
+```
+┌─────────────────────────────────────────────────────┐
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│  │ ● Step 1 │  │   Step 2 │  │   Step 3 │   ...    │  ← Segmented control
+│  └──────────┘  └──────────┘  └──────────┘          │
+└─────────────────────────────────────────────────────┘
+      active         inactive      inactive
+```
+
+```mermaid
+flowchart LR
+    subgraph WIZARD_BAR["Standard Wizard Step Bar"]
+        BACK["← Back to Scenarios"]
+        TITLE["Scenario Title"]
+        STEPS["[ Step1 | Step2 | Step3 | ... ]"]
+        BADGE["Context Badge"]
+    end
+
+    BACK --- TITLE --- STEPS --- BADGE
+
+    style WIZARD_BAR fill:#fff3e0,stroke:#e65100
+```
+
+**Usage matrix:**
+| Module | Steps | Notes |
+|--------|-------|-------|
+| Property Planner (detail) | Overview · Property · Financing · Borrowers · Payment Rules · CPF Impact · Sale · Results | Freely navigable (jump to any step). **Replaces current sidebar.** |
+| Tax Planner (detail) | Income · Reliefs · Summary | Sequential with free nav. Already uses this pattern. |
+| Onboarding Wizard | Personal Info · Income & Expenses · Assets & Liabilities · CPF · Summary | Strictly sequential (back/next only). |
+| Insurance AddPolicy | Category · Details · Review | Sequential (back/next only). |
+
+---
+
+### Pattern Comparison
+
+```mermaid
+flowchart TB
+    subgraph DECISION["Which pattern to use?"]
+        Q1{{"Are the sections sequential\n(form wizard with steps)?"}}
+        Q1 -->|"Yes"| PATTERN_B["Use Pattern B: Wizard Step Bar\n(segmented control in header)"]
+        Q1 -->|"No — parallel views"| PATTERN_A["Use Pattern A: Module Top Bar\n(horizontal tabs with underline)"]
+    end
+
+    style DECISION fill:#fafafa,stroke:#9e9e9e
+    style PATTERN_A fill:#e3f2fd,stroke:#1565c0
+    style PATTERN_B fill:#fff3e0,stroke:#e65100
+```
+
+### Key Changes from Current Design
+
+| Module | Current Pattern | New Pattern | What Changes |
+|--------|----------------|-------------|-------------|
+| **Property Planner** | Sidebar (220px) in modal overlay | **Pattern B** — Wizard Step Bar in header | Remove sidebar, add step segmented control to header. Content area gets full width. Modal panel expands or becomes full-page. |
+| **Tax Planner** | Segmented control stepper | **Pattern B** — (already correct) | No change needed — Tax is the reference implementation. |
+| **CPF Planner** | Tabs inline in top bar | **Pattern A** — (already mostly correct) | Minor alignment: ensure tabs match exact spec (padding, active states). |
+| **Insurance Planner** | Tabs inline in top bar | **Pattern A** — (already mostly correct) | Minor alignment: ensure tabs match exact spec. |
+| **Vehicle Planner** | Separate tab bar row below header | **Pattern A** — Merge tabs into header row | Merge the TabBar into the Header row (single combined bar). |
+| **Settings Modal** | Sidebar (180px) in modal | **Pattern B** — Wizard Step Bar | Remove sidebar, add segmented control to modal header. Only 2 tabs so this is compact. |
+| **Onboarding Wizard** | Custom step progression | **Pattern B** — Wizard Step Bar | Use same segmented control component as Tax/Property. |
+
+### Property Planner: Before vs After
+
+**Before (current sidebar):**
+```
+┌───────────────────────────────────────────────┐
+│  ┌────────────┬────────────────────────────┐  │
+│  │ Sidebar    │                            │  │
+│  │ · Overview │      Content Area          │  │
+│  │ · Property │      (880px)               │  │
+│  │ · Finance  │                            │  │
+│  │ · Borrow   │                            │  │
+│  │ · Rules    │                            │  │
+│  │ · CPF      │                            │  │
+│  │ · Sale     │                            │  │
+│  │ · Results  │                            │  │
+│  │ (220px)    │                            │  │
+│  └────────────┴────────────────────────────┘  │
+└───────────────────────────────────────────────┘
+```
+
+**After (step bar in header):**
+```
+┌───────────────────────────────────────────────────────────┐
+│  ← Scenarios   4-Room BTO    [Ovw|Prop|Fin|Bor|Rul|CPF|Sal|Res]  │
+│───────────────────────────────────────────────────────────────────│
+│                                                                   │
+│                    Content Area (full width)                       │
+│                                                                   │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+**Benefits:**
+- Content area gains ~220px of horizontal space (880px → 1100px)
+- Consistent with Tax Planner's existing step bar pattern
+- All 8 steps are visible at a glance in the header
+- Familiar segmented control interaction (same as Tax)
+
+---
+
 ## 2. Authentication Flow
 
 ```mermaid
@@ -211,8 +397,16 @@ flowchart TB
 
     C1 & C2 & C3 -->|"All true"| WIZARD
 
-    subgraph WIZARD["OnboardingWizardModal"]
+    subgraph WIZARD["OnboardingWizardModal — Uses Pattern B: Wizard Step Bar"]
         direction TB
+
+        subgraph WIZ_HEADER["Modal Header with Step Bar"]
+            WH_TITLE["Set Up Your Financial Plan"]
+            WH_STEPS["[Personal | Income | Assets | CPF | Summary]"]
+            WH_LOAD["Load Sample"]
+            WH_SKIP["Skip Setup"]
+        end
+
         S1["Step 1: Personal Info"]
         S2["Step 2: Income & Expenses"]
         S3["Step 3: Assets & Liabilities"]
@@ -823,9 +1017,9 @@ flowchart TB
 flowchart TB
     ENTRY["Dashboard → Modules → CPF"] -->|"Navigate"| CPF_VIEW["CPFSimulationView"]
 
-    subgraph CPF_VIEW["CPF Planner"]
+    subgraph CPF_VIEW["CPF Planner — Uses Pattern A: Module Top Bar"]
         direction TB
-        subgraph TABS["Tab Navigation"]
+        subgraph TABS["Tab Navigation (inline in header row)"]
             T1["Overview"]
             T2["Projection"]
             T3["Property"]
@@ -901,8 +1095,8 @@ flowchart TB
 flowchart TB
     ENTRY["Dashboard → Insurance\nOR /insurance-planner"] --> INS_VIEW
 
-    subgraph INS_VIEW["Insurance Planner"]
-        subgraph TABS["Tab Navigation (3 tabs)"]
+    subgraph INS_VIEW["Insurance Planner — Uses Pattern A: Module Top Bar"]
+        subgraph TABS["Tab Navigation (inline in header row, 3 tabs)"]
             T1["Coverage"]
             T2["Journey"]
             T3["Policies"]
@@ -952,9 +1146,17 @@ flowchart TB
 
 ### AddPolicyModal Flow
 
+> **Navigation:** Uses **Pattern B: Wizard Step Bar** — segmented control `[Category | Details | Review]` in modal header. Sequential (back/next only).
+
 ```mermaid
 flowchart LR
-    subgraph ADD_POLICY["AddPolicyModal"]
+    subgraph ADD_POLICY["AddPolicyModal — Pattern B"]
+        subgraph HEADER["Modal Header"]
+            AP_TITLE["Add Policy"]
+            AP_STEPS["[Category | Details | Review]"]
+            AP_CLOSE["✕"]
+        end
+
         STEP1["Step 1: Category Selection"]
         STEP1_BTNS["6 Category Buttons:\nLife | Health | Critical Illness\nLong-Term Care | Personal Accident | Disability"]
 
@@ -997,7 +1199,13 @@ flowchart TB
         EMPTY["Empty State: + Add Vehicle"]
     end
 
-    subgraph DETAIL_CONTENT["Detail View — 5 Tabs"]
+    subgraph DETAIL_HEADER["Detail View — Uses Pattern A: Module Top Bar"]
+        VH_BACK["← Back + Vehicle Name"]
+        VH_TABS["[V&F | Cost | Depreciation | TCO | Scenarios]"]
+        VH_BADGE["Category Badge"]
+    end
+
+    subgraph DETAIL_CONTENT["5 Tabs (merged into single header row)"]
         DT1["Vehicle & Financing"]
         DT2["Cost Breakdown"]
         DT3["Depreciation"]
@@ -1066,9 +1274,9 @@ flowchart TB
 flowchart TB
     ENTRY["Dashboard → Property\nOR CPF Property Tab"] --> PROP_MODAL["PropertyPlannerModal"]
 
-    subgraph PROP_MODAL["Property Planner (Modal)"]
+    subgraph PROP_MODAL["Property Planner (Full Page or Modal)"]
         LIST["Scenario Selection"]
-        DETAIL["Scenario Detail (Tabbed)"]
+        DETAIL["Scenario Detail (Step Bar)"]
     end
 
     LIST -->|"Click scenario"| DETAIL
@@ -1085,7 +1293,13 @@ flowchart TB
         SC7["+ Add Scenario"]
     end
 
-    subgraph DETAIL_TABS["Detail View — 8 Tabs"]
+    subgraph DETAIL_HEADER["Detail View — Uses Pattern B: Wizard Step Bar"]
+        BACK_BTN["← Back to Scenarios"]
+        SCENARIO_TITLE["Scenario Name (e.g. '4-Room BTO Tampines')"]
+        STEP_BAR["Segmented Control: [Ovw|Prop|Fin|Bor|Rules|CPF|Sale|Results]"]
+    end
+
+    subgraph DETAIL_STEPS["8 Steps (freely navigable)"]
         PT1["Overview"]
         PT2["Property"]
         PT3["Financing"]
@@ -1164,9 +1378,9 @@ flowchart TB
 flowchart TB
     ENTRY["/tax-planner"] --> TAX_VIEW
 
-    subgraph TAX_VIEW["Tax Planner"]
+    subgraph TAX_VIEW["Tax Planner — Reference Implementation for Pattern B"]
         LIST["Scenario Selection Screen"]
-        DETAIL["Scenario Detail View (2x2 Grid)"]
+        DETAIL["Scenario Detail View (Pattern B step bar + 2-panel layout)"]
     end
 
     LIST -->|"Click scenario"| DETAIL
@@ -1313,12 +1527,15 @@ sequenceDiagram
 
 ### Settings Modal
 
+> **Navigation:** Uses **Pattern B: Wizard Step Bar** — segmented control in modal header replaces the sidebar. Only 2 tabs so the control is compact.
+
 ```mermaid
 flowchart LR
-    subgraph SETTINGS["SettingsModal"]
-        subgraph SIDEBAR["Sidebar Tabs"]
-            ST1["General"]
-            ST2["Growth Rates"]
+    subgraph SETTINGS["SettingsModal — Pattern B"]
+        subgraph HEADER["Modal Header with Step Bar"]
+            S_TITLE["Settings"]
+            S_STEPS["[General | Growth Rates]"]
+            S_CLOSE["✕"]
         end
 
         subgraph GENERAL["General Settings"]
@@ -1336,8 +1553,8 @@ flowchart LR
             GR4["Other defaults..."]
         end
 
-        ST1 --> GENERAL
-        ST2 --> GROWTH
+        S_STEPS -->|"General selected"| GENERAL
+        S_STEPS -->|"Growth Rates selected"| GROWTH
     end
 
     style SETTINGS fill:#f3e5f5,stroke:#6a1b9a

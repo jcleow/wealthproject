@@ -26,6 +26,7 @@ export { InvestmentsIncomeSection } from './InvestmentsIncomeSection'
 
 // Expense subsections
 export { DebtRepaymentsSection } from './DebtRepaymentsSection'
+export { InsurancePremiumsSection } from './InsurancePremiumsSection'
 
 // Types
 export type {

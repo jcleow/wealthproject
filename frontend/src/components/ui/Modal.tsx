@@ -51,7 +51,7 @@ export function Modal({ isOpen, onClose, children, className = '', overlayClassN
   return createPortal(
     <div
       ref={overlayRef}
-      className={`fixed inset-0 z-50 flex items-center justify-center ${overlayClassName}`}
+      className={`fixed inset-0 z-[200] flex items-center justify-center ${overlayClassName}`}
       onClick={(e) => {
         if (e.target === overlayRef.current && onClose) {
           onClose()

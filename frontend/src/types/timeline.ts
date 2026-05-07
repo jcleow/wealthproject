@@ -194,11 +194,22 @@ export interface MonthDetailResponseV2 {
   netSavings: string      // income - employee CPF - expenses (monthly)
   netCash: string         // income - employee CPF - expenses - investments (monthly)
   netInvestments: string  // employee CPF contribution (monthly)
+  // Insurance premium breakdown
+  insurancePremiums: string // Total insurance cost this month (cash + CPF)
+  insuranceCPFDeductions?: InsuranceCPFDeductionDetail[] // Per-policy CPF breakdown
   // Other totals
   totalAssets: string
   totalLiabilities: string
   netWorth: string
   accumulatorAccountId: string
+}
+
+/** Per-policy CPF deduction detail in the timeline response */
+export interface InsuranceCPFDeductionDetail {
+  policyName: string
+  amount: string     // decimal as string
+  cpfAccount: 'MA' | 'OA'
+  personName: string
 }
 
 /** Income allocation in V2 response - filtered by month */

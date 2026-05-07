@@ -140,11 +140,22 @@ type MonthDetailResponse struct {
 	NetSavings     decimal.Decimal `json:"netSavings"`     // income - employee CPF - expenses (monthly)
 	NetCash        decimal.Decimal `json:"netCash"`        // income - employee CPF - expenses - investments (monthly)
 	NetInvestments decimal.Decimal `json:"netInvestments"` // employee CPF contribution (monthly)
+	// Insurance premium breakdown
+	InsurancePremiums      decimal.Decimal                `json:"insurancePremiums"`                // Total insurance cost this month (cash + CPF)
+	InsuranceCPFDeductions []InsuranceCPFDeductionDetail  `json:"insuranceCPFDeductions,omitempty"` // Per-policy CPF breakdown
 	// Other totals
 	TotalAssets          decimal.Decimal `json:"totalAssets"`
 	TotalLiabilities     decimal.Decimal `json:"totalLiabilities"`
 	NetWorth             decimal.Decimal `json:"netWorth"`
 	AccumulatorAccountID string          `json:"accumulatorAccountId"`
+}
+
+// InsuranceCPFDeductionDetail represents a single CPF deduction for an insurance policy in the timeline response.
+type InsuranceCPFDeductionDetail struct {
+	PolicyName string          `json:"policyName"`
+	Amount     decimal.Decimal `json:"amount"`
+	CPFAccount string          `json:"cpfAccount"` // "MA" or "OA"
+	PersonName string          `json:"personName"`
 }
 
 // NonCashAssetResponse represents a non-cash asset in the timeline response

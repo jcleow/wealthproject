@@ -19,7 +19,6 @@ import type {
   RepositoryPropertyFee,
   FinancialChatSystemBackendInternalFinancialV2RepositoryExpense,
   FinancialChatSystemBackendInternalFinancialV2RepositoryGroupedExpenses,
-  FinancialChatSystemBackendInternalFinancialV2RepositoryInsurancePremiumExpense,
   FinancialChatSystemBackendInternalFinancialV2RepositoryIncome,
   FinancialChatSystemBackendInternalFinancialV2RepositoryInvestment,
   FinancialChatSystemBackendInternalFinancialV2RepositoryLiability,
@@ -90,8 +89,21 @@ export type PropertyFee = RepositoryPropertyFee
 
 // Long repository type names
 export type Expense = FinancialChatSystemBackendInternalFinancialV2RepositoryExpense
-export type GroupedExpenses = FinancialChatSystemBackendInternalFinancialV2RepositoryGroupedExpenses
-export type InsurancePremiumExpense = FinancialChatSystemBackendInternalFinancialV2RepositoryInsurancePremiumExpense
+// Defined manually — generated types don't include this yet
+export interface InsurancePremiumExpense {
+  policyId: string
+  policyName: string
+  premiumAmount: number
+  premiumFrequency: string
+  category: string
+  startDate: string
+  endDate?: string
+  personName?: string
+}
+// Override generated type to include insurancePremiums field added in this branch
+export interface GroupedExpenses extends FinancialChatSystemBackendInternalFinancialV2RepositoryGroupedExpenses {
+  insurancePremiums?: InsurancePremiumExpense[]
+}
 export type Income = FinancialChatSystemBackendInternalFinancialV2RepositoryIncome
 export type Investment = FinancialChatSystemBackendInternalFinancialV2RepositoryInvestment
 export type Liability = FinancialChatSystemBackendInternalFinancialV2RepositoryLiability
