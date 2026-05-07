@@ -1,17 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { expensesApi } from '@/api/financial'
 import type { Expense } from '@/types/financial'
+import type { InsurancePremiumExpense } from '@/types/api.aliases'
 import type { UpdateMode } from '@/components/modals/FinancialFormModal/types'
 import { QUERY_KEYS } from '@/lib/queryKeys'
 
 export const EXPENSES_QUERY_KEY = QUERY_KEYS.financial.expenses
 
+interface ExpensesQueryData {
+  expenses: Expense[]
+  insurancePremiums: InsurancePremiumExpense[]
+}
+
 export function useExpensesQuery(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: EXPENSES_QUERY_KEY,
-    queryFn: async () => {
+    queryFn: async (): Promise<ExpensesQueryData> => {
       const result = await expensesApi.listExpenses()
-      return result.data
+      return {
+        expenses: result.data,
+        insurancePremiums: result.insurancePremiums,
+      }
     },
     enabled: options?.enabled ?? true,
     staleTime: 30_000,
@@ -26,8 +35,10 @@ export function useCreateExpenseMutation() {
     mutationFn: (expense: Omit<Expense, 'id' | 'updatedAt'>) =>
       expensesApi.createExpense(expense),
     onSuccess: (newExpense) => {
-      queryClient.setQueryData<Expense[]>(EXPENSES_QUERY_KEY, (old) =>
-        old ? [...old, newExpense] : [newExpense]
+      queryClient.setQueryData<ExpensesQueryData>(EXPENSES_QUERY_KEY, (old) =>
+        old
+          ? { ...old, expenses: [...old.expenses, newExpense] }
+          : { expenses: [newExpense], insurancePremiums: [] }
       )
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })
@@ -73,8 +84,10 @@ export function useDeleteExpenseMutation() {
   return useMutation({
     mutationFn: (id: string) => expensesApi.deleteExpense(id),
     onSuccess: (_, deletedId) => {
-      queryClient.setQueryData<Expense[]>(EXPENSES_QUERY_KEY, (old) =>
-        old?.filter((expense) => expense.id !== deletedId) ?? []
+      queryClient.setQueryData<ExpensesQueryData>(EXPENSES_QUERY_KEY, (old) =>
+        old
+          ? { ...old, expenses: old.expenses.filter((expense) => expense.id !== deletedId) }
+          : { expenses: [], insurancePremiums: [] }
       )
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.timeline })
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.financial.cashflow })

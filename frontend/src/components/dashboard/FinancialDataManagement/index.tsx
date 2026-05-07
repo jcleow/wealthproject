@@ -19,6 +19,7 @@ import {
   useStopInvestmentMutation,
   useDeleteIncomeAllocationMutation,
   useStopIncomeAllocationMutation,
+  useExpensesQuery,
   useStopExpenseMutation,
   useStopAssetMutation,
   useStopLiabilityMutation,
@@ -131,6 +132,8 @@ export function FinancialDataManagement({
   const groupItemsByCategory = userSettings?.groupItemsByCategory ?? true
 
   const { data: cashAccounts = [] } = useCashAccountsQuery()
+  const { data: expensesData } = useExpensesQuery()
+  const insurancePremiums = expensesData?.insurancePremiums ?? []
   const createCashAccountMutation = useCreateCashAccountMutation()
   const updateCashAccountMutation = useUpdateCashAccountMutation()
   const deleteCashAccountMutation = useDeleteCashAccountMutation()
@@ -996,6 +999,7 @@ export function FinancialDataManagement({
                     onEditAllocation={key === 'income' ? handleEditAllocation : undefined}
                     onDeleteAllocation={key === 'income' ? handleDeleteAllocation : undefined}
                     onDeleteDebtRepayment={key === 'expense' ? handleDeleteDebtRepayment : undefined}
+                    insurancePremiums={key === 'expense' ? insurancePremiums : undefined}
                     onEditCpf={key === 'asset' ? handleEditCpf : undefined}
                     onDeleteCpf={key === 'asset' ? handleDeleteCpf : undefined}
                     groupItemsByCategory={groupItemsByCategory}

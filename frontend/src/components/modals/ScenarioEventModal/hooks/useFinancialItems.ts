@@ -42,7 +42,7 @@ export function useFinancialItems(): UseFinancialItemsReturn {
   const assets = assetsQuery.data ?? []
   const liabilities = liabilitiesQuery.data ?? []
   const incomes = incomesQuery.data ?? []
-  const expenses = expensesQuery.data ?? []
+  const expenses = expensesQuery.data?.expenses ?? []
   const investments = investmentsQuery.data ?? []
   const cashAccounts = cashAccountsQuery.data ?? []
 

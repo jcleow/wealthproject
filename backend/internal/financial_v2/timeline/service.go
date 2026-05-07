@@ -923,6 +923,14 @@ func (c *CPFContext) syncProcessorFromEngine() {
 	c.Balances.AccumulatedRA = cloneDecimalOrZero(c.EngineState.RA)
 }
 
+// derefDecimalOrZero dereferences a decimal pointer, returning zero value if nil.
+func derefDecimalOrZero(d *decimal.Decimal) decimal.Decimal {
+	if d == nil {
+		return *decimal.Zero()
+	}
+	return *d
+}
+
 // cloneDecimalOrZero returns a clone of the decimal or zero if nil
 func cloneDecimalOrZero(d *decimal.Decimal) *decimal.Decimal {
 	if d == nil {
@@ -1246,9 +1254,16 @@ func processLiabilityMonth(
 	}
 }
 
+// insurancePremiumResult holds the output of processInsurancePremiums.
+type insurancePremiumResult struct {
+	CashPremiums   *decimal.Decimal              // Total cash portion to subtract from net savings
+	TotalPremiums  *decimal.Decimal              // Total insurance cost (cash + CPF)
+	CPFDeductions  []InsuranceCPFDeductionDetail // Per-policy CPF breakdown for API response
+}
+
 // processInsurancePremiums computes CPF and cash premium splits for all active
 // insurance policies, deducts CPF portions from MA/OA, and returns the total
-// cash portion to be subtracted from net savings.
+// cash portion plus per-policy CPF deduction details for the timeline response.
 //
 // This implements the "single-track" approach: no linked expenses are created.
 // The cash portion is passed to calcCashAllocationWithRules as InsuranceCashPremiums.
@@ -1256,8 +1271,13 @@ func processInsurancePremiums(
 	policies []repo.InsurancePolicy,
 	cpfContexts map[string]*CPFContext,
 	currentDate time.Time,
-) *decimal.Decimal {
+) insurancePremiumResult {
 	totalCashPremiums := decimal.Zero()
+	totalAllPremiums := decimal.Zero()
+	var cpfDeductionDetails []InsuranceCPFDeductionDetail
+
+	// Build a lookup from policyID → policy for name/person resolution
+	policyLookup := make(map[string]repo.InsurancePolicy, len(policies))
 
 	// Group policies by personID
 	byPerson := make(map[string][]medisave.PolicyPremium)
@@ -1266,6 +1286,8 @@ func processInsurancePremiums(
 		if !isPolicyActiveInMonth(policy, currentDate) {
 			continue
 		}
+
+		policyLookup[policy.ID] = policy
 
 		personID := ""
 		if policy.PersonID != nil {
@@ -1294,9 +1316,9 @@ func processInsurancePremiums(
 
 		split := medisave.CalculateMonthlySplit(personPolicies, ageNextBirthday)
 
-		// Apply CPF deductions to MA/OA
-		if cpfCtx != nil && cpfCtx.EngineState != nil {
-			for _, deduction := range split.CPFDeductions {
+		// Apply CPF deductions to MA/OA and build detail records
+		for _, deduction := range split.CPFDeductions {
+			if cpfCtx != nil && cpfCtx.EngineState != nil {
 				switch deduction.CPFAccount {
 				case "MA":
 					cpfCtx.EngineState.MA = cpfCtx.EngineState.MA.Sub(deduction.Amount)
@@ -1304,12 +1326,25 @@ func processInsurancePremiums(
 					cpfCtx.EngineState.OA = cpfCtx.EngineState.OA.Sub(deduction.Amount)
 				}
 			}
+
+			policy := policyLookup[deduction.PolicyID]
+			cpfDeductionDetails = append(cpfDeductionDetails, InsuranceCPFDeductionDetail{
+				PolicyName: policy.Name,
+				Amount:     *deduction.Amount,
+				CPFAccount: deduction.CPFAccount,
+				PersonName: policy.PersonName,
+			})
 		}
 
 		totalCashPremiums = totalCashPremiums.Add(split.TotalCash)
+		totalAllPremiums = totalAllPremiums.Add(split.TotalCash).Add(split.TotalCPF)
 	}
 
-	return totalCashPremiums
+	return insurancePremiumResult{
+		CashPremiums:  totalCashPremiums,
+		TotalPremiums: totalAllPremiums,
+		CPFDeductions: cpfDeductionDetails,
+	}
 }
 
 // isPolicyActiveInMonth checks if an insurance policy is active in the given month.
@@ -2088,6 +2123,7 @@ func buildMonthDetailResponse(
 	fundFlowRules []repo.FundFlowRule, // Used to build allocation responses (replaces legacy incomeAllocations)
 	properties []repo.PropertyScenarioFull,
 	paymentExecutions FundFlowExecutionResult, // Fund flow payment attribution for liabilities
+	insuranceResult insurancePremiumResult, // Insurance premium breakdown for response
 ) MonthDetailResponse {
 	yearIndex := date.Year() - baseYear
 	month := int(date.Month())
@@ -2184,10 +2220,12 @@ func buildMonthDetailResponse(
 		NetSavings:           *netSavings.Round(0),
 		NetCash:              *netCashFlow.Round(0),
 		NetInvestments:       *netInvestments.Round(0),
-		TotalAssets:          *totalAssets.Round(0),
-		TotalLiabilities:     *totalLiabilities.Round(0),
-		NetWorth:             *netWorth.Round(0),
-		AccumulatorAccountID: accumulatorID,
+		InsurancePremiums:      derefDecimalOrZero(insuranceResult.TotalPremiums),
+		InsuranceCPFDeductions: insuranceResult.CPFDeductions,
+		TotalAssets:            *totalAssets.Round(0),
+		TotalLiabilities:       *totalLiabilities.Round(0),
+		NetWorth:               *netWorth.Round(0),
+		AccumulatorAccountID:   accumulatorID,
 	}
 }
 
@@ -2379,9 +2417,9 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 
 	// Process insurance premium CPF deductions (MediSave/OA) and compute cash portion.
 	// Must run after CPF engine processing so deductions apply to post-interest balances.
-	var insuranceCashPremiums *decimal.Decimal
+	var insuranceResult insurancePremiumResult
 	if !isAnchorMonth && len(mctx.InsurancePolicies) > 0 {
-		insuranceCashPremiums = processInsurancePremiums(mctx.InsurancePolicies, mctx.CPFContexts, currentDate)
+		insuranceResult = processInsurancePremiums(mctx.InsurancePolicies, mctx.CPFContexts, currentDate)
 	}
 
 	// Execute transfer rules (fund flow Phase 3)
@@ -2422,7 +2460,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 		EmployeeCPF:          employeeCPF,
 		FundFlowRules:        mctx.FundFlowRules,
 		ApplyAllocations:     applyAllocations,
-		InsuranceCashPremiums: insuranceCashPremiums,
+		InsuranceCashPremiums: insuranceResult.CashPremiums,
 	})
 
 	// If scenarios are active (EventAdjustedState != State), also apply allocations to base State
@@ -2447,6 +2485,7 @@ func processMonth(mctx *MonthlyContext, allMonthsIndex int, currentDate time.Tim
 		mctx.FundFlowRules, // Replaces legacy mctx.IncomeAllocations
 		mctx.Properties,
 		mctx.PaymentExecutions, // Fund flow payment attribution
+		insuranceResult,        // Insurance premium breakdown
 	)
 }
 

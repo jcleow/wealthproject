@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import clsx from 'clsx'
 import type { TimelineItem, CPFContributionResponseV2, CPFRefundResponseV2, PropertySnapshotV2 } from '@/types/timeline'
+import type { InsurancePremiumExpense } from '@/types/api.aliases'
 import type { ScenarioEvent } from '@/types/scenario'
 import type { CashAccount } from '@/types/financial'
 import type { PropertyLinkRecord } from '@/types/property'
@@ -22,6 +23,7 @@ import {
   CPFContributionsSection,
   InvestmentsIncomeSection,
   DebtRepaymentsSection,
+  InsurancePremiumsSection,
   PropertiesAssetsSection,
   PropertiesMortgagesSection,
 } from './CategoryCard/index'
@@ -81,6 +83,8 @@ interface CategoryCardProps {
   onDeleteAllocation?: (allocation: IncomeAllocation) => void
   // Debt repayment callbacks
   onDeleteDebtRepayment?: (item: TimelineItem) => void
+  // Insurance premiums (from expense API)
+  insurancePremiums?: InsurancePremiumExpense[]
   // CPF CRUD callbacks
   onEditCpf?: (item: TimelineItem) => void
   onDeleteCpf?: (id: string) => void
@@ -135,6 +139,7 @@ export function CategoryCard({
   onEditAllocation,
   onDeleteAllocation,
   onDeleteDebtRepayment,
+  insurancePremiums = [],
   onEditCpf,
   onDeleteCpf,
   groupItemsByCategory = true,
@@ -175,7 +180,7 @@ export function CategoryCard({
 
   const sortedData = sortItems(regularData, sortDirection, summarizeAmount)
   const sortedDebtRepayments = sortItems(debtRepayments, sortDirection, summarizeAmount)
-  const hasData = sortedData.length > 0 || sortedDebtRepayments.length > 0
+  const hasData = sortedData.length > 0 || sortedDebtRepayments.length > 0 || insurancePremiums.length > 0
 
   // Calculate category total
   const baseTotal = sortedData.reduce((sum, item) => sum + summarizeAmount(item), 0)
@@ -189,7 +194,8 @@ export function CategoryCard({
   const propertyMortgagesTotal = category === 'liability'
     ? propertySnapshots.reduce((sum, p) => sum + parseDecimal(p.mortgageBalance), 0)
     : 0
-  const categoryTotal = baseTotal + debtRepaymentsTotal + investmentAssetsTotal + cpfAssetsTotal + propertyAssetsTotal + propertyMortgagesTotal
+  const insurancePremiumsTotal = category === 'expense' ? insurancePremiums.reduce((sum, p) => sum + p.premiumAmount, 0) : 0
+  const categoryTotal = baseTotal + debtRepaymentsTotal + investmentAssetsTotal + cpfAssetsTotal + propertyAssetsTotal + propertyMortgagesTotal + insurancePremiumsTotal
 
   const getPropertyLink = (item: TimelineItem, _index: number): PropertyLinkRecord | null => {
     if (category === 'income' || category === 'expense') return null
@@ -415,6 +421,15 @@ export function CategoryCard({
                 showMonthlyData={showMonthlyData}
                 onEdit={(item) => onEditItem('expense', item)}
                 onDelete={(item) => onDeleteDebtRepayment?.(item)}
+                groupItems={groupItemsByCategory}
+              />
+            )}
+
+            {/* Insurance premiums subsection (read-only, from insurance policies) */}
+            {category === 'expense' && insurancePremiums.length > 0 && (
+              <InsurancePremiumsSection
+                premiums={insurancePremiums}
+                showMonthlyData={showMonthlyData}
                 groupItems={groupItemsByCategory}
               />
             )}
