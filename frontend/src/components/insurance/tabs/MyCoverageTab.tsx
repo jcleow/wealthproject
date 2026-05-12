@@ -931,9 +931,12 @@ function CardActionMenu({
     const dropdownRect = dropdownRef.current.getBoundingClientRect()
     if (submenuTriggerRef.current) {
       const triggerRect = submenuTriggerRef.current.getBoundingClientRect()
+      const submenuWidth = 200
+      const rightEdge = dropdownRect.right + 4 + submenuWidth
+      const fitsRight = rightEdge <= window.innerWidth
       setSubmenuPos({
         top: triggerRect.top,
-        left: dropdownRect.right + 4,
+        left: fitsRight ? dropdownRect.right + 4 : dropdownRect.left - submenuWidth - 4,
       })
     }
   }, [])
