@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"os"
@@ -41,13 +40,9 @@ func ConnectPgx(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) 
 	config.MaxConns = 25
 	config.MinConns = 5
 
-	// Load Supabase CA cert for SSL verification
+	// Load Supabase CA cert for SSL verification (only if TLS is already enabled by the connection string)
 	if caPool := loadSupabaseCA(); caPool != nil && config.ConnConfig.TLSConfig != nil {
 		config.ConnConfig.TLSConfig.RootCAs = caPool
-	} else if caPool != nil {
-		config.ConnConfig.TLSConfig = &tls.Config{
-			RootCAs: caPool,
-		}
 	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, config)
