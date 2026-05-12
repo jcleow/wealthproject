@@ -386,16 +386,15 @@ export function ProjectionChartJS({
         zoom: {
           zoom: {
             wheel: {
-              enabled: isZoomEnabled,
-              speed: 0.1,
+              enabled: false,
             },
             pinch: {
-              enabled: isZoomEnabled,
+              enabled: false,
             },
             mode: 'x',
           },
           pan: {
-            enabled: isZoomEnabled && startIndex !== null,
+            enabled: false,
             mode: 'x',
           },
           limits: {

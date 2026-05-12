@@ -528,7 +528,13 @@ function MonthSelector({
               : (isOpen ? "text-blue-400" : "text-white")
           )}
         >
-          <span className="whitespace-nowrap">{MONTH_NAMES[safeCalendarMonth - 1]}</span>
+          {/* Fixed-width month name: render all names invisibly so the container sizes to the widest */}
+          <span className="relative whitespace-nowrap">
+            <span className="invisible" aria-hidden="true">
+              {MONTH_NAMES.reduce((a, b) => a.length >= b.length ? a : b)}
+            </span>
+            <span className="absolute inset-0">{MONTH_NAMES[safeCalendarMonth - 1]}</span>
+          </span>
           <ChevronDown className={clsx(
             "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
             isMonet ? "text-slate-400" : "text-slate-400",

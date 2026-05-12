@@ -1,21 +1,18 @@
 services:
-  # Postgres is commented out - using Supabase instead
-  # postgres:
-  #   image: postgres:15-alpine
-  #   container_name: financial-chat-postgres-dev
-  #   environment:
-  #     POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-  #     POSTGRES_DB: ${POSTGRES_DB:-financial_chat}
-  #   ports:
-  #     - "${POSTGRES_HOST_PORT:-5433}:5432"
-  #   volumes:
-  #     - postgres_data_dev:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-financial_chat}"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
+  postgres:
+    image: postgres:15-alpine
+    container_name: financial-chat-postgres-dev
+    env_file:
+      - .env.dev
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-financial_user} -d ${POSTGRES_DB:-financial_chat}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     image: golang:1.24
@@ -25,7 +22,7 @@ services:
       - .env.dev
     environment:
       PORT: 8081
-      # DATABASE_URL comes from .env.dev (Supabase)
+      # DATABASE_URL comes from .env.dev (loaded via env_file)
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
       BACKEND_SHARED_SECRET: ${BACKEND_SHARED_SECRET:?set BACKEND_SHARED_SECRET}
       PRIMARY_LLM: ${PRIMARY_LLM:-openai}
@@ -42,9 +39,12 @@ services:
       - go_build_cache:/root/.cache/go-build
     ports:
       - "${BACKEND_HOST_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   frontend:
-    image: node:20
+    image: node:22
     container_name: financial-chat-frontend-dev
     working_dir: /workspace/frontend
     env_file:
@@ -63,6 +63,8 @@ services:
              corepack prepare pnpm@latest --activate &&
              pnpm install --frozen-lockfile || pnpm install &&
              pnpm dev --hostname 0.0.0.0 --port 3001"
+    ports:
+      - "3001:3001"
     deploy:
       resources:
         limits:
@@ -90,7 +92,7 @@ services:
     restart: unless-stopped
 
 volumes:
-  # postgres_data_dev: # Not needed - using Supabase
+  postgres_data_dev:
   go_mod_cache:
   go_build_cache:
   frontend_node_modules:

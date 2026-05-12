@@ -179,11 +179,10 @@ export function useChartJSZoom({
     return {
       zoom: {
         wheel: {
-          enabled: isZoomEnabled,
-          speed: 0.1,
+          enabled: false,
         },
         pinch: {
-          enabled: isZoomEnabled,
+          enabled: false,
         },
         mode: 'x' as const,
         onZoomComplete: ({ chart }: { chart: Chart }) => {
@@ -205,7 +204,7 @@ export function useChartJSZoom({
         },
       },
       pan: {
-        enabled: isZoomEnabled && startIndex !== null,
+        enabled: false,
         mode: 'x' as const,
         onPanComplete: ({ chart }: { chart: Chart }) => {
           const xScale = chart.scales['x']
