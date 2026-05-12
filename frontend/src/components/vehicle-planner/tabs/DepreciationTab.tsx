@@ -100,9 +100,9 @@ export function DepreciationTab({ scenario, result }: DepreciationTabProps) {
           )}>
             <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full" preserveAspectRatio="xMidYMid meet">
               {/* Grid lines */}
-              {yLabels.map((label) => (
+              {yLabels.map((label, idx) => (
                 <line
-                  key={label.value}
+                  key={idx}
                   x1={padding.left}
                   y1={label.y}
                   x2={chartWidth - padding.right}
@@ -113,9 +113,9 @@ export function DepreciationTab({ scenario, result }: DepreciationTabProps) {
               ))}
 
               {/* Y-axis labels */}
-              {yLabels.map((label) => (
+              {yLabels.map((label, idx) => (
                 <text
-                  key={label.value}
+                  key={idx}
                   x={padding.left - 8}
                   y={label.y + 4}
                   textAnchor="end"

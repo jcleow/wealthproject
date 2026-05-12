@@ -26,9 +26,22 @@ export async function listExpenses(params?: PaginationParams): Promise<ExpenseLi
   const debtRepayments = raw?.debtRepayments ?? []
   const items = [...regularExpenses, ...debtRepayments]
 
+  // Map backend insurance premium fields to frontend InsurancePremiumExpense shape
+  const rawPremiums = raw?.insurancePremiums ?? []
+  const mappedPremiums: InsurancePremiumExpense[] = rawPremiums.map((p: Record<string, unknown>) => ({
+    policyId: (p.policyId as string) ?? '',
+    policyName: (p.name as string) ?? '',
+    premiumAmount: typeof p.amount === 'number' ? p.amount : parseFloat(String(p.amount)) || 0,
+    premiumFrequency: (p.frequency as string) ?? 'monthly',
+    category: (p.category as string) ?? '',
+    startDate: (p.startDate as string) ?? '',
+    endDate: p.endDate as string | undefined,
+    personName: p.personName as string | undefined,
+  }))
+
   return {
     data: items.map(toExpense),
-    insurancePremiums: raw?.insurancePremiums ?? [],
+    insurancePremiums: mappedPremiums,
     total: raw?.count ?? items.length,
     limit: raw?.limit ?? params?.limit ?? 20,
     offset: raw?.offset ?? params?.offset ?? 0,

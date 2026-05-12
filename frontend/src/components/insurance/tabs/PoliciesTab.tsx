@@ -611,15 +611,16 @@ function PolicyTable({
 
   return (
     <div
-      className="overflow-hidden rounded-sm"
+      className="rounded-sm"
       style={{
         background: theme.cardBg,
         border: `1px solid ${theme.cardBorder}`,
       }}
     >
+      <div className="overflow-x-auto">
       {/* ── Table Header ── */}
       <div
-        className="flex items-center gap-3 px-5 py-2.5"
+        className="flex items-center gap-3 px-5 py-2.5 min-w-[1050px]"
         style={{ borderBottom: `1px solid ${theme.cardBorder}` }}
       >
         <span className={`w-[200px] ${columnHeaderClass}`} style={{ color: theme.textMuted }}>
@@ -669,7 +670,7 @@ function PolicyTable({
         return (
           <div
             key={policy.id}
-            className="flex items-center gap-3 px-5 py-3"
+            className="flex items-center gap-3 px-5 py-3 min-w-[1050px]"
             style={{
               borderBottom: isLastRow ? 'none' : `1px solid ${theme.cardBorder}`,
             }}
@@ -894,6 +895,7 @@ function PolicyTable({
           No policies match the selected filter
         </div>
       )}
+      </div>
     </div>
   )
 }
