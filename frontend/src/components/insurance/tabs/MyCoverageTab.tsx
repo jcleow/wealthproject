@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useMemo } from 'react'
 import {
   Building2,
   Heart,
@@ -9,14 +8,13 @@ import {
   Activity,
   Accessibility,
   FileText,
-  MoreHorizontal,
   Plus,
-  ChevronRight,
   Pencil,
   Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/format'
+import { ActionMenu, type ActionMenuEntry } from '@/components/ui/ActionMenu'
 import { useInsurancePoliciesQuery, useDeleteInsurancePolicyMutation } from '@/hooks/queries/useInsurancePoliciesQuery'
 import type { InsurancePolicyRecord } from '@/api/financial/insurance'
 import { INSURANCE_TYPOGRAPHY as T } from '@/components/insurance/shared/insurance-typography'
@@ -114,12 +112,6 @@ const COVERAGE_CATEGORIES: CategoryDefinition[] = [
 // ============================================================================
 // HELPERS
 // ============================================================================
-
-/** Shared menu popup style for card action dropdowns */
-const cardActionMenuStyle: React.CSSProperties = {
-  background: '#111113',
-  border: '1px solid rgba(255, 255, 255, 0.08)',
-}
 
 /** Safely coerce any value to a finite number (guards against string/NaN from API) */
 function toNum(value: unknown): number {
@@ -893,12 +885,11 @@ const TARGET_DISPLAY_OPTIONS: { value: TargetDisplayMode; label: string }[] = [
 ]
 
 // ============================================================================
-// CARD ACTION MENU (Ellipsis dropdown + nested submenu)
+// CARD ACTION MENU (uses reusable ActionMenu)
 // ============================================================================
 
 function CardActionMenu({
   onEditTargets,
-  onViewPolicies,
   targetDisplayMode,
   onChangeTargetDisplay,
 }: {
@@ -907,167 +898,40 @@ function CardActionMenu({
   targetDisplayMode: TargetDisplayMode
   onChangeTargetDisplay: (mode: TargetDisplayMode) => void
 }) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [showSubmenu, setShowSubmenu] = useState(false)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const submenuTriggerRef = useRef<HTMLButtonElement>(null)
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 })
-  const [submenuPos, setSubmenuPos] = useState({ top: 0, left: 0 })
-
-  // Compute dropdown position from trigger button's bounding rect
-  const updateDropdownPos = useCallback(() => {
-    if (!triggerRef.current) return
-    const rect = triggerRef.current.getBoundingClientRect()
-    setDropdownPos({
-      top: rect.bottom + 4,
-      left: rect.right - 210, // right-align: dropdown right edge = trigger right edge
-    })
-  }, [])
-
-  // Compute submenu position from the "View Target As" row's bounding rect
-  const updateSubmenuPos = useCallback(() => {
-    if (!dropdownRef.current) return
-    const dropdownRect = dropdownRef.current.getBoundingClientRect()
-    if (submenuTriggerRef.current) {
-      const triggerRect = submenuTriggerRef.current.getBoundingClientRect()
-      const submenuWidth = 200
-      const rightEdge = dropdownRect.right + 4 + submenuWidth
-      const fitsRight = rightEdge <= window.innerWidth
-      setSubmenuPos({
-        top: triggerRect.top,
-        left: fitsRight ? dropdownRect.right + 4 : dropdownRect.left - submenuWidth - 4,
-      })
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!isOpen) return
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node
-      if (
-        triggerRef.current?.contains(target) ||
-        dropdownRef.current?.contains(target)
-      ) return
-      // Also check if click is inside the portal submenu
-      const submenuEl = document.getElementById('card-action-submenu')
-      if (submenuEl?.contains(target)) return
-      setIsOpen(false)
-      setShowSubmenu(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen])
-
-  // Update position when dropdown opens
-  useEffect(() => {
-    if (isOpen) updateDropdownPos()
-  }, [isOpen, updateDropdownPos])
-
-  // Update submenu position when it opens
-  useEffect(() => {
-    if (showSubmenu) updateSubmenuPos()
-  }, [showSubmenu, updateSubmenuPos])
-
-  return (
-    <div className="relative">
-      {/* Ellipsis trigger */}
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => { setIsOpen(!isOpen); setShowSubmenu(false) }}
-        className="flex h-[30px] w-[30px] items-center justify-center rounded-md hover:bg-white/[0.04] transition-colors"
-        style={{ border: '1px solid rgba(255, 255, 255, 0.08)' }}
-      >
-        <MoreHorizontal className="h-3.5 w-3.5 text-slate-200" />
-      </button>
-
-      {/* Main dropdown — portaled to document.body */}
-      {isOpen && createPortal(
-        <div
-          ref={dropdownRef}
-          className="fixed z-[9999] w-[210px] rounded-lg py-1.5 shadow-xl"
-          style={{ ...cardActionMenuStyle, top: dropdownPos.top, left: dropdownPos.left }}
-        >
-          {/* Edit Targets */}
-          <button
-            type="button"
-            onClick={() => { onEditTargets?.(); setIsOpen(false) }}
-            className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-[13px] transition-colors hover:bg-white/[0.04]"
-          >
-            <Pencil className="h-3.5 w-3.5 text-slate-500" />
-            <span className="text-slate-200">Edit Targets</span>
-          </button>
-
-          {/* Divider */}
-          <div className="my-1 h-px w-full" style={{ background: 'rgba(255, 255, 255, 0.06)' }} />
-
-          {/* View Target As → submenu trigger */}
-          <button
-            ref={submenuTriggerRef}
-            type="button"
-            onMouseEnter={() => setShowSubmenu(true)}
-            onClick={() => setShowSubmenu(!showSubmenu)}
-            className={cn(
-              'flex w-full items-center justify-between rounded px-3 py-2 text-[13px] transition-colors',
-              showSubmenu ? 'bg-white/[0.04]' : 'hover:bg-white/[0.04]'
-            )}
-          >
-            <div className="flex items-center gap-2.5">
-              <Eye className="h-3.5 w-3.5 text-slate-500" />
-              <span className={showSubmenu ? 'text-slate-200 font-medium' : 'text-slate-200'}>
-                View Target As
-              </span>
+  const menuItems: ActionMenuEntry[] = [
+    {
+      label: 'Edit Targets',
+      icon: <Pencil className="h-3.5 w-3.5" />,
+      onClick: () => onEditTargets?.(),
+    },
+    { type: 'divider' },
+    {
+      type: 'submenu',
+      label: 'View Target As',
+      icon: <Eye className="h-3.5 w-3.5" />,
+      children: TARGET_DISPLAY_OPTIONS.map((option) => {
+        const isSelected = targetDisplayMode === option.value
+        return {
+          label: option.label,
+          icon: (
+            <div
+              className={cn(
+                'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border',
+                isSelected ? 'border-slate-200' : 'border-slate-600'
+              )}
+            >
+              {isSelected && <div className="h-2 w-2 rounded-full bg-slate-200" />}
             </div>
-            <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
-          </button>
-        </div>,
-        document.body
-      )}
+          ),
+          className: isSelected ? 'bg-white/[0.04]' : '',
+          style: { color: isSelected ? '#e2e8f0' : '#64748b' },
+          onClick: () => onChangeTargetDisplay(option.value),
+        }
+      }),
+    },
+  ]
 
-      {/* Submenu — also portaled to document.body */}
-      {isOpen && showSubmenu && createPortal(
-        <div
-          id="card-action-submenu"
-          className="fixed z-[10000] w-[200px] rounded-lg py-1.5 shadow-xl"
-          style={{ ...cardActionMenuStyle, top: submenuPos.top, left: submenuPos.left }}
-          onMouseLeave={() => setShowSubmenu(false)}
-        >
-          {TARGET_DISPLAY_OPTIONS.map((option) => {
-            const isSelected = targetDisplayMode === option.value
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => {
-                  onChangeTargetDisplay(option.value)
-                  setIsOpen(false)
-                  setShowSubmenu(false)
-                }}
-                className={cn(
-                  'flex w-full items-center gap-2.5 rounded px-3 py-2 text-[13px] transition-colors',
-                  isSelected ? 'bg-white/[0.04]' : 'hover:bg-white/[0.04]'
-                )}
-              >
-                <div
-                  className={cn(
-                    'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border',
-                    isSelected ? 'border-slate-200' : 'border-slate-600'
-                  )}
-                >
-                  {isSelected && <div className="h-2 w-2 rounded-full bg-slate-200" />}
-                </div>
-                <span className={isSelected ? 'text-slate-200 font-medium' : 'text-slate-500'}>
-                  {option.label}
-                </span>
-              </button>
-            )
-          })}
-        </div>,
-        document.body
-      )}
-    </div>
-  )
+  return <ActionMenu items={menuItems} />
 }
 
 // ============================================================================
